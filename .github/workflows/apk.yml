@@ -86,3 +86,30 @@ jobs:
           gh release create "$TAG" asystent-lekow-*.apk asystent-lekow-*.apk.sha256 \
             --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Asystent leków ${VERSION}" \
             --prerelease --notes-file notes.md
+
+  # Zrzuty ekranów do kontroli układu (nie blokują wydania). Wydanie "zrzuty-ekranow" jest nadpisywane przy każdym przebiegu.
+  zrzuty:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK z obrazu runnera, akceptacja licencji
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Wygeneruj zrzuty ekranów
+        run: ./gradlew :app:recordPaparazziDebug --no-daemon
+      - name: Opublikuj zrzuty
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          ls -la app/src/test/snapshots/images
+          gh release delete zrzuty-ekranow --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+          gh release create zrzuty-ekranow app/src/test/snapshots/images/*.png --repo "$GITHUB_REPOSITORY" --target "$SHA" \
+            --title "Zrzuty ekranów (kontrola układu)" --prerelease --notes "Zrzuty ekranów z testów renderowania, odświeżane przy każdym przebiegu. Nie jest to wersja do instalacji."

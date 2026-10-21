@@ -78,6 +78,7 @@ core/          logika bez zależności od Androida (Kotlin/JVM): model danych, h
                raporty (lekarz, AI), kopie zapasowe i szyfrowanie, geometria wykresów, przypomnienia
 core/src/test  testy jednostkowe i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie
+app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM), publikowane w wydaniu „zrzuty-ekranow”
 assets/        źródłowe rysunki ikony (SVG)
 scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Phosphor (gen-icons.js), tylko dev
 .github/       workflow budujący APK i publikujący go w Releases

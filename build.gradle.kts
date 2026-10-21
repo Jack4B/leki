@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.paparazzi) apply false
 }
 
 /** Pilnuje, żeby CHANGELOG miał wpis dla bieżącej wersji (numer wersji jest w gradle.properties). */
