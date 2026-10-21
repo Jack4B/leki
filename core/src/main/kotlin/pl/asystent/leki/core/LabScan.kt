@@ -25,12 +25,14 @@ data class Candidate(
     val qualifier: String,
     val unit: String,
     val include: Boolean,
+    /** Nazwy nie rozpoznano; parametr zgadnięto po jednostce i zakresie odniesienia, więc trzeba to sprawdzić. */
+    val guessed: Boolean = false,
 )
 
-enum class WarningKind { Unit, Duplicate, Jump, Qualifier }
+enum class WarningKind { Unit, Duplicate, Jump, Qualifier, Guess }
 data class ScanWarning(val kind: WarningKind, val text: String) {
     /** Ostrzeżenia, przy których wynik domyślnie nie jest zapisywany. */
-    val blocking: Boolean get() = kind == WarningKind.Unit || kind == WarningKind.Duplicate
+    val blocking: Boolean get() = kind == WarningKind.Unit || kind == WarningKind.Duplicate || kind == WarningKind.Guess
 }
 
 /** Rozpoznawanie wyników badań z tekstu OCR: składanie wierszy tabeli, odczyt wartości, jednostek i zakresów, dopasowanie do parametrów. */
@@ -72,9 +74,16 @@ object LabScan {
         .trim()
 
     private val unitRe = Regex(
-        """^(?:mmol/l|mmol/mol|mg/dl|mg/l|g/dl|g/l|µg/dl|µg/l|ug/dl|ng/ml|ng/dl|pg/ml|µiu/ml|uiu/ml|miu/l|iu/l|iu/ml|u/l|u/ml|ml/min(?:/1[.,]73\s?m2)?|%|fl|pg|µmol/l|umol/l|nmol/l|pmol/l|mm/h|s|sek\.?|g|mg|mm|10\^?\d+/µ?u?l|10\^?\d+/l|[a-zµ]*/µl|tys\.?/µl|tys\.?/ul|mln/µl|mln/ul|t/l|g/l|k/µl|m/µl|mosm/kg|ratio|index|inr)$""",
+        """^(?:mmol/l|mmol/mol|mg/dl|mg/l|g/dl|g/l|µg/dl|µg/l|ug/dl|ng/ml|ng/dl|pg/ml|µiu/ml|uiu/ml|ulu/ml|µlu/ml|miu/l|mlu/l|iu/l|iu/ml|u/l|u/ml|ml/min(?:/1[.,]73\s?m2)?|%|fl|pg|µmol/l|umol/l|nmol/l|pmol/l|mm/h|s|sek\.?|g|mg|mm|10\^?\d+/µ?u?l|10\^?\d+/l|[a-zµ]*/µl|tys\.?/µl|tys\.?/ul|mln/µl|mln/ul|t/l|g/l|k/µl|m/µl|mosm/kg|ratio|index|inr)$""",
         RegexOption.IGNORE_CASE,
     )
+
+    /** Poprawia typowe pomyłki OCR w jednostkach: cyfra 1 albo kreska zamiast litery l, wielkie I zamiast l. */
+    private fun fixUnit(t: String): String? {
+        if (unitRe.matches(t)) return t
+        val f = t.replace('1', 'l').replace('|', 'l').replace(Regex("/[iI]$"), "/l").replace("0", "o")
+        return if (f != t && unitRe.matches(f)) f else null
+    }
 
     private fun toNum(s: String): Double? = s.replace(',', '.').toDoubleOrNull()
 
@@ -106,8 +115,10 @@ object LabScan {
         if (j < tokens.size) {
             val t1 = tokens[j]
             val t2 = if (j + 1 < tokens.size) t1 + tokens[j + 1] else null
-            if (unitRe.matches(t1)) { unit = t1; j++ }
-            else if (t2 != null && unitRe.matches(t2)) { unit = t2; j += 2 }
+            val f1 = fixUnit(t1)
+            val f2 = t2?.let { fixUnit(it) }
+            if (f1 != null) { unit = f1; j++ }
+            else if (f2 != null) { unit = f2; j += 2 }
         }
         val rest = tokens.drop(j).joinToString(" ")
         var lo: Double? = null; var hi: Double? = null
@@ -124,7 +135,36 @@ object LabScan {
         return ScanRow(s, name, value, qualifier, unit, lo, hi)
     }
 
-    fun parseRows(rows: List<String>): List<ScanRow> = rows.mapNotNull { parseRow(it) }
+    /**
+     * Odczytuje wiersze tabeli. Obsługuje też układ "nazwa w jednej linii, wynik w następnej" (częsty w aplikacjach i portalach pacjenta):
+     * linia bez liczby, po której następuje linia zaczynająca się od liczby, jest łączona z następną.
+     */
+    fun parseRows(rows: List<String>): List<ScanRow> {
+        val out = ArrayList<ScanRow>()
+        var i = 0
+        while (i < rows.size) {
+            val r = parseRow(rows[i])
+            if (r != null) { out.add(r); i++; continue }
+            if (i + 1 < rows.size && looksLikeNameOnly(rows[i]) && startsWithNumber(rows[i + 1])) {
+                val merged = parseRow(rows[i].trim() + "  " + rows[i + 1].trim())
+                if (merged != null) { out.add(merged); i += 2; continue }
+            }
+            i++
+        }
+        return out
+    }
+
+    private val spaces = Regex("""\s+""")
+
+    private fun looksLikeNameOnly(line: String): Boolean {
+        val s = normalizeLine(line)
+        if (s.length > 50 || s.count { it.isLetter() } < 2) return false
+        if (s.split(spaces).any { numTok.matches(it) }) return false
+        val low = s.lowercase()
+        return noiseWords.none { low.contains(it) }
+    }
+
+    private fun startsWithNumber(line: String): Boolean = numTok.matches(normalizeLine(line).split(spaces).firstOrNull().orEmpty())
 
     // ---------- Data badania ----------
 
@@ -242,7 +282,7 @@ object LabScan {
     // ---------- Jednostki ----------
 
     private val unitAlias = mapOf(
-        "uiu/ml" to "miu/l", "µiu/ml" to "miu/l", "miu/l" to "miu/l",
+        "uiu/ml" to "miu/l", "µiu/ml" to "miu/l", "miu/l" to "miu/l", "ulu/ml" to "miu/l", "µlu/ml" to "miu/l", "mlu/l" to "miu/l",
         "tys/µl" to "10^3/µl", "tys./µl" to "10^3/µl", "10^3/µl" to "10^3/µl", "103/µl" to "10^3/µl", "k/µl" to "10^3/µl", "10^9/l" to "10^3/µl", "g/l" to "g/l",
         "mln/µl" to "10^6/µl", "10^6/µl" to "10^6/µl", "106/µl" to "10^6/µl", "m/µl" to "10^6/µl", "10^12/l" to "10^6/µl", "t/l" to "10^6/µl",
         "ug/dl" to "µg/dl", "umol/l" to "µmol/l", "tys./ul" to "10^3/µl", "tys/ul" to "10^3/µl", "mln/ul" to "10^6/µl",
@@ -259,16 +299,18 @@ object LabScan {
     fun candidates(rows: List<ScanRow>, s: AppState): List<Candidate> {
         val used = HashSet<String>()
         return rows.mapIndexed { i, r ->
-            val k = knownId(r.name)
+            var k = knownId(r.name)
+            var guessed = false
             val n = norm(r.name)
+            if (k == null && s.markers.none { norm(it.name) == n }) { k = guessByRange(r.unit, r.lo, r.hi); guessed = k != null }
             val byName = s.markers.firstOrNull { norm(it.name) == n } ?: s.markers.firstOrNull { levenshteinClose(norm(it.name), n) }
             val existing = byName ?: k?.let { s.marker(it) }
             val c: Candidate = if (existing != null) {
-                Candidate(i, r.raw, r.name, existing.id, null, r.value, r.qualifier, r.unit, true)
+                Candidate(i, r.raw, r.name, existing.id, null, r.value, r.qualifier, r.unit, true, guessed)
             } else {
                 val id = k ?: ("m" + norm(r.name).replace(' ', '_').take(24).ifEmpty { newId() })
                 val display = k?.let { knownName(it) } ?: r.name.trim().replaceFirstChar { ch -> ch.uppercase() }
-                Candidate(i, r.raw, r.name, id, Marker(id, display, r.unit, r.lo, r.hi, Defaults.groupOf[id] ?: ""), r.value, r.qualifier, r.unit, true)
+                Candidate(i, r.raw, r.name, id, Marker(id, display, r.unit, r.lo, r.hi, Defaults.groupOf[id] ?: ""), r.value, r.qualifier, r.unit, true, guessed)
             }
             // ten sam parametr dwa razy w jednym skanie: drugi wynik domyślnie pomijamy
             val dup = !used.add(c.markerId)
@@ -276,11 +318,32 @@ object LabScan {
         }
     }
 
+    // ---------- Zgadywanie po zakresie odniesienia ----------
+
+    private class Typical(val id: String, val unit: String, val lo: ClosedFloatingPointRange<Double>, val hi: ClosedFloatingPointRange<Double>)
+
+    private val typical = listOf(
+        Typical("potas", "mmol/l", 3.4..3.7, 5.0..5.6), Typical("sod", "mmol/l", 134.0..137.0, 144.0..147.0), Typical("magnez", "mmol/l", 0.6..0.78, 0.95..1.12),
+        Typical("wapn", "mmol/l", 2.0..2.25, 2.5..2.7), Typical("chlorki", "mmol/l", 96.0..102.0, 105.0..110.0), Typical("glukoza", "mmol/l", 3.8..4.2, 5.4..6.2),
+        Typical("glukoza", "mg/dl", 69.0..75.0, 98.0..111.0), Typical("kreatynina", "mg/dl", 0.5..0.75, 1.0..1.35), Typical("moczowy", "mg/dl", 2.2..3.6, 6.0..7.4),
+        Typical("tsh", "miu/l", 0.25..0.5, 3.8..4.5), Typical("hemoglobina", "g/dl", 11.5..14.0, 15.0..17.6), Typical("leukocyty", "10^3/µl", 3.8..4.5, 9.5..11.0),
+        Typical("plytki", "10^3/µl", 140.0..155.0, 390.0..450.0),
+    )
+
+    /** Parametr zgadnięty po jednostce i zakresie odniesienia (gdy OCR przekręcił nazwę); null, jeśli nic nie pasuje jednoznacznie. */
+    fun guessByRange(unit: String, lo: Double?, hi: Double?): String? {
+        if (lo == null || hi == null || unit.isEmpty()) return null
+        val u = normUnit(unit)
+        val hits = typical.filter { normUnit(it.unit) == u && lo in it.lo && hi in it.hi }.map { it.id }.distinct()
+        return hits.singleOrNull()
+    }
+
     // ---------- Ostrzeżenia ----------
 
     fun warnings(c: Candidate, s: AppState, date: LocalDate): List<ScanWarning> {
         val out = ArrayList<ScanWarning>()
         val m = s.marker(c.markerId) ?: c.proposed
+        if (c.guessed) out.add(ScanWarning(WarningKind.Guess, "Nazwy \"${c.rawName}\" nie rozpoznano. Dopasowałem parametr po jednostce i zakresie odniesienia, sprawdź, czy to na pewno ${m?.name ?: "ten parametr"}."))
         if (c.qualifier.isNotEmpty()) out.add(ScanWarning(WarningKind.Qualifier, "W wyniku jest znak \"${c.qualifier}\". Zapisana zostanie sama liczba."))
         if (s.marker(c.markerId) != null && m != null && m.unit.isNotEmpty() && c.unit.isNotEmpty() && normUnit(m.unit) != normUnit(c.unit))
             out.add(ScanWarning(WarningKind.Unit, "Jednostka w skanie (${c.unit}) różni się od jednostki parametru w aplikacji (${m.unit}). Sprawdź, czy wartość jest przeliczona."))

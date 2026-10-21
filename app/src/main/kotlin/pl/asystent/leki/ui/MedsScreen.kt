@@ -223,7 +223,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             Column(Modifier.padding(top = 24.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Text("Woda", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                    Text("${num(rec.water * s.settings.glassMl / 1000.0)} l z ${num(goal * s.settings.glassMl / 1000.0)} l", style = TextStyle(fontSize = 12.5.sp, fontFamily = Mono, color = pal.ink3))
+                    Text("${num(rec.water * s.settings.glassMl / 1000.0)} l z ${num(goal * s.settings.glassMl / 1000.0)} l", style = TextStyle(fontSize = 13.sp, color = pal.ink3))
                 }
                 Spacer(Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {

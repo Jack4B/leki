@@ -1,0 +1,303 @@
+[
+ {
+  "text": "Wyniki badan laboratoryjnych",
+  "left": 41,
+  "top": 45,
+  "right": 512,
+  "bottom": 81
+ },
+ {
+  "text": "Pacjent: Jan Testowy Data urodzenia: 01.01.1960",
+  "left": 41,
+  "top": 90,
+  "right": 516,
+  "bottom": 115
+ },
+ {
+  "text": "Data pobrania: 20.10.2026 07:45 Data rejestracji: 20.10.2026",
+  "left": 42,
+  "top": 123,
+  "right": 624,
+  "bottom": 146
+ },
+ {
+  "text": "Badanie",
+  "left": 51,
+  "top": 180,
+  "right": 138,
+  "bottom": 204
+ },
+ {
+  "text": "Wynik",
+  "left": 465,
+  "top": 181,
+  "right": 533,
+  "bottom": 206
+ },
+ {
+  "text": "Jednostka",
+  "left": 611,
+  "top": 181,
+  "right": 720,
+  "bottom": 205
+ },
+ {
+  "text": "Zakres referencyjny",
+  "left": 823,
+  "top": 180,
+  "right": 1024,
+  "bottom": 207
+ },
+ {
+  "text": "Potas",
+  "left": 48,
+  "top": 223,
+  "right": 119,
+  "bottom": 253
+ },
+ {
+  "text": "4,2",
+  "left": 463,
+  "top": 224,
+  "right": 506,
+  "bottom": 255
+ },
+ {
+  "text": "mmol/l",
+  "left": 609,
+  "top": 222,
+  "right": 689,
+  "bottom": 253
+ },
+ {
+  "text": "3,5 - 5,1",
+  "left": 822,
+  "top": 225,
+  "right": 916,
+  "bottom": 252
+ },
+ {
+  "text": "Sod",
+  "left": 49,
+  "top": 273,
+  "right": 102,
+  "bottom": 302
+ },
+ {
+  "text": "133 L",
+  "left": 464,
+  "top": 274,
+  "right": 532,
+  "bottom": 302
+ },
+ {
+  "text": "mmol/l",
+  "left": 609,
+  "top": 272,
+  "right": 689,
+  "bottom": 303
+ },
+ {
+  "text": "136 - 145",
+  "left": 823,
+  "top": 276,
+  "right": 928,
+  "bottom": 300
+ },
+ {
+  "text": "0,92",
+  "left": 464,
+  "top": 323,
+  "right": 518,
+  "bottom": 353
+ },
+ {
+  "text": "Kreatynina",
+  "left": 51,
+  "top": 324,
+  "right": 171,
+  "bottom": 351
+ },
+ {
+  "text": "mg/dl",
+  "left": 609,
+  "top": 322,
+  "right": 676,
+  "bottom": 354
+ },
+ {
+  "text": "0,67 - 1,17",
+  "left": 823,
+  "top": 324,
+  "right": 940,
+  "bottom": 348
+ },
+ {
+  "text": "Glukoza na czczo",
+  "left": 52,
+  "top": 373,
+  "right": 246,
+  "bottom": 401
+ },
+ {
+  "text": "5,2",
+  "left": 463,
+  "top": 373,
+  "right": 506,
+  "bottom": 404
+ },
+ {
+  "text": "mmol/l",
+  "left": 610,
+  "top": 370,
+  "right": 689,
+  "bottom": 403
+ },
+ {
+  "text": "3,9 - 5,5",
+  "left": 822,
+  "top": 374,
+  "right": 916,
+  "bottom": 401
+ },
+ {
+  "text": "HGB Hemoglobina",
+  "left": 50,
+  "top": 421,
+  "right": 256,
+  "bottom": 451
+ },
+ {
+  "text": "14,8",
+  "left": 463,
+  "top": 422,
+  "right": 518,
+  "bottom": 451
+ },
+ {
+  "text": "Ip/6",
+  "left": 606,
+  "top": 418,
+  "right": 659,
+  "bottom": 456
+ },
+ {
+  "text": "13,5 - 17,5",
+  "left": 823,
+  "top": 425,
+  "right": 942,
+  "bottom": 448
+ },
+ {
+  "text": "WBC Leukocyty",
+  "left": 50,
+  "top": 470,
+  "right": 226,
+  "bottom": 501
+ },
+ {
+  "text": "6,43",
+  "left": 464,
+  "top": 472,
+  "right": 518,
+  "bottom": 502
+ },
+ {
+  "text": "tys./ul",
+  "left": 607,
+  "top": 468,
+  "right": 682,
+  "bottom": 505
+ },
+ {
+  "text": "4,00 - 10,00",
+  "left": 824,
+  "top": 474,
+  "right": 954,
+  "bottom": 498
+ },
+ {
+  "text": "mg/dl",
+  "left": 610,
+  "top": 520,
+  "right": 676,
+  "bottom": 552
+ },
+ {
+  "text": "Cholesterol calkowity",
+  "left": 53,
+  "top": 521,
+  "right": 279,
+  "bottom": 549
+ },
+ {
+  "text": "215 H",
+  "left": 465,
+  "top": 521,
+  "right": 536,
+  "bottom": 549
+ },
+ {
+  "text": "< 190",
+  "left": 821,
+  "top": 520,
+  "right": 890,
+  "bottom": 549
+ },
+ {
+  "text": "TSH",
+  "left": 49,
+  "top": 570,
+  "right": 108,
+  "bottom": 599
+ },
+ {
+  "text": "2,15",
+  "left": 463,
+  "top": 571,
+  "right": 518,
+  "bottom": 601
+ },
+ {
+  "text": "ulU/ml",
+  "left": 610,
+  "top": 568,
+  "right": 687,
+  "bottom": 600
+ },
+ {
+  "text": "0,27 - 4,20",
+  "left": 823,
+  "top": 572,
+  "right": 942,
+  "bottom": 599
+ },
+ {
+  "text": "<0,5",
+  "left": 465,
+  "top": 619,
+  "right": 519,
+  "bottom": 649
+ },
+ {
+  "text": "CRP",
+  "left": 50,
+  "top": 617,
+  "right": 108,
+  "bottom": 650
+ },
+ {
+  "text": "mg/l",
+  "left": 609,
+  "top": 618,
+  "right": 664,
+  "bottom": 651
+ },
+ {
+  "text": "0,0 - 5,0",
+  "left": 822,
+  "top": 620,
+  "right": 916,
+  "bottom": 647
+ }
+]

@@ -133,6 +133,13 @@ class LabScanTest {
         assertTrue(LabScan.warnings(c, s, date).any { it.kind == WarningKind.Jump })
     }
 
+    @Test fun ocrUnitConfusions() {
+        assertEquals("mmol/l", row("Potas  4,2  mmo1/l  3,5 - 5,1")!!.unit)
+        assertEquals("mg/dl", row("Kreatynina  0,92  mg/d1  0,67 - 1,17")!!.unit)
+        assertEquals("mmol/l", row("Sód  138  mmol/I  136 - 145")!!.unit)
+        assertEquals("miu/l", LabScan.normUnit(row("TSH  2,15  ulU/ml  0,27 - 4,20")!!.unit))
+    }
+
     @Test fun unitEquivalence() {
         assertEquals(LabScan.normUnit("µIU/ml"), LabScan.normUnit("mIU/l"))
         assertEquals(LabScan.normUnit("tys./µl"), LabScan.normUnit("10^3/µl"))

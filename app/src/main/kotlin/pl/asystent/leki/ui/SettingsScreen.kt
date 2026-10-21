@@ -129,7 +129,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(22.dp))
                 Overline("Aplikacja")
                 LekiCard {
-                    NavRow(Ph.Sliders, "Ogólne", "Imię do raportu, woda, progi ciśnienia, motyw") { pageName = Page.General.name }
+                    NavRow(Ph.Sliders, "Ogólne", "Imię, woda, progi, motyw") { pageName = Page.General.name }
                     Divider()
                     NavRow(Ph.Bell, "Przypomnienia o lekach", if (c.remindOn) "Włączone" else "Wyłączone") { pageName = Page.Reminders.name }
                     Divider()
@@ -247,7 +247,7 @@ private fun NavRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
         IconBadge(icon)
         Column(Modifier.weight(1f)) {
             Text(title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-            Text(summary, style = TextStyle(fontSize = 13.sp, color = pal.ink3), maxLines = 1, modifier = Modifier.padding(top = 1.dp))
+            Text(summary, style = TextStyle(fontSize = 13.sp, color = pal.ink3), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
         }
         PhIcon(Ph.CaretRight, size = 16.dp)
     }

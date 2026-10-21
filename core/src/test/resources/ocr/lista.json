@@ -1,0 +1,58 @@
+[
+ {
+  "text": "Wynik badania",
+  "left": 43,
+  "top": 49,
+  "right": 273,
+  "bottom": 79
+ },
+ {
+  "text": "Data badania:2026-10-20",
+  "left": 44,
+  "top": 94,
+  "right": 285,
+  "bottom": 114
+ },
+ {
+  "text": "Potas: 4.2 mmol/l (3.5 - 5.1)",
+  "left": 40,
+  "top": 153,
+  "right": 356,
+  "bottom": 182
+ },
+ {
+  "text": "Sod: 138 mmol/l (136 - 145)",
+  "left": 41,
+  "top": 207,
+  "right": 357,
+  "bottom": 236
+ },
+ {
+  "text": "Magnez: 0.85 mmol/l (0.7 - 1.1)",
+  "left": 41,
+  "top": 261,
+  "right": 397,
+  "bottom": 290
+ },
+ {
+  "text": "Kwas moczowy: 6.1 mg/dl (3.5 - 7.2)",
+  "left": 40,
+  "top": 312,
+  "right": 454,
+  "bottom": 345
+ },
+ {
+  "text": "Ferrytyna: 88 ng/ml (30 - 400)",
+  "left": 41,
+  "top": 371,
+  "right": 379,
+  "bottom": 397
+ },
+ {
+  "text": "Witamina D 25-0H: 31 ng/ml (30 - 100)",
+  "left": 40,
+  "top": 420,
+  "right": 485,
+  "bottom": 448
+ }
+]
