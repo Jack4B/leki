@@ -1,0 +1,14 @@
+{
+  "appId": "pl.asystent.lekow",
+  "appName": "Asystent leków",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#0B6B58"
+    }
+  }
+}

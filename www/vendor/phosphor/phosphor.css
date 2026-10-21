@@ -1,0 +1,30 @@
+/* Phosphor Icons 2.1.1 (MIT), tylko używane ikony. Źródło: @phosphor-icons/web. */
+@font-face{font-family:"Phosphor";src:url("./Phosphor.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
+.ph{font-family:"Phosphor"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;letter-spacing:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ph.ph-calendar-check:before{content:"\e712"}
+.ph.ph-caret-right:before{content:"\e13a"}
+.ph.ph-cloud-moon:before{content:"\e53e"}
+.ph.ph-copy:before{content:"\e1ca"}
+.ph.ph-download-simple:before{content:"\e20c"}
+.ph.ph-file-text:before{content:"\e23a"}
+.ph.ph-flask:before{content:"\e79e"}
+.ph.ph-gear-six:before{content:"\e272"}
+.ph.ph-heartbeat:before{content:"\e2ac"}
+.ph.ph-lock-key:before{content:"\e2fe"}
+.ph.ph-moon-stars:before{content:"\e58e"}
+.ph.ph-notebook:before{content:"\e34e"}
+.ph.ph-pill:before{content:"\e700"}
+.ph.ph-printer:before{content:"\e3dc"}
+.ph.ph-sun:before{content:"\e472"}
+.ph.ph-sun-horizon:before{content:"\e5b6"}
+.ph.ph-upload-simple:before{content:"\e4c0"}
+@font-face{font-family:"Phosphor-Bold";src:url("./Phosphor-Bold.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
+.ph-bold{font-family:"Phosphor-Bold"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;letter-spacing:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ph-bold.ph-check:before{content:"\e182"}
+.ph-bold.ph-plus:before{content:"\e3d4"}
+@font-face{font-family:"Phosphor-Fill";src:url("./Phosphor-Fill.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
+.ph-fill{font-family:"Phosphor-Fill"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;letter-spacing:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ph-fill.ph-calendar-check:before{content:"\e712"}
+.ph-fill.ph-check-circle:before{content:"\e184"}
+.ph-fill.ph-drop:before{content:"\e210"}
+.ph-fill.ph-warning:before{content:"\e4e0"}
