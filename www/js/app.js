@@ -2,7 +2,7 @@
 'use strict';
 
 /* ---------- Stałe i narzędzia ---------- */
-var KEY='asystent_lekow_v3';
+var KEY='asystent_lekow_v3', APP_VERSION='0.2.0-preview';
 var DOW=['Nd','Pn','Wt','Śr','Cz','Pt','So'];
 var DOW_FULL=['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'];
 var DOW_ORDER=[1,2,3,4,5,6,0];
@@ -40,7 +40,8 @@ function defaultSlots(){return [
   {id:'night',name:'Przed snem',time:'22:00'}
 ];}
 function defaultRp(){return {bp:true,labs:true,labsPeriod:false,meds:true,plan:true,events:true};}
-function defaultSettings(){return {rp:defaultRp(),lateMin:60,waterGoal:10,glassMl:250,hiSys:135,hiDia:85,loSys:100,loDia:60,theme:'auto',reportNote:'',remind:{on:false,lead:0}};}
+function defaultAi(){return {meds:true,history:true,adherence:true,bp:true,labs:true,events:true,notes:true,name:false,context:''};}
+function defaultSettings(){return {rp:defaultRp(),ai:defaultAi(),lateMin:60,waterGoal:10,glassMl:250,hiSys:135,hiDia:85,loSys:100,loDia:60,theme:'auto',reportNote:'',remind:{on:false,lead:0}};}
 
 function defaultMarkers(){return [
   {id:'potas',name:'Potas',unit:'mmol/l',lo:3.5,hi:5.5,grp:'Elektrolity'},
@@ -66,10 +67,12 @@ function normalize(d){
   if(isIso(d.created)) s.created=d.created;
   if(isIso(d.lastBackup)) s.lastBackup=d.lastBackup;
   var st=objOf(d.settings), D=s.settings;
-  var rpIn=objOf(st.rp), rpOut=defaultRp(), rmIn=objOf(st.remind);
+  var rpIn=objOf(st.rp), rpOut=defaultRp(), rmIn=objOf(st.remind), aiIn=objOf(st.ai), aiOut=defaultAi();
   Object.keys(rpOut).forEach(function(k){if(typeof rpIn[k]==='boolean') rpOut[k]=rpIn[k];});
+  Object.keys(aiOut).forEach(function(k){if(typeof aiOut[k]==='boolean'){if(typeof aiIn[k]==='boolean') aiOut[k]=aiIn[k];}});
+  if(typeof aiIn.context==='string') aiOut.context=aiIn.context.slice(0,2000);
   s.settings={
-    rp:rpOut, lateMin:Math.round(numOr(st.lateMin,D.lateMin,0,600)), waterGoal:Math.round(numOr(st.waterGoal,D.waterGoal,0,20)), glassMl:Math.round(numOr(st.glassMl,D.glassMl,50,1000)),
+    rp:rpOut, ai:aiOut, lateMin:Math.round(numOr(st.lateMin,D.lateMin,0,600)), waterGoal:Math.round(numOr(st.waterGoal,D.waterGoal,0,20)), glassMl:Math.round(numOr(st.glassMl,D.glassMl,50,1000)),
     hiSys:Math.round(numOr(st.hiSys,D.hiSys,100,250)), hiDia:Math.round(numOr(st.hiDia,D.hiDia,50,150)),
     loSys:Math.round(numOr(st.loSys,D.loSys,60,130)), loDia:Math.round(numOr(st.loDia,D.loDia,30,100)),
     theme:['auto','light','dark'].indexOf(st.theme)>=0?st.theme:'auto',
@@ -571,7 +574,222 @@ function renderReport(){
   $('rpLabsSub').hidden=!P.labs;
   $('printBtn').disabled=!(P.bp||P.labs||P.meds||P.plan||P.events);
   $('report').innerHTML=reportHTML();
+  renderAi();
 }
+
+/* ---------- Raport dla AI ---------- */
+/* Tekst w Markdown z poleceniem dla modelu i danymi z aplikacji. Powstaje tylko na urządzeniu; użytkownik sam go kopiuje lub zapisuje. */
+function mdCell(x){return String(x==null?'':x).replace(/\|/g,'/').replace(/\s*\n\s*/g,' ').trim();}
+function mdTable(head,rows){
+  if(!rows.length) return '';
+  return '| '+head.join(' | ')+' |\n|'+head.map(function(){return ' --- |';}).join('')+'\n'+rows.map(function(r){return '| '+r.map(mdCell).join(' | ')+' |';}).join('\n')+'\n';
+}
+function minOf(t){return (+t.slice(0,2))*60+(+t.slice(3));}
+function offText(m){return (m>0?'+':(m<0?'−':''))+Math.abs(m)+' min';}
+function aiPlanLines(iso){
+  var by={}, out=[];
+  scheduleFor(iso).forEach(function(x){(by[x.slot.id]=by[x.slot.id]||[]).push(x.med.name+' '+num(x.dose)+' '+x.med.unit);});
+  sortedSlots().forEach(function(sl){if(by[sl.id]) out.push('- '+sl.time+' '+sl.name+': '+by[sl.id].join('; '));});
+  return out.join('\n');
+}
+function aiAdherence(R){
+  var t=todayIso(), now=new Date(), nowMin=now.getHours()*60+now.getMinutes(), map={}, order=[];
+  dayList(R.from,R.to<t?R.to:t).forEach(function(d){
+    var r=S.days[d]||blankDay();
+    scheduleFor(d).forEach(function(x){
+      if(d===t&&minOf(x.slot.time)>nowMin&&!r.taken[x.key]) return; /* dzisiejsza dawka, której pora jeszcze nie minęła */
+      var a=map[x.key]; if(!a){a=map[x.key]={med:x.med,slot:x.slot,plan:0,taken:0,skipped:0,late:0,offs:[],reasons:{}}; order.push(x.key);}
+      a.plan++;
+      if(r.taken[x.key]){
+        a.taken++; var tm=r.times[x.key];
+        if(isTime(tm)){var off=minOf(tm)-minOf(x.slot.time); a.offs.push(off); if(S.settings.lateMin>0&&off>S.settings.lateMin) a.late++;}
+      }else if((r.skipped||{})[x.key]){a.skipped++; var rs=r.skipped[x.key].reason; a.reasons[rs]=(a.reasons[rs]||0)+1;}
+    });
+  });
+  return order.map(function(k){
+    var a=map[k], miss=a.plan-a.taken-a.skipped, avgOff=a.offs.length?Math.round(a.offs.reduce(function(p,q){return p+q;},0)/a.offs.length):null;
+    var rs=Object.keys(a.reasons).map(function(r){return r+' ('+a.reasons[r]+')';}).join(', ');
+    return [a.med.name,a.slot.name+' '+a.slot.time,a.plan,a.taken,a.skipped+(rs?': '+rs:''),miss,a.late,avgOff===null?'brak godzin':offText(avgOff)+' (min '+offText(Math.min.apply(null,a.offs))+', max '+offText(Math.max.apply(null,a.offs))+')'];
+  });
+}
+function aiReportText(){
+  var c=S.settings, A=c.ai, R=rangeNow(), t=todayIso(), L=[], i;
+  function P(s){L.push(s);}
+  P('# Raport o lekach do analizy przez AI');
+  P('');
+  P('Wygenerowano: '+plDate(t)+' '+hhmm(new Date())+' w aplikacji Asystent leków '+APP_VERSION+'. Okres danych: '+plDate(R.from)+' – '+plDate(R.to)+'.');
+  P('');
+  P('## Twoje zadanie');
+  P('');
+  P('Jesteś doświadczonym farmaceutą klinicznym. Poniżej są dane pacjenta wpisane przez niego samego w aplikacji (mogą zawierać błędy i luki). Przeanalizuj je i odpowiedz po polsku, w tej kolejności:');
+  P('');
+  P('1. **Interakcje lek–lek:** każda para lub grupa leków z istotną interakcją, z oceną nasilenia (poważna, umiarkowana, słaba), mechanizmem i tym, co zwykle się robi (monitorowanie, rozdzielenie w czasie, rozmowa z lekarzem).');
+  P('2. **Interakcje z jedzeniem, napojami i używkami** wynikające z tych leków (np. grejpfrut, nabiał, kawa i herbata, alkohol, produkty bogate w potas lub witaminę K).');
+  P('3. **Pory dnia i sposób przyjmowania:** czy pory przyjmowania są dobrane właściwie względem posiłków i względem siebie nawzajem (wchłanianie, odstępy między lekami, leki przyjmowane na czczo lub po posiłku, leki moczopędne i nasenne a pora dnia). Podaj konkretną propozycję zmiany harmonogramu do omówienia z lekarzem.');
+  P('4. **Duplikaty i dawki:** powtarzające się substancje czynne (także pod różnymi nazwami handlowymi), dawki poza typowym zakresem, leki wymagające ostrożności w kontekście podanych badań i choroby.');
+  P('5. **Powiązania z wynikami badań i ciśnieniem:** czy wyniki lub pomiary mogą wynikać z leków albo wymagają zmiany ich przyjmowania.');
+  P('6. **Systematyczność:** co wynika z pominiętych, spóźnionych i nieodhaczonych dawek i jakie mogą być tego skutki.');
+  P('7. **Pytania do lekarza lub farmaceuty** do zadania przy najbliższej wizycie.');
+  P('');
+  P('Zasady odpowiedzi:');
+  P('- Pracuj na substancjach czynnych. Jeśli nazwa handlowa jest niejednoznaczna albo jej nie znasz, zapytaj lub zaznacz to, zamiast zgadywać.');
+  P('- Przy każdym wniosku podaj pewność (wysoka, średnia, niska) i na czym się opiera (np. Charakterystyka Produktu Leczniczego, wytyczne). Nie wymyślaj źródeł.');
+  P('- Oddziel sprawy pilne (do pilnej konsultacji) od drobnych uwag. Jeśli nie widzisz problemów, napisz to wprost.');
+  P('- To analiza pomocnicza. Nie zalecaj samodzielnego odstawiania leków ani zmiany dawek bez konsultacji z lekarzem.');
+  P('- Jeśli brakuje danych potrzebnych do oceny (wiek, waga, funkcja nerek, leki bez recepty, suplementy, godziny posiłków), wypisz, o co zapytać pacjenta.');
+  P('');
+  P('## Pacjent');
+  P('');
+  if(A.name&&S.patient) P('- Imię i nazwisko: '+S.patient);
+  var ctx=String(A.context||'').trim();
+  P('- Kontekst podany przez pacjenta (wiek, płeć, choroby, alergie, leki bez recepty, suplementy): '+(ctx?ctx.replace(/\s*\n\s*/g,' / '):'brak, nie podano'));
+  P('- Przyjmowanie leków zapisuje sam pacjent. Brak odhaczenia może oznaczać pominięcie dawki albo brak wpisu.');
+
+  var ms=S.meds.filter(function(m){return medActive(m,t);}), future=S.meds.filter(function(m){return m.phases[0].from>t;});
+  var ended=S.meds.filter(function(m){return m.end&&m.end<t&&m.end>=R.from;});
+  function medRow(m){
+    var p=phaseAt(m,t)||m.phases[0], hint=[];
+    if(m.note) hint.push(m.note);
+    if(m.mmol>0) hint.push('zawiera '+num(m.mmol)+' mmol potasu w 1 '+m.unit);
+    if(m.timerMin>0) hint.push('po dawce pacjent odlicza '+m.timerMin+' min');
+    return [m.name,m.substance||'nie podano',phaseText(m,p),plDate(m.phases[0].from),m.end?plDate(m.end):'bez końca',hint.join('; ')];
+  }
+  if(A.meds){
+    P('');
+    P('## Leki aktualnie w planie (stan na '+plDate(t)+')');
+    P('');
+    if(ms.length){
+      P(mdTable(['Lek','Substancja czynna (wg pacjenta)','Dawkowanie','Początek','Koniec','Wskazówka pacjenta'],ms.map(medRow)));
+      P('Pory dnia to etykiety pacjenta. Nazwy (np. Śniadanie, Kolacja) sugerują związek z posiłkami, ale aplikacja nie zapisuje godzin posiłków.');
+      P('');
+      P('### Harmonogram dnia (co jest przyjmowane razem)');
+      P('');
+      var groups={}, gorder=[];
+      for(i=0;i<7;i++){
+        var di=addDays(t,i), wd=parseIso(di).getDay(), txt=aiPlanLines(di);
+        if(!groups[txt]){groups[txt]={days:[],txt:txt}; gorder.push(txt);}
+        groups[txt].days.push(wd);
+      }
+      gorder.forEach(function(k){
+        var g=groups[k], all=g.days.length===7;
+        P((all?'**Codziennie**':'**'+DOW_ORDER.filter(function(d){return g.days.indexOf(d)>=0;}).map(function(d){return DOW_FULL[d];}).join(', ')+'**')+':');
+        P(g.txt||'- brak leków');
+        P('');
+      });
+    }else P('Brak leków w planie.');
+    if(future.length){P('Zaplanowane na później: '+future.map(function(m){return m.name+' (od '+plDate(m.phases[0].from)+')';}).join(', ')+'.'); P('');}
+    if(ended.length){
+      P('### Leki zakończone w tym okresie');
+      P('');
+      P(mdTable(['Lek','Substancja czynna (wg pacjenta)','Dawkowanie','Początek','Koniec','Wskazówka pacjenta'],ended.map(medRow)));
+    }
+  }
+  if(A.history){
+    var ch=S.meds.filter(function(m){return m.phases.length>1&&(!m.end||m.end>=R.from);});
+    if(ch.length){
+      P('');
+      P('## Zmiany dawkowania w czasie');
+      P('');
+      ch.forEach(function(m){P('- **'+m.name+'**: '+m.phases.map(function(p){return 'od '+plDate(p.from)+' '+phaseText(m,p);}).join(' → ')+(m.end?' (zakończono '+plDate(m.end)+')':''));});
+    }
+  }
+  if(A.adherence){
+    P('');
+    P('## Zgodność z planem w okresie '+plDate(R.from)+' – '+plDate(R.to));
+    P('');
+    var ad=aiAdherence(R);
+    if(ad.length){
+      P(mdTable(['Lek','Pora','Zaplanowane','Odhaczone','Pominięte świadomie (powód)','Bez odhaczenia','Spóźnione ponad '+c.lateMin+' min','Odchylenie godziny przyjęcia od pory'],ad));
+      P('Odchylenie dodatnie oznacza przyjęcie później niż pora z planu.');
+    }else P('Brak zaplanowanych dawek w tym okresie.');
+    var notes=[], d0=dayList(R.from,R.to<t?R.to:t);
+    d0.forEach(function(d){var r=S.days[d]; if(r&&r.note&&r.note.trim()) notes.push([plDate(d),r.note.trim().slice(0,300)]);});
+    if(A.notes&&notes.length){
+      P('');
+      P('### Notatki pacjenta z poszczególnych dni');
+      P('');
+      P(mdTable(['Data','Notatka'],notes.slice(-30)));
+    }
+  }
+  if(A.bp){
+    var list=S.bp.filter(function(r){return r.date>=R.from&&r.date<=R.to;}).sort(byTime);
+    P('');
+    P('## Ciśnienie tętnicze i tętno');
+    P('');
+    if(list.length){
+      var st=statsOf(list);
+      P('- Liczba pomiarów: '+st.n+'. Średnia: '+st.s+'/'+st.d+' mmHg'+(st.p!=null?', średnie tętno '+st.p+'/min':'')+'.');
+      P('- Zakres: skurczowe '+st.minS+'–'+st.maxS+', rozkurczowe '+st.minD+'–'+st.maxD+' mmHg.');
+      if(st.rano.n) P('- Rano średnio '+st.rano.s+'/'+st.rano.d+' ('+st.rano.n+' '+plN(st.rano.n,'pomiar','pomiary','pomiarów')+').');
+      if(st.wieczor.n) P('- Wieczorem średnio '+st.wieczor.s+'/'+st.wieczor.d+' ('+st.wieczor.n+' '+plN(st.wieczor.n,'pomiar','pomiary','pomiarów')+').');
+      P('- Progi ustawione przez pacjenta: '+thrText()+'.');
+      P('');
+      P(mdTable(['Data','Godz.','Ciśnienie','Tętno','Pora pomiaru','Uwagi'],list.slice(-40).map(function(r){return [plDate(r.date),r.time,r.sys+'/'+r.dia,r.pulse||'',r.ctx,[flagOf(r),r.note].filter(Boolean).join('; ')];})));
+      if(list.length>40) P('Pokazano 40 ostatnich z '+list.length+' pomiarów.');
+    }else P('Brak pomiarów w tym okresie.');
+  }
+  if(A.labs){
+    P('');
+    P('## Wyniki badań (do '+plDate(R.to)+')');
+    P('');
+    var rows=[];
+    S.markers.forEach(function(m){
+      var all=labsOf(m.id,R.to); if(!all.length) return;
+      var last=all[all.length-1], f=labFlag(last.value,m);
+      rows.push([m.name,m.unit,rangeText(m)||'brak',all.slice(-8).map(function(l){return plDate(l.date)+': '+lnum(l.value);}).join('; '),f||'w zakresie']);
+    });
+    if(rows.length){
+      P(mdTable(['Parametr','Jednostka','Zakres odniesienia','Ostatnie wyniki (od najstarszego)','Ocena ostatniego wyniku'],rows));
+      P('Zakresy odniesienia wpisał pacjent (zwykle z wyniku laboratorium). Oznaczenia w aplikacji są tylko orientacyjne.');
+    }else P('Brak wyników badań.');
+  }
+  if(A.events){
+    var evs=S.events.filter(function(e){return e.date>=R.from&&e.date<=addDays(t,60);}).sort(function(a,b){return a.date<b.date?-1:1;});
+    if(evs.length){
+      P('');
+      P('## Kontrole i terminy');
+      P('');
+      P(mdTable(['Data','Wydarzenie','Uwagi'],evs.map(function(e){return [plDate(e.date),e.title,e.note];})));
+    }
+  }
+  if(A.notes){
+    var free=[]; if(String(S.rules||'').trim()) free.push('Notatki i zasady pacjenta:\n\n'+S.rules.trim()); if(String(c.reportNote||'').trim()) free.push('Dopisek pacjenta do raportów: '+c.reportNote.trim());
+    if(free.length){
+      P('');
+      P('## Notatki pacjenta (dowolny tekst)');
+      P('');
+      P(free.join('\n\n'));
+    }
+  }
+  P('');
+  P('## Ograniczenia danych');
+  P('');
+  P('- Dane pochodzą z samodzielnych wpisów pacjenta i nie były weryfikowane.');
+  P('- Aplikacja nie zna leków bez recepty ani suplementów, jeśli pacjent ich nie dopisał.');
+  P('- Dawki są podane w jednostkach wybranych przez pacjenta (np. tabl., sasz.), bez przeliczenia na miligramy.');
+  return L.join('\n').replace(/\n{3,}/g,'\n\n')+'\n';
+}
+function refreshAi(){
+  var el=$('aiText'); if(!el) return;
+  var txt=aiReportText(); el.value=txt;
+  $('aiSize').textContent='Długość: '+txt.length.toLocaleString('pl-PL')+' znaków (około '+Math.round(txt.length/3.5/100)*100+' tokenów).';
+}
+function renderAi(){
+  var A=S.settings.ai;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ai]'),function(i){i.checked=!!A[i.dataset.ai];});
+  var cx=$('aiCtx'); if(cx&&document.activeElement!==cx) cx.value=A.context;
+  refreshAi();
+}
+function aiCopy(){
+  var el=$('aiText'), txt=el.value;
+  function fallback(){
+    try{el.focus(); el.select(); if(document.execCommand('copy')){toast('Skopiowano raport dla AI'); return;}}catch(e){}
+    toast('Kopiowanie jest zablokowane. Użyj zapisu pliku.');
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function(){toast('Skopiowano raport dla AI');},fallback);
+  else fallback();
+}
+function aiSave(){saveFile('leki-raport-ai-'+todayIso()+'.md',$('aiText').value,'text/markdown','Zapisano raport dla AI');}
 
 /* ---------- Pominięte dawki ---------- */
 var SKIP_REASONS=['Zapomniano o dawce','Złe samopoczucie','Brak leku','Zalecenie lekarza','Inny powód'], skEd=null;
@@ -1410,6 +1628,8 @@ document.addEventListener('click',function(e){
     case 'bpdelok': S.bp=S.bp.filter(function(r){return r.id!==d.id;}); pendingDel=null; save(); renderBP(); toast('Usunięto pomiar'); break;
     case 'rpPreset': rpPreset=+d.p; rangeFrom=''; rangeTo=''; renderReport(); break;
     case 'print': renderReport(); doPrint(); break;
+    case 'aiCopy': aiCopy(); break;
+    case 'aiSave': aiSave(); break;
     case 'export': exportJSON(); break;
     case 'remindToggle': remindToggle(); break;
     case 'remindTest': remindTest(); break;
@@ -1460,6 +1680,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('input',function(e){
   var t=e.target, ds=t.dataset||{};
   if(t.id==='dayNote'){dayRec(sel).note=t.value; save();}
+  else if(ds.aictx!==undefined){S.settings.ai.context=t.value.slice(0,2000); save(); refreshAi();}
   else if(ds.ev){dayRec(sel).results[ds.ev]=t.value.trim(); syncEventLab(ds.ev); save();}
   else if(ds.sk!==undefined) skEd[ds.sk]=t.value;
   else if(ds.lb!==undefined) labEd[ds.lb]=t.value;
@@ -1472,6 +1693,7 @@ document.addEventListener('change',function(e){
   var t=e.target, ds=t.dataset||{};
   if(t.classList.contains('tm')){dayRec(sel).times[ds.key]=t.value||''; save();}
   else if(ds.rp){S.settings.rp[ds.rp]=t.checked; save(); renderReport();}
+  else if(ds.ai){S.settings.ai[ds.ai]=t.checked; save(); refreshAi();}
   else if(t.id==='jumpDate'){if(isIso(t.value)){sel=t.value; renderMeds(); loadDayInputs();}}
   else if(ds.set) applySetting(t);
   else if(ds.ed!==undefined) ed[ds.ed]=t.value;

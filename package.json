@@ -1,13 +1,13 @@
 {
   "name": "asystent-lekow",
-  "version": "0.1.0-preview",
+  "version": "0.2.0-preview",
   "private": true,
   "description": "Asystent leków: dziennik leków, ciśnienia i wyników badań. Aplikacja na Androida (Capacitor), dane tylko na urządzeniu.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "check": "node --check www/js/app.js && node --check scripts/patch-android.js && node --check scripts/vendor-assets.js",
+    "check": "node scripts/check.js",
     "android:init": "cap add android && node scripts/patch-android.js && cap sync android",
     "android:sync": "cap sync android",
     "android:debug": "cd android && ./gradlew assembleDebug"

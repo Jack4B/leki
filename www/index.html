@@ -115,6 +115,40 @@
         <button class="btn pri wide" id="printBtn" type="button" data-act="print"><i class="ph ph-printer" aria-hidden="true"></i>Drukuj lub zapisz jako PDF</button>
       </div>
     </div>
+    <div class="noprint block" id="aiBlock">
+      <h2 class="h" style="font-size:20px">Raport dla AI</h2>
+      <p class="hint-line">Tekst z poleceniem i danymi do wklejenia w dowolny model AI (analiza interakcji, pór dnia, dawek i badań). Obejmuje okres wybrany wyżej. Powstaje na tym urządzeniu i opuszcza je dopiero, gdy go skopiujesz lub zapiszesz.</p>
+      <div class="stack">
+        <div>
+          <span class="f" id="aiPartsL">Co dołączyć</span>
+          <div class="list" role="group" aria-labelledby="aiPartsL">
+            <label class="trow"><input type="checkbox" data-ai="meds"><span>Leki i harmonogram dnia</span></label>
+            <label class="trow"><input type="checkbox" data-ai="history"><span>Zmiany dawkowania w czasie</span></label>
+            <label class="trow"><input type="checkbox" data-ai="adherence"><span>Zgodność z planem<small>pominięte, spóźnione dawki, godziny przyjęcia</small></span></label>
+            <label class="trow"><input type="checkbox" data-ai="bp"><span>Ciśnienie i tętno</span></label>
+            <label class="trow"><input type="checkbox" data-ai="labs"><span>Wyniki badań</span></label>
+            <label class="trow"><input type="checkbox" data-ai="events"><span>Kontrole i terminy</span></label>
+            <label class="trow"><input type="checkbox" data-ai="notes"><span>Moje notatki<small>notatki dni, zasady, dopisek do raportu</small></span></label>
+            <label class="trow"><input type="checkbox" data-ai="name"><span>Imię i nazwisko<small>domyślnie pominięte</small></span></label>
+          </div>
+        </div>
+        <div>
+          <label class="f" for="aiCtx">Kontekst medyczny (opcjonalnie)</label>
+          <textarea class="in" id="aiCtx" data-aictx placeholder="np. wiek, płeć, choroby, alergie, leki bez recepty i suplementy, godziny posiłków"></textarea>
+          <p class="hint">Im więcej kontekstu, tym trafniejsza analiza. Nie wpisuj danych, których nie chcesz ujawniać.</p>
+        </div>
+        <div class="actions two">
+          <button class="btn pri" type="button" data-act="aiCopy"><i class="ph ph-copy" aria-hidden="true"></i>Kopiuj</button>
+          <button class="btn" type="button" data-act="aiSave"><i class="ph ph-download-simple" aria-hidden="true"></i>Zapisz plik</button>
+        </div>
+        <details class="how">
+          <summary>Podgląd treści</summary>
+          <textarea class="in aitext" id="aiText" readonly aria-label="Treść raportu dla AI"></textarea>
+        </details>
+        <p class="muted" id="aiSize" style="margin:0"></p>
+        <p class="hint" style="margin:0">Odpowiedź AI to pomoc w przygotowaniu pytań do lekarza lub farmaceuty, a nie porada medyczna.</p>
+      </div>
+    </div>
     <article class="sheet rp" id="report"></article>
   </section>
 

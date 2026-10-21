@@ -223,6 +223,9 @@ textarea.in{min-height:84px;resize:vertical}
 .rp-sum span{font-size:11.5px;color:var(--ink-3)}
 
 .srow .go{font-size:13px;font-weight:600;color:var(--accent)}
+.how{font-size:13.5px;color:var(--ink-2)}
+.how summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
+.aitext{margin-top:8px;min-height:260px;resize:vertical;font:12px/1.5 var(--mono);white-space:pre-wrap}
 .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 .pill{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-ctl);background:var(--surface);font-weight:500;color:var(--ink-2)}
 .pill[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}

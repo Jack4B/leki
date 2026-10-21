@@ -8,6 +8,7 @@
   },
   "plugins": {
     "LocalNotifications": {
+      "smallIcon": "ic_stat_pill",
       "iconColor": "#0B6B58"
     }
   }
