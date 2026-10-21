@@ -25,7 +25,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - name: Android SDK (wbudowany w obraz runnera): zaakceptuj licencje
+        run: yes | sdkmanager --licenses > /dev/null || true
       - run: npm ci
       - run: npm run check
       - name: Stały klucz podpisu (opcjonalnie, sekret DEBUG_KEYSTORE_BASE64)
