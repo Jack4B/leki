@@ -25,7 +25,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - name: Android SDK (wbudowany w obraz runnera): zaakceptuj licencje
+      - name: Android SDK z obrazu runnera, akceptacja licencji
         run: yes | sdkmanager --licenses > /dev/null || true
       - run: npm ci
       - run: npm run check
