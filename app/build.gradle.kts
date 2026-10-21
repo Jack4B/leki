@@ -18,6 +18,8 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
+        // Biblioteka OCR zawiera natywny kod dla każdej architektury; telefony to arm64 lub (starsze) armeabi-v7a, x86 pomijamy.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     buildFeatures {
