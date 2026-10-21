@@ -206,7 +206,7 @@ li{margin-bottom:6px}
         }
         if (singles.isNotEmpty()) {
             head()
-            val coll = java.text.Collator.getInstance(java.util.Locale("pl"))
+            val coll = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl"))
             singles.sortWith { a, b -> if (a.second.date != b.second.date) b.second.date.compareTo(a.second.date) else coll.compare(a.first.name, b.first.name) }
             h.append("<div class=\"rp-lab\">Pojedyncze wyniki</div><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Parametr</th><th>Wynik</th><th>Zakres</th><th>Ocena</th></tr></thead><tbody>")
             singles.forEach { (m, l) ->

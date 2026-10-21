@@ -82,8 +82,8 @@ fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedReques
 
     LaunchedEffect(newMedRequest) { if (newMedRequest) { medEdit = null to null; onNewMedHandled() } }
 
-    val active = s.meds.filter { it.end == null || it.end >= today }
-    val ended = s.meds.filter { it.end != null && it.end < today }
+    val active = s.meds.filter { m -> m.end.let { e -> e == null || e >= today } }
+    val ended = s.meds.filter { m -> m.end.let { e -> e != null && e < today } }
     val evs = s.events.sortedWith { a, b ->
         val fa = a.date >= today; val fb = b.date >= today
         if (fa != fb) (if (fa) -1 else 1) else if (fa) a.date.compareTo(b.date) else b.date.compareTo(a.date)

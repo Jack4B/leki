@@ -75,7 +75,7 @@ fun AppState.labsModel(): LabsModel {
     val names = map.keys.sortedWith { a, b ->
         fun idx(x: String): Int { val i = Defaults.groupOrder.indexOf(x); return if (i >= 0) i else if (x == "Inne") 999 else 100 }
         val ia = idx(a); val ib = idx(b)
-        if (ia != ib) ia - ib else java.text.Collator.getInstance(java.util.Locale("pl")).compare(a, b)
+        if (ia != ib) ia - ib else java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl")).compare(a, b)
     }
     val groups = names.map { LabGroup(it, map[it]!!) }
     val order = out.map { it.marker.id } + groups.flatMap { g -> g.items.map { it.marker.id } }

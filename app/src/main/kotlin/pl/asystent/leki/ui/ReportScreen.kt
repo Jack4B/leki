@@ -128,7 +128,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier) {
                 }
                 LinkButton((if (showAi) "▾ " else "▸ ") + "Podgląd treści", { showAi = !showAi })
                 if (showAi) LekiField("", text, {}, readOnly = true, singleLine = false, minLines = 8, mono = true)
-                Hint("Długość: ${"%,d".format(java.util.Locale("pl"), text.length)} znaków (około ${Math.round(text.length / 3.5 / 100) * 100} tokenów).")
+                Hint("Długość: ${"%,d".format(java.util.Locale.forLanguageTag("pl"), text.length)} znaków (około ${Math.round(text.length / 3.5 / 100) * 100} tokenów).")
                 Hint("Odpowiedź AI to pomoc w przygotowaniu pytań do lekarza lub farmaceuty, a nie porada medyczna.", Modifier.padding(top = 4.dp))
             }
         }

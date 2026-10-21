@@ -22,7 +22,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Android SDK z obrazu runnera, akceptacja licencji
-        run: yes | sdkmanager --licenses > /dev/null || true
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - name: Klucz podpisu (stały z sekretu DEBUG_KEYSTORE_BASE64 albo nowy)
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}

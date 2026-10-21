@@ -93,11 +93,12 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     FullScreenDialog(title, onClose) {
         if (oldMed != null) BodyText("Po zapisaniu ${oldMed.name} zostanie zakończony w dniu przed datą początku nowego leku. Jego historia i raporty zostają.")
         if (m != null) {
+            val mEnd = m.end
             LekiCard(Modifier) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (m.end != null) {
+                    if (mEnd != null) {
                         Text("Lek zakończony", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ostatni dzień przyjmowania: ${plDate(m.end)}. Od następnego dnia lek nie pojawia się w planie, a historia zostaje.")
+                        BodyText("Ostatni dzień przyjmowania: ${plDate(mEnd)}. Od następnego dnia lek nie pojawia się w planie, a historia zostaje.")
                         LekiButton("Wznów lek", { save(null, true, "Wznowiono lek ${name.trim()}.") }, Modifier.fillMaxWidth())
                     } else {
                         Text("Zakończyć przyjmowanie tego leku?", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
