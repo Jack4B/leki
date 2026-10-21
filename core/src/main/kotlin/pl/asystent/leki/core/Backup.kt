@@ -101,6 +101,7 @@ object Backup {
         val rp = ReportParts(
             bp = rpIn["bp"].bool(rpD.bp), labs = rpIn["labs"].bool(rpD.labs), labsPeriod = rpIn["labsPeriod"].bool(rpD.labsPeriod),
             meds = rpIn["meds"].bool(rpD.meds), plan = rpIn["plan"].bool(rpD.plan), events = rpIn["events"].bool(rpD.events),
+            analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "",
         )
         val aD = AiParts()
         val ai = AiParts(
@@ -206,6 +207,14 @@ object Backup {
                 o["ctx"].strOr("inne").ifEmpty { "inne" }, o["note"].strOr())
         }
 
+        val analyses = d["analyses"].arr().orEmpty().mapNotNull { x ->
+            val o = x as? JsonObject ?: return@mapNotNull null
+            val id = o["id"].str()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val text = o["text"].str() ?: return@mapNotNull null
+            val date = o["date"].date() ?: return@mapNotNull null
+            Analysis(id, date, o["title"].strOr("Analiza"), text, o["excluded"].arr().orEmpty().mapNotNull { it.str() })
+        }
+
         // Wyniki wpisane przy kontrolach (pole wyniku) trafiają do dziennika badań
         for (e in events) {
             if (e.marker.isEmpty()) continue
@@ -220,7 +229,7 @@ object Backup {
             lastBackup = d["lastBackup"].date(),
             settings = settings,
             rules = d["rules"].str() ?: "",
-            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp,
+            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses,
             timerEnd = d["timerEnd"].number()?.toLong() ?: 0L,
             timerMed = d["timerMed"].strOr(), timerNote = d["timerNote"].strOr(),
         )
@@ -246,6 +255,7 @@ object Backup {
             putJsonObject("rp") {
                 put("bp", c.rp.bp); put("labs", c.rp.labs); put("labsPeriod", c.rp.labsPeriod)
                 put("meds", c.rp.meds); put("plan", c.rp.plan); put("events", c.rp.events)
+                put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId)
             }
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
@@ -312,6 +322,14 @@ object Backup {
                     put("id", b.id); put("date", b.date.toString()); put("time", b.time.hhmm()); put("sys", b.sys); put("dia", b.dia)
                     if (b.pulse != null) put("pulse", b.pulse) else put("pulse", JsonNull)
                     put("ctx", b.ctx); put("note", b.note)
+                })
+            }
+        }
+        putJsonArray("analyses") {
+            s.analyses.forEach { a ->
+                add(buildJsonObject {
+                    put("id", a.id); put("date", a.date.toString()); put("title", a.title); put("text", a.text)
+                    putJsonArray("excluded") { a.excluded.forEach { add(JsonPrimitive(it)) } }
                 })
             }
         }

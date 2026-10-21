@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.4.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.5.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -9,9 +9,9 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 ## Funkcje
 
 - **Leki:** plan dnia z porami (śniadanie, obiad…), odhaczanie dawek z godziną, pomijanie dawek z powodem, zmiany dawkowania w czasie z zachowaniem historii, zamiana leku na inny, stoper po dawce, licznik wody, notatka dnia.
-- **Ciśnienie:** pomiary z tętnem i porą, wykres, średnie, oznaczenia progów ustawianych przez użytkownika.
+- **Ciśnienie:** pomiary z tętnem i porą, **przewijany wykres w czasie** (7, 30, 90 dni, rok lub wszystko), średnie, oznaczenia progów ustawianych przez użytkownika. Szczegóły niżej.
 - **Badania:** dziennik wyników z zakresami odniesienia, wykresy, widok według parametrów i dat, kontrole z polem na wynik, import wyników z pliku JSON oraz **dodawanie wyników ze zdjęcia lub PDF (OCR)**.
-- **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida.
+- **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida. Do raportu można dołączyć **wklejoną odpowiedź AI** jako uzupełnienie.
 - **Raport dla AI:** gotowy tekst (Markdown) z poleceniem i danymi z aplikacji, do wklejenia w dowolny model AI. Szczegóły niżej.
 - **Przypomnienia o dawkach:** powiadomienia o porach z planu, także przy zamkniętej aplikacji i po restarcie telefonu.
 - **Kopie zapasowe:** plik JSON albo plik zaszyfrowany hasłem (AES-256-GCM, PBKDF2), zapis do pliku lub przez systemowe „Udostępnij”.
@@ -29,6 +29,24 @@ Tekst składa się z dwóch części:
 
 Okres jest ten sam co w raporcie dla lekarza. Możesz wybrać sekcje i wpisać kontekst medyczny (wiek, płeć, choroby, alergie, leki bez recepty, godziny posiłków), co mocno poprawia analizę. Imię i nazwisko jest domyślnie pomijane. Tekst powstaje na urządzeniu i opuszcza je dopiero, gdy go skopiujesz lub udostępnisz. Odpowiedź AI nie jest poradą medyczną.
 
+## Wykres ciśnienia w czasie
+
+Wykres ma stałą skalę czasu, więc przy długim okresie nie zlewa się w kreskę, tylko robi się szerszy i przewija się palcem w bok (oś ciśnienia zostaje po lewej, a wykres otwiera się na najnowszych dniach). Zakres wybierasz przyciskami **7 dni, 30 dni, 90 dni, Rok, Wszystko**.
+
+- **Do 45 dni:** każdy pomiar jest punktem, z podpisem dni. Przerywane linie to progi podwyższonego ciśnienia ustawione w aplikacji.
+- **Powyżej 45 dni:** dla każdego dnia pionowy słupek od najniższego do najwyższego pomiaru i linia średnich dziennych. Podpisy to tygodnie (do ok. 4 miesięcy) albo początki miesięcy (rok i dłużej).
+- **W raporcie do druku** wykres jest cięty na kawałki po 91 dni, a pod nim jest zestawienie tygodniowe (powyżej ok. 6 miesięcy: miesięczne) ze średnimi, zakresami, tętnem i liczbą pomiarów podwyższonych i niskich. Pełna lista każdego pomiaru jest tylko w raportach do 45 dni, żeby roczny wydruk miał kilka stron, a nie kilkadziesiąt.
+
+## Analiza AI jako uzupełnienie raportu dla lekarza
+
+Odpowiedź modelu AI na „Raport dla AI” (patrz wyżej) możesz wkleić do aplikacji i dołączyć do raportu dla lekarza.
+
+1. W zakładce **Raport → Dla lekarza** włącz pigułkę **Analiza AI** i wybierz **Wklej odpowiedź AI** (albo link pod raportem w karcie „Dla AI”). Przycisk **Wklej ze schowka** wstawia tekst, można go też wpisać lub poprawić ręcznie.
+2. Wzory LaTeX i Markdown (nagłówki, listy, tabele, pogrubienia, cytaty) są w raporcie porządkowane do zwykłego tekstu, np. `$2{,}8\text{ mmol/l}$` wychodzi jako „2,8 mmol/l”.
+3. **Skracanie:** tekst jest dzielony na sekcje według nagłówków; każdą można wyłączyć. Przy długim tekście aplikacja od razu zostawia tylko sekcje o podsumowaniu, sprawach pilnych, wnioskach, zaleceniach i pytaniach do lekarza. Przyciski „Tylko podsumowanie i pytania” oraz „Całość” przełączają to jednym ruchem.
+4. W raporcie analiza jest na końcu, z nagłówkiem „Uzupełnienie: analiza farmaceutyczno-kliniczna (AI)” i adnotacją, że to tekst wygenerowany przez AI na podstawie danych z aplikacji, a nie ocena lekarska.
+5. Analizy zapisują się **w kopii zapasowej** (także zaszyfrowanej) razem z pozostałymi danymi. Można mieć kilka (np. z różnych dat) i wybierać, która trafia do raportu. Starsze kopie bez analiz wczytują się normalnie.
+
 ## Dodawanie wyników ze zdjęcia lub PDF
 
 W zakładce **Badania** przycisk **Skanuj wyniki** otwiera wybór źródła: **aparat**, **galeria** (jedno lub kilka zdjęć albo zrzutów ekranu) albo **plik PDF** (także skany w PDF, do 12 stron).
@@ -42,7 +60,7 @@ Wskazówki: cała tabela w kadrze, tekst poziomo, bez cienia i odblasków. PDF p
 
 ## Pobranie APK z GitHuba
 
-Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.4.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.4.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.5.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.5.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
 
 Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików). Wymagany Android 8.0 lub nowszy.
 
@@ -86,7 +104,7 @@ base64 -w0 debug.keystore   # wynik wklej do sekretu; sam plik trzymaj poza repo
 
 ```
 core/          logika bez zależności od Androida (Kotlin/JVM): model danych, harmonogram, statystyki,
-               raporty (lekarz, AI), kopie zapasowe i szyfrowanie, geometria wykresów, przypomnienia,
+               raporty (lekarz, AI), kopie zapasowe i szyfrowanie, geometria wykresów (w tym przewijany wykres ciśnienia), czyszczenie Markdown i LaTeX z odpowiedzi AI, przypomnienia,
                odczyt wyników z tekstu OCR (LabScan)
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
@@ -112,6 +130,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 - Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
 - Podgląd zdjęcia obok wyników na ekranie sprawdzania.
+- Wykres ciśnienia: oznaczanie kolorem pomiarów powyżej progu.
 - Ręczne kadrowanie zdjęcia przed rozpoznaniem.
 
 ## Znane ograniczenia wersji preview
@@ -119,6 +138,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później. Rozmiar APK to kilkadziesiąt MB, głównie przez model i biblioteki rozpoznawania tekstu; działa tylko na telefonach arm64 i armeabi-v7a.
 - Interfejs tylko po polsku.
+- Analiza AI w raporcie to tekst wklejony przez użytkownika: aplikacja go nie sprawdza, tylko porządkuje zapis. Wzory LaTeX są upraszczane do zwykłego tekstu (rzadkie konstrukcje mogą zostać w surowej postaci).
 - Rozpoznawanie wyników z obrazu zależy od jakości zdjęcia i układu dokumentu; aplikacja pokazuje wszystko do sprawdzenia przed zapisem, ale nie gwarantuje bezbłędnego odczytu. Wyników zapisanych w układzie innym niż tabela (nazwa, wynik, jednostka w jednym wierszu) może nie rozpoznać.
 - Aplikacja była sprawdzana w testach logiki i w kompilacji na CI, ale nie na różnych modelach telefonów. Zgłaszaj błędy.
 - Synchronizacji z własnym serwerem (obecnej w dawnej wersji przeglądarkowej) nie ma. Przenoszenie danych odbywa się przez kopie zapasowe.

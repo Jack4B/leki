@@ -1,6 +1,7 @@
 package pl.asystent.leki.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,7 +26,7 @@ import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Bp
 import pl.asystent.leki.core.addBp
-import pl.asystent.leki.core.bpChart
+import pl.asystent.leki.core.Trend
 import pl.asystent.leki.core.bpFlag
 import pl.asystent.leki.core.bpOrder
 import pl.asystent.leki.core.bpStats
@@ -36,6 +37,9 @@ import pl.asystent.leki.core.newId
 import pl.asystent.leki.core.thresholdText
 import java.time.LocalDate
 import java.time.LocalTime
+
+private val RANGES = listOf(7, 30, 90, 365, 0)
+private val RANGE_LABELS = listOf("7 dni", "30 dni", "90 dni", "Rok", "Wszystko")
 
 @Composable
 fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
@@ -97,7 +101,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
         }
         item {
             Column(Modifier.padding(top = 24.dp)) {
-                if (s.bp.isNotEmpty()) SegRow(listOf("7 dni", "30 dni", "Wszystko"), when (range) { 7 -> 0; 30 -> 1; else -> 2 }, { range = when (it) { 0 -> 7; 1 -> 30; else -> 0 } }, Modifier.padding(bottom = 14.dp))
+                if (s.bp.isNotEmpty()) SegRow(RANGE_LABELS, RANGES.indexOf(range).coerceAtLeast(0), { range = RANGES[it] }, Modifier.padding(bottom = 14.dp))
                 if (list.isNotEmpty()) {
                     Text("Podsumowanie", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -113,14 +117,29 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                 } else if (s.bp.isNotEmpty()) Hint("Brak pomiarów w tym okresie.")
             }
         }
-        val geo = bpChart(list)
-        if (geo != null) item {
+        if (list.isNotEmpty()) item {
+            val from = if (range == 0) list.minOf { it.date } else today.minusDays((range - 1).toLong())
             Column(Modifier.padding(top = 24.dp)) {
                 Text("Przebieg", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
                 Row(Modifier.padding(top = 6.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Hint("● skurczowe"); Hint("○ rozkurczowe"); Hint("mmHg")
                 }
-                BpChartView(geo, "Wykres ciśnienia skurczowego i rozkurczowego w czasie")
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val plotW = maxWidth.value - 34f
+                    val geo = remember(list, from, today, plotW, s.settings.hiSys, s.settings.hiDia) { Trend.build(list, from, today, plotW, s.settings.hiSys, s.settings.hiDia) }
+                    if (geo != null) {
+                        Column {
+                            BpTrendView(geo, "Wykres ciśnienia skurczowego i rozkurczowego w czasie, przewijany w poziomie")
+                            val long = geo.width > plotW + 1f
+                            Hint(
+                                (if (long) "Przesuń wykres palcem w bok, aby zobaczyć wcześniejsze dni. " else "") +
+                                    (if (geo.detailed) "Każdy punkt to jeden pomiar. " else "Słupek to zakres pomiarów danego dnia (min–max), linia to średnia dnia. ") +
+                                    "Przerywane linie: progi ${s.settings.hiSys}/${s.settings.hiDia}.",
+                                Modifier.padding(top = 6.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
         if (s.bp.isEmpty()) item { EmptyBox("Brak pomiarów. Wpisz pierwszy wynik w formularzu powyżej.", Modifier.padding(top = 24.dp)) }

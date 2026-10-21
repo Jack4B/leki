@@ -58,6 +58,17 @@ li{margin-bottom:6px}
 .chart .p-lab{fill:var(--accent);stroke:#fff;stroke-width:1.5}
 .chart .p-lab.out{fill:var(--danger)}
 .chart .vl{fill:#000;font:600 10px var(--mono)}
+.chart .ref{stroke:#b07000;stroke-width:1;stroke-dasharray:4 3;opacity:.8}
+.chart .rng-sys{stroke:var(--accent);opacity:.35}
+.chart .rng-dia{stroke:var(--ink-3);opacity:.35}
+h4{margin:14px 0 6px;font-size:13.5px;font-weight:650}
+h5{margin:10px 0 4px;font-size:12.5px;font-weight:650}
+p{margin:4px 0 8px;font-size:12.5px}
+.li{font-size:12.5px;margin:3px 0;color:var(--ink-2)}
+blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--line);color:var(--ink-2);font-size:12.5px}
+hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+code{font-family:var(--mono);font-size:12px}
+.ai table{margin:6px 0 10px}
 @page{size:A4;margin:14mm}
 @media print{body{padding:0;font-size:12px}}
 """
@@ -88,17 +99,37 @@ li{margin-bottom:6px}
                 h.append("<p class=\"muted\" style=\"margin:0 0 10px\">Skurczowe ${st.minS}-${st.maxS}, rozkurczowe ${st.minD}-${st.maxD}.")
                 if (st.rano.n > 0) h.append(" Rano średnio ${st.rano.s}/${st.rano.d} (${st.rano.n}).")
                 if (st.wieczor.n > 0) h.append(" Wieczorem średnio ${st.wieczor.s}/${st.wieczor.d} (${st.wieczor.n}).")
-                h.append("</p><div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span></div>")
-                bpChart(list)?.let { h.append(bpChartSvg(it)) }
-                h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>Data</th><th>Godz.</th><th>Ciśnienie</th><th>Tętno</th><th>Pora</th><th>Uwagi</th></tr></thead><tbody>")
-                list.forEach { r ->
-                    val f = c.bpFlag(r)
-                    h.append("<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>")
-                    if (f.isNotEmpty()) h.append("<b>$f</b>")
-                    if (f.isNotEmpty() && r.note.isNotEmpty()) h.append(", ")
-                    h.append(esc(r.note)).append("</td></tr>")
+                val nDays = daysBetween(per.from, per.to) + 1
+                if (nDays <= Trend.DETAIL_MAX_DAYS) {
+                    h.append("</p><div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span></div>")
+                    bpChart(list)?.let { h.append(bpChartSvg(it)) }
+                    h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>Data</th><th>Godz.</th><th>Ciśnienie</th><th>Tętno</th><th>Pora</th><th>Uwagi</th></tr></thead><tbody>")
+                    list.forEach { r ->
+                        val f = c.bpFlag(r)
+                        h.append("<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>")
+                        if (f.isNotEmpty()) h.append("<b>$f</b>")
+                        if (f.isNotEmpty() && r.note.isNotEmpty()) h.append(", ")
+                        h.append(esc(r.note)).append("</td></tr>")
+                    }
+                    h.append("</tbody></table></div><p class=\"muted\" style=\"margin:6px 0 0\">Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
+                } else {
+                    h.append("</p><div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span><span>linia: średnia dzienna, pionowa kreska: zakres dnia (min–max), linia przerywana: próg</span></div>")
+                    var a = per.from
+                    while (a <= per.to) {
+                        val b = minOf(a.plusDays(90), per.to)
+                        Trend.build(list, a, b, 720f, c.hiSys, c.hiDia)?.let { g ->
+                            h.append("<div class=\"rp-lab\">${plDate(a)} – ${plDate(b)}</div>").append(Trend.svg(g))
+                        }
+                        a = b.plusDays(1)
+                    }
+                    val monthly = nDays > 190
+                    val rows = bpPeriods(list, monthly, c)
+                    h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>${if (monthly) "Miesiąc" else "Tydzień od"}</th><th>Pomiarów</th><th>Średnie</th><th>Skurczowe min–max</th><th>Rozkurczowe min–max</th><th>Tętno</th><th>Podwyższone</th><th>Niskie</th></tr></thead><tbody>")
+                    rows.forEach { r ->
+                        h.append("<tr><td class=\"num\">${if (monthly) "%02d.%04d".format(r.from.monthValue, r.from.year) else plDate(r.from)}</td><td class=\"num\">${r.n}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.sysMin}-${r.sysMax}</td><td class=\"num\">${r.diaMin}-${r.diaMax}</td><td class=\"num\">${r.pulse ?: ""}</td><td class=\"num\">${if (r.high > 0) "<b>${r.high}</b>" else "0"}</td><td class=\"num\">${r.low}</td></tr>")
+                    }
+                    h.append("</tbody></table></div><p class=\"muted\" style=\"margin:6px 0 0\">Okres dłuższy niż ${Trend.DETAIL_MAX_DAYS} dni: zamiast listy pojedynczych pomiarów podano zestawienie ${if (monthly) "miesięczne" else "tygodniowe"}. Pełne dane są w aplikacji i w kopii zapasowej. Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
                 }
-                h.append("</tbody></table></div><p class=\"muted\" style=\"margin:6px 0 0\">Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
             }
         }
 
@@ -172,6 +203,14 @@ li{margin-bottom:6px}
                 h.append("</li>")
             }
             h.append("</ul>")
+        }
+        if (P.analysis) s.reportAnalysis()?.let { a ->
+            val body = Markdown.selected(a.text, a.excluded)
+            if (body.isNotBlank()) {
+                h.append("<h3>Uzupełnienie: analiza farmaceutyczno-kliniczna (AI)</h3>")
+                h.append("<p class=\"muted\">Tekst wygenerowany przez model AI na podstawie danych z aplikacji (analiza z dnia ${plDate(a.date)}) i dołączony przez pacjenta. To nie jest ocena lekarska ani zalecenie. Do weryfikacji przez lekarza.</p>")
+                h.append("<div class=\"ai\">").append(Markdown.toHtml(body)).append("</div>")
+            }
         }
         h.append("<p class=\"rp-foot\">Wygenerowano ${plDate(today)} ${now.toLocalTime().hhmm()}. Dane wpisał pacjent, raport nie zawiera oceny klinicznej.</p>")
         return h.toString()

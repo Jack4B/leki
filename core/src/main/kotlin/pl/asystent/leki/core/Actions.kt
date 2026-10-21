@@ -205,3 +205,11 @@ fun AppState.needBackup(today: LocalDate): String? {
 fun AppState.clearTimer(): AppState = copy(timerEnd = 0)
 
 fun AppState.withBackupMark(today: LocalDate): AppState = copy(lastBackup = today)
+
+// ---------- Analizy wklejone przez użytkownika ----------
+
+fun AppState.saveAnalysis(a: Analysis): AppState =
+    if (analyses.any { it.id == a.id }) copy(analyses = analyses.map { if (it.id == a.id) a else it }) else copy(analyses = analyses + a)
+
+fun AppState.deleteAnalysis(id: String): AppState =
+    copy(analyses = analyses.filter { it.id != id }, settings = if (settings.rp.analysisId == id) settings.copy(rp = settings.rp.copy(analysisId = "")) else settings)

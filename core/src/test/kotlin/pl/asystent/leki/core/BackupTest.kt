@@ -42,7 +42,8 @@ class BackupTest {
         val legacy = Json.parseToJsonElement(Fixtures.text("export.json")) as kotlinx.serialization.json.JsonObject
         val keysNew = (o["data"] as kotlinx.serialization.json.JsonObject).keys
         val keysOld = (legacy["data"] as kotlinx.serialization.json.JsonObject).keys
-        assertEquals(keysOld, keysNew)
+        // nowe pole od wersji 0.5: analizy wklejone przez użytkownika; stare kopie go nie mają i wczytują się z pustą listą
+        assertEquals(keysOld + "analyses", keysNew)
     }
 
     @Test fun decryptsLegacyEncryptedBackup() {
@@ -78,6 +79,22 @@ class BackupTest {
         assertEquals(100, s.days.values.first().water)
         assertEquals(4, s.slots.size)
         assertEquals(5, s.markers.size)
+    }
+
+    @Test fun analysesSurviveBackupAndOldBackupsHaveNone() {
+        assertTrue(Fixtures.state.analyses.isEmpty())
+        val a = Analysis("a1", java.time.LocalDate.of(2026, 10, 21), "Analiza AI", "# Tytuł\n\n## Pilne\nTekst z \$2{,}8\\text{ mmol/l}\$\n\n## Szczegóły\nDużo tekstu", listOf("Szczegóły"))
+        val s = Fixtures.state.saveAnalysis(a).let { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(analysisId = "a1", analysis = false))) }
+        val back = Backup.parseState(Backup.export(s))
+        assertEquals(s, back)
+        assertEquals(a, back.analysis("a1"))
+        assertEquals(a, back.reportAnalysis())
+        // usunięcie analizy czyści wybór w raporcie
+        val del = back.deleteAnalysis("a1")
+        assertTrue(del.analyses.isEmpty()); assertEquals("", del.settings.rp.analysisId)
+        // zaszyfrowana kopia też ją niesie
+        val enc = BackupCrypto.encrypt("haslo-12345", Backup.export(s), iter = 100_000)
+        assertEquals(a, Backup.parseState(BackupCrypto.decrypt("haslo-12345", Backup.parseEnvelope(enc))).analysis("a1"))
     }
 
     @Test fun formatting() {

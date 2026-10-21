@@ -39,6 +39,7 @@ import pl.asystent.leki.core.AiParts
 import pl.asystent.leki.core.AiReport
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.DoctorReport
+import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.Period
 import pl.asystent.leki.core.ReportParts
 import pl.asystent.leki.core.firstDate
@@ -65,6 +66,8 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     var mode by rememberSaveable { mutableStateOf(initialMode) }
     var preview by remember { mutableStateOf(false) }
     var showAi by rememberSaveable { mutableStateOf(false) }
+    var editorOpen by rememberSaveable { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<pl.asystent.leki.core.Analysis?>(null) }
     val first = s.firstDate(today)
     val custom = if (fromStr.isNotEmpty() || toStr.isNotEmpty()) (fromStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) } to toStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }) else null
     val per = Period.resolve(preset, custom, today, first)
@@ -109,6 +112,25 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Przyjmowanie leków", rp.meds) { setRp { it.copy(meds = !it.meds) } }
                         ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
+                        ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
+                    }
+                    if (rp.analysis) {
+                        Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
+                        val picked = s.reportAnalysis()
+                        if (s.analyses.isEmpty()) {
+                            BodyText("Wklej odpowiedź AI na raport z karty „Dla AI”, a trafi na koniec raportu dla lekarza (opisana jako analiza AI).")
+                        } else LekiCard {
+                            s.analyses.sortedByDescending { it.date }.forEachIndexed { i, a ->
+                                if (i > 0) Divider()
+                                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        CheckRow(a.title, picked?.id == a.id, { setRp { it.copy(analysisId = a.id) } }, subtitle = plDate(a.date) + ", " + Markdown.selected(a.text, a.excluded).length + " z " + a.text.length + " znaków")
+                                    }
+                                    LekiButton("Edytuj", { editing = a; editorOpen = true }, small = true)
+                                }
+                            }
+                        }
+                        LekiButton(if (s.analyses.isEmpty()) "Wklej odpowiedź AI" else "Dodaj kolejną analizę", { editing = null; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
                     if (rp.labs) {
                         Spacer8()
@@ -155,11 +177,14 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     }
                     LinkButton((if (showAi) "▾ " else "▸ ") + "Podgląd treści", { showAi = !showAi }, Modifier.padding(top = 4.dp))
                     if (showAi) LekiField("", text, {}, readOnly = true, singleLine = false, minLines = 8, mono = true)
+                    LinkButton("Wklej odpowiedź AI do raportu dla lekarza", { editing = null; editorOpen = true }, Modifier.padding(top = 4.dp))
                     Hint("Długość: ${"%,d".format(java.util.Locale.forLanguageTag("pl"), text.length)} znaków (około ${Math.round(text.length / 3.5 / 100) * 100} tokenów). Odpowiedź AI to pomoc w przygotowaniu pytań do lekarza lub farmaceuty, a nie porada medyczna.")
                 }
             }
         }
     }
+
+    if (editorOpen) AnalysisEditor(editing, store, today) { editorOpen = false; editing = null }
 
     if (preview) {
         val html = remember(s, per, now.toLocalTime().hour) { DoctorReport.document(DoctorReport.html(s, per, today, now)) }

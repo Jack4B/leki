@@ -20,6 +20,12 @@ object Platform {
         cm.setPrimaryClip(ClipData.newPlainText(label, text))
     }
 
+    /** Tekst ze schowka (pusty, gdy schowek jest pusty albo nie zawiera tekstu). */
+    fun pasteText(ctx: Context): String {
+        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        return cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+    }
+
     /** Udostępnia tekst jako plik przez systemowe „Udostępnij” (Dysk, Filen, e-mail, komunikatory). */
     fun shareFile(ctx: Context, fileName: String, content: String, mime: String, title: String) {
         val dir = File(ctx.cacheDir, "share").apply { mkdirs() }

@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.5.0-preview
+
+- **Wykres ciśnienia w czasie, przewijany w poziomie.** Stała skala czasu zamiast ściskania całego okresu na szerokości ekranu: oś ciśnienia zostaje po lewej, wykres otwiera się na najnowszych dniach i przesuwa palcem. Zakres: 7, 30, 90 dni, rok lub wszystko. Do 45 dni pojedyncze pomiary, dłużej słupek min–max dla każdego dnia i linia średnich, podpisy tygodni lub miesięcy, przerywane linie progów.
+- **Raport dla lekarza przy długich okresach:** wykres cięty na kawałki po 91 dni, zestawienie tygodniowe (powyżej ok. 6 miesięcy miesięczne) ze średnimi, zakresami, tętnem i liczbą pomiarów podwyższonych i niskich zamiast tabeli każdego pomiaru. Raporty do 45 dni są bez zmian (nadal identyczne z poprzednimi wersjami).
+- **Analiza AI jako uzupełnienie raportu dla lekarza.** Pole do wklejenia odpowiedzi modelu AI (przycisk „Wklej ze schowka”), tytuł i data, kilka analiz do wyboru. Markdown i wzory LaTeX są porządkowane do zwykłego tekstu. Długą odpowiedź można skrócić, wyłączając całe sekcje; domyślnie zostają podsumowanie, sprawy pilne, wnioski, zalecenia i pytania do lekarza. W raporcie analiza ma na końcu osobny nagłówek i adnotację, że to tekst AI, a nie ocena lekarska.
+- **Analizy są częścią kopii zapasowej** (także zaszyfrowanej), nowe pole `analyses` z wartością domyślną, więc starsze kopie wczytują się bez zmian.
+- Testy: czyszczenie LaTeX i Markdown, sekcje i skracanie, geometria i podpisy wykresu dla tygodnia, 90 dni i roku, raport roczny, raport z analizą, zapis i odczyt kopii (także zaszyfrowanej) z analizami. Razem 59 testów logiki.
+
 ## 0.4.0-preview
 
 - **Dodawanie wyników badań ze zdjęcia lub PDF (OCR).** W zakładce Badania przycisk „Skanuj wyniki”: zdjęcie z aparatu, zdjęcia z galerii (do 6) albo plik PDF (do 12 stron). Tekst rozpoznaje ML Kit na telefonie (model dołączony do aplikacji), więc nic nie jest wysyłane, a zdjęcia i pliki nie są zapisywane. Aplikacja składa wiersze tabeli z położenia tekstu, odczytuje nazwę, wynik, jednostkę i zakres odniesienia, rozpoznaje datę pobrania i dopasowuje parametry do tych z aplikacji (znane nazwy polskie i skróty, np. HGB, WBC, K, Na) albo proponuje nowe.

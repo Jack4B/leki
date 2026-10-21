@@ -23,7 +23,9 @@ import app.cash.paparazzi.Paparazzi
 import com.android.resources.Density
 import org.junit.Rule
 import org.junit.Test
+import pl.asystent.leki.core.Analysis
 import pl.asystent.leki.core.AppState
+import pl.asystent.leki.core.Bp
 import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.ThemeMode
@@ -42,6 +44,7 @@ import pl.asystent.leki.ui.SettingsScreen
 import pl.asystent.leki.ui.pal
 import java.io.File
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Zrzuty ekranów widoków na danych wzorcowych (render na JVM, bez telefonu): szerokość telefonu (393 dp), przewijane ekrany
@@ -81,6 +84,22 @@ class ScreenshotTest {
     @Test fun lekiCiemny() = slices("leki-ciemny", 1, ThemeMode.Dark) { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
     @Test fun lekiPuste() = slices("leki-puste", 1) { MedsScreen(AppState(), store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
     @Test fun cisnienie() = slices("cisnienie", 3) { BpScreen(state, store, listState = it) }
+    /** Zmyślone pomiary z całego roku, liczone od dzisiaj: sprawdza przewijany wykres z zakresem min–max i podpisami miesięcy. */
+    private val yearState: AppState = run {
+        val today = LocalDate.now()
+        state.copy(bp = (0 until 365).flatMap { i ->
+            val d = today.minusDays((364 - i).toLong())
+            listOf(
+                Bp("m$i", d, LocalTime.of(8, 0), 122 + (i * 7) % 28, 78 + (i * 3) % 14, 64, "rano"),
+                Bp("e$i", d, LocalTime.of(20, 30), 126 + (i * 5) % 26, 80 + (i * 2) % 12, 70, "wieczór"),
+            )
+        })
+    }
+    @Test fun cisnienieRok() = slices("cisnienie-rok", 2) { BpScreen(yearState, store, listState = it) }
+
+    private val analysisState: AppState = state.copy(analyses = listOf(Analysis("a1", LocalDate.of(2026, 1, 15), "Analiza AI", "# Analiza\n\n## Podsumowanie\nPrzykładowy wniosek.\n\n## Szczegóły\nDługi opis.\n\n## Pytania do lekarza\n1. Przykładowe pytanie?", listOf("Szczegóły"))))
+    @Test fun raportAnaliza() = slices("raport-analiza", 1) { ReportScreen(analysisState, store, listState = it, initialMode = 0) }
+
     @Test fun badania() = slices("badania", 1) { LabsScreen(state, store, onImport = {}, listState = it) }
     @Test fun badaniaPuste() = slices("badania-puste", 1) { LabsScreen(AppState(), store, onImport = {}, listState = it) }
     @Test fun raportLekarz() = slices("raport-lekarz", 1) { ReportScreen(state, store, listState = it, initialMode = 0) }

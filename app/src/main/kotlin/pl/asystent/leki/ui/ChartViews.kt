@@ -3,11 +3,19 @@ package pl.asystent.leki.ui
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -22,7 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import pl.asystent.leki.core.Anchor
-import pl.asystent.leki.core.BpChartGeo
+import pl.asystent.leki.core.TrendGeo
 import pl.asystent.leki.core.LabChartGeo
 import pl.asystent.leki.core.Pt
 
@@ -35,34 +43,57 @@ private fun DrawScope.text(t: String, x: Float, y: Float, size: Float, color: Co
 
 private fun anchor(a: Anchor) = when (a) { Anchor.Start -> Paint.Align.LEFT; Anchor.End -> Paint.Align.RIGHT; Anchor.Middle -> Paint.Align.CENTER }
 
+/** Wykres ciśnienia w czasie: oś pionowa stała po lewej, wykres przewijany w poziomie (domyślnie na końcu, czyli przy najnowszych dniach). */
 @Composable
-fun BpChartView(g: BpChartGeo, description: String, modifier: Modifier = Modifier) {
-    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val surface = pal.surface
-    Canvas(modifier.fillMaxWidth().aspectRatio(g.width.toFloat() / g.height).semantics { contentDescription = description }) {
-        val k = size.width / g.width
-        fun o(p: Pt) = Offset(p.x * k, p.y * k)
-        g.yTicks.forEach {
-            drawLine(line, Offset(g.plotLeft * k, it.pos * k), Offset(g.plotRight * k, it.pos * k), strokeWidth = 1f)
-            text(it.label, (g.plotLeft - 6) * k, (it.pos + 3.5f) * k, 10f * k, ink3, Paint.Align.RIGHT)
+fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier) {
+    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val surface = pal.surface; val warn = pal.warn
+    val scroll = rememberScrollState()
+    LaunchedEffect(g) {
+        withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { it > 0 } }?.let { scroll.scrollTo(it) }
+    }
+    Row(modifier.fillMaxWidth().semantics { contentDescription = description }) {
+        Canvas(Modifier.width(AXIS_W.dp).height(g.height.dp)) {
+            val k = density
+            g.yTicks.forEach { text(it.label, (AXIS_W - 4) * k, (it.pos + 3.5f) * k, 10f * k, ink3, Paint.Align.RIGHT) }
         }
-        val dash = PathEffect.dashPathEffect(floatArrayOf(2f * k, 3f * k))
-        g.dayMarks.forEach { m ->
-            m.separator?.let { drawLine(line, Offset(it * k, g.plotTop * k), Offset(it * k, g.plotBottom * k), strokeWidth = 1f, pathEffect = dash) }
-            m.label?.let { text(it.label, it.x * k, (g.height - 8) * k, 10f * k, ink3, Paint.Align.CENTER) }
-        }
-        fun poly(pts: List<Pt>, color: Color) {
-            if (pts.size < 2) return
-            val path = Path().apply { moveTo(pts[0].x * k, pts[0].y * k); pts.drop(1).forEach { lineTo(it.x * k, it.y * k) } }
-            drawPath(path, color, style = Stroke(width = 2f * k))
-        }
-        poly(g.dia, ink3); poly(g.sys, accent)
-        for (i in g.sys.indices) {
-            drawCircle(surface, g.radius * k, o(g.dia[i])); drawCircle(ink3, g.radius * k, o(g.dia[i]), style = Stroke(width = 2f * k))
-            drawCircle(accent, g.radius * k, o(g.sys[i])); drawCircle(surface, g.radius * k, o(g.sys[i]), style = Stroke(width = 1.5f * k))
-            drawCircle(accent, (g.radius - 0.75f) * k, o(g.sys[i]))
+        Box(Modifier.weight(1f).horizontalScroll(scroll)) {
+            Canvas(Modifier.width(g.width.dp).height(g.height.dp)) {
+                val k = density
+                fun xy(x: Float, y: Float) = Offset(x * k, y * k)
+                g.yTicks.forEach { drawLine(line, xy(0f, it.pos), xy(g.width, it.pos), strokeWidth = 1f) }
+                val dash = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))
+                g.refs.forEach { drawLine(warn.copy(alpha = .8f), xy(0f, it), xy(g.width, it), strokeWidth = 1.2f * k, pathEffect = dash) }
+                g.marks.forEach { m ->
+                    if (m.line) drawLine(line.copy(alpha = .7f), xy(m.x, g.plotTop), xy(m.x, g.plotBottom), strokeWidth = 1f)
+                    m.label?.let { text(it, m.x * k + 2f * k, (g.height - 8) * k, 10f * k, ink3, Paint.Align.LEFT) }
+                }
+                fun poly(pts: List<Offset>, color: Color) {
+                    if (pts.size < 2) return
+                    val path = Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
+                    drawPath(path, color, style = Stroke(width = 2f * k))
+                }
+                if (g.detailed) {
+                    poly(g.readings.map { xy(it.x, it.dia) }, ink3); poly(g.readings.map { xy(it.x, it.sys) }, accent)
+                    g.readings.forEach {
+                        drawCircle(surface, 4f * k, xy(it.x, it.dia)); drawCircle(ink3, 4f * k, xy(it.x, it.dia), style = Stroke(width = 2f * k))
+                        drawCircle(accent, 4f * k, xy(it.x, it.sys)); drawCircle(surface, 4f * k, xy(it.x, it.sys), style = Stroke(width = 1.5f * k))
+                        drawCircle(accent, 3.2f * k, xy(it.x, it.sys))
+                    }
+                } else {
+                    val bw = (g.dayWidth * 0.55f).coerceIn(1.2f, 6f) * k
+                    g.days.forEach {
+                        drawLine(ink3.copy(alpha = .35f), xy(it.x, it.diaMin), xy(it.x, it.diaMax), strokeWidth = bw)
+                        drawLine(accent.copy(alpha = .35f), xy(it.x, it.sysMin), xy(it.x, it.sysMax), strokeWidth = bw)
+                    }
+                    poly(g.days.map { xy(it.x, it.dia) }, ink3); poly(g.days.map { xy(it.x, it.sys) }, accent)
+                    if (g.dayWidth >= 7f) g.days.forEach { drawCircle(accent, 1.8f * k, xy(it.x, it.sys)); drawCircle(ink3, 1.8f * k, xy(it.x, it.dia)) }
+                }
+            }
         }
     }
 }
+
+private const val AXIS_W = 34
 
 @Composable
 fun LabChartView(g: LabChartGeo, description: String, modifier: Modifier = Modifier) {
