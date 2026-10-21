@@ -25,6 +25,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -56,6 +57,9 @@ import pl.asystent.leki.core.clearTimer
 import pl.asystent.leki.ui.BodyText
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CardShape
+import pl.asystent.leki.ui.CtlShape
+import pl.asystent.leki.ui.Divider
+import pl.asystent.leki.ui.IconAction
 import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiButton
 import pl.asystent.leki.ui.LekiTheme
@@ -112,17 +116,20 @@ fun App(store: Store) {
 
             Scaffold(
                 containerColor = pal.bg,
-                snackbarHost = { SnackbarHost(snackbar) },
+                snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
                 topBar = {
-                    Row(
-                        Modifier.fillMaxWidth().background(pal.bg).statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Asystent leków", style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                            if (s.patient.isNotEmpty()) Text(s.patient, style = TextStyle(fontSize = 12.sp, color = pal.ink3), maxLines = 1)
+                    Column(Modifier.fillMaxWidth().background(pal.bg).statusBarsPadding()) {
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 20.dp, end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Asystent leków", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                                if (s.patient.isNotEmpty()) Text(s.patient, style = TextStyle(fontSize = 12.5.sp, color = pal.ink3), maxLines = 1)
+                            }
+                            IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
                         }
-                        LekiButton("Zasady", { rules = true }, small = true, icon = Ph.Notebook)
+                        Divider()
                     }
                 },
                 bottomBar = {

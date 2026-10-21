@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.3.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.4.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -10,7 +10,7 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 
 - **Leki:** plan dnia z porami (śniadanie, obiad…), odhaczanie dawek z godziną, pomijanie dawek z powodem, zmiany dawkowania w czasie z zachowaniem historii, zamiana leku na inny, stoper po dawce, licznik wody, notatka dnia.
 - **Ciśnienie:** pomiary z tętnem i porą, wykres, średnie, oznaczenia progów ustawianych przez użytkownika.
-- **Badania:** dziennik wyników z zakresami odniesienia, wykresy, widok według parametrów i dat, kontrole z polem na wynik, import wyników z pliku JSON.
+- **Badania:** dziennik wyników z zakresami odniesienia, wykresy, widok według parametrów i dat, kontrole z polem na wynik, import wyników z pliku JSON oraz **dodawanie wyników ze zdjęcia lub PDF (OCR)**.
 - **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida.
 - **Raport dla AI:** gotowy tekst (Markdown) z poleceniem i danymi z aplikacji, do wklejenia w dowolny model AI. Szczegóły niżej.
 - **Przypomnienia o dawkach:** powiadomienia o porach z planu, także przy zamkniętej aplikacji i po restarcie telefonu.
@@ -29,9 +29,20 @@ Tekst składa się z dwóch części:
 
 Okres jest ten sam co w raporcie dla lekarza. Możesz wybrać sekcje i wpisać kontekst medyczny (wiek, płeć, choroby, alergie, leki bez recepty, godziny posiłków), co mocno poprawia analizę. Imię i nazwisko jest domyślnie pomijane. Tekst powstaje na urządzeniu i opuszcza je dopiero, gdy go skopiujesz lub udostępnisz. Odpowiedź AI nie jest poradą medyczną.
 
+## Dodawanie wyników ze zdjęcia lub PDF
+
+W zakładce **Badania** przycisk **Skanuj wyniki** otwiera wybór źródła: **aparat**, **galeria** (jedno lub kilka zdjęć albo zrzutów ekranu) albo **plik PDF** (także skany w PDF, do 12 stron).
+
+1. Aplikacja rozpoznaje tekst na telefonie (ML Kit, model dołączony do aplikacji). Zdjęcia i pliki są przetwarzane w pamięci, nie są zapisywane ani nigdzie wysyłane, a aplikacja nie ma uprawnienia INTERNET.
+2. Z położenia tekstu składa wiersze tabeli i odczytuje nazwę badania, wynik, jednostkę i zakres odniesienia. Rozpoznaje datę pobrania (pomija datę urodzenia) i dopasowuje parametry do tych z aplikacji: zna polskie nazwy i skróty (np. Potas, K, Sód, Na, HGB, WBC, TSH, CRP, cholesterol HDL i LDL), a nieznane proponuje jako nowe parametry razem z zakresem z dokumentu.
+3. **Ekran sprawdzania** pokazuje każdy wynik z oryginalnym wierszem. Możesz poprawić wartość, zmienić parametr, odznaczyć wiersz i ustawić datę. Aplikacja ostrzega, gdy jednostka różni się od zapisanej w aplikacji (np. mg/dl zamiast mmol/l: taki wynik jest domyślnie odznaczony), gdy wynik z tego dnia już istnieje, gdy zmiana względem poprzedniego wyniku jest podejrzanie duża (pomyłka w przecinku) i gdy w wyniku jest „<” lub „>”.
+4. Dopiero po kliknięciu **Zapisz** wyniki trafiają do dziennika (z dopiskiem „ze skanu”). Istniejący wynik z tego samego dnia jest zastępowany.
+
+Wskazówki: cała tabela w kadrze, tekst poziomo, bez cienia i odblasków. PDF pobrany z laboratorium daje zwykle lepszy rezultat niż zdjęcie. Na ekranie sprawdzania zawsze porównaj wartości z oryginałem: rozpoznawanie tekstu bywa niedokładne. Jeśli coś się nie rozpoznaje, w sekcji „Rozpoznany tekst” można skopiować to, co aplikacja zobaczyła.
+
 ## Pobranie APK z GitHuba
 
-Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.3.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.3.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.4.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.4.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
 
 Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików). Wymagany Android 8.0 lub nowszy.
 
@@ -75,9 +86,11 @@ base64 -w0 debug.keystore   # wynik wklej do sekretu; sam plik trzymaj poza repo
 
 ```
 core/          logika bez zależności od Androida (Kotlin/JVM): model danych, harmonogram, statystyki,
-               raporty (lekarz, AI), kopie zapasowe i szyfrowanie, geometria wykresów, przypomnienia
-core/src/test  testy jednostkowe i dane wzorcowe z poprzedniej wersji (fixtures)
-app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie
+               raporty (lekarz, AI), kopie zapasowe i szyfrowanie, geometria wykresów, przypomnienia,
+               odczyt wyników z tekstu OCR (LabScan)
+core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
+app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
+               ocr/ (ML Kit, wczytywanie zdjęć i PDF)
 app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM), publikowane w wydaniu „zrzuty-ekranow”
 assets/        źródłowe rysunki ikony (SVG)
 scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Phosphor (gen-icons.js), tylko dev
@@ -97,12 +110,15 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ## Plany
 
-- Dodawanie wyników badań ze zdjęcia (aparat lub galeria) i z pliku PDF przez rozpoznawanie tekstu (OCR) na urządzeniu, z obowiązkowym ekranem sprawdzenia wartości przed zapisem. Szkic rozwiązania: ML Kit Text Recognition (model w aplikacji, bez internetu), `PdfRenderer` do zamiany stron PDF na obrazy, parser wyników z dopasowaniem do parametrów w aplikacji.
+- Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
+- Podgląd zdjęcia obok wyników na ekranie sprawdzania.
+- Ręczne kadrowanie zdjęcia przed rozpoznaniem.
 
 ## Znane ograniczenia wersji preview
 
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później.
 - Interfejs tylko po polsku.
+- Rozpoznawanie wyników z obrazu zależy od jakości zdjęcia i układu dokumentu; aplikacja pokazuje wszystko do sprawdzenia przed zapisem, ale nie gwarantuje bezbłędnego odczytu. Wyników zapisanych w układzie innym niż tabela (nazwa, wynik, jednostka w jednym wierszu) może nie rozpoznać.
 - Aplikacja była sprawdzana w testach logiki i w kompilacji na CI, ale nie na różnych modelach telefonów. Zgłaszaj błędy.
 - Synchronizacji z własnym serwerem (obecnej w dawnej wersji przeglądarkowej) nie ma. Przenoszenie danych odbywa się przez kopie zapasowe.

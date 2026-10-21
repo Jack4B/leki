@@ -14,7 +14,9 @@ const icons = {
   LockKey: ['regular', 'lock-key'], Printer: ['regular', 'printer'], Plus: ['bold', 'plus'], Check: ['bold', 'check'], CheckCircle: ['fill', 'check-circle'],
   Drop: ['fill', 'drop'], Warning: ['fill', 'warning'], SunHorizon: ['regular', 'sun-horizon'], Sun: ['regular', 'sun'], CloudMoon: ['regular', 'cloud-moon'],
   MoonStars: ['regular', 'moon-stars'], Camera: ['regular', 'camera'], Image: ['regular', 'image'], FilePdf: ['regular', 'file-pdf'], Trash: ['regular', 'trash'],
-  X: ['regular', 'x'], Sparkle: ['regular', 'sparkle'], ShareNetwork: ['regular', 'share-network'], Pencil: ['regular', 'pencil-simple'],
+  X: ['regular', 'x'], Bell: ['regular', 'bell'], Clock: ['regular', 'clock'], Info: ['regular', 'info'], FloppyDisk: ['regular', 'floppy-disk'],
+  User: ['regular', 'user'], Sliders: ['regular', 'sliders-horizontal'], CalendarBlank: ['regular', 'calendar-blank'], Scan: ['regular', 'scan'],
+  ArrowLeft: ['regular', 'arrow-left'], ListChecks: ['regular', 'list-checks'], Stethoscope: ['regular', 'stethoscope'], Table: ['regular', 'table'], Sparkle: ['regular', 'sparkle'], ShareNetwork: ['regular', 'share-network'], Pencil: ['regular', 'pencil-simple'],
 };
 let out = `package pl.asystent.leki.ui
 

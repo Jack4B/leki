@@ -80,7 +80,7 @@ private val SKIP_REASONS = listOf("Zapomniano o dawce", "Złe samopoczucie", "Br
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recoveredFrom: String?, modifier: Modifier = Modifier) {
+fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recoveredFrom: String?, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState()) {
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
@@ -102,7 +102,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
         generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }.toList()
     }
 
-    LazyColumn(modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
+    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         if (recoveredFrom != null) item {
             AlertBox(
                 "Plik danych był uszkodzony",
@@ -111,20 +111,20 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             )
         }
         item {
-            val listState = rememberLazyListState()
+            val stripState = rememberLazyListState()
             LaunchedEffect(selStr, strip.size) {
                 val i = strip.indexOf(sel)
-                if (i >= 0) listState.scrollToItem(maxOf(0, i - 2))
+                if (i >= 0) stripState.scrollToItem(maxOf(0, i - 2))
             }
-            LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 6.dp)) {
+            LazyRow(state = stripState, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 6.dp)) {
                 items(strip, key = { it.toEpochDay() }) { d ->
                     val ds = s.dayStats(d)
                     DayChip(d, today, selected = d == sel, stats = ds, hasEvent = s.events.any { it.date == d }) { select(d) }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                LekiButton("Dziś", { select(today) }, small = true, icon = Ph.CalendarCheck)
-                DateField("", sel, { select(it) }, Modifier.width(170.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                LekiButton("Dziś", { select(today) }, small = true, tonal = true, icon = Ph.CalendarCheck)
+                DatePickerButton(sel, { select(it) })
             }
         }
         item {

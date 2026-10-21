@@ -38,7 +38,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 @Composable
-fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier) {
+fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
@@ -57,7 +57,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier) {
     val list = s.bp.sortedWith(bpOrder).let { all -> if (range == 0) all else all.filter { it.date >= today.minusDays((range - 1).toLong()) } }
     val st = bpStats(list)
 
-    LazyColumn(modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         item {
             Text("Nowy pomiar", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
             BodyText("Mierz siedząc, po 5 minutach odpoczynku, na tym samym ramieniu.", Modifier.padding(top = 4.dp, bottom = 14.dp))

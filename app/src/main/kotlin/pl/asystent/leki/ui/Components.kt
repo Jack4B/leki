@@ -76,7 +76,7 @@ import java.time.ZoneOffset
 /** Komunikat chwilowy (snackbar); dostarczany przez MainActivity. */
 val LocalToast = staticCompositionLocalOf<(String) -> Unit> { {} }
 
-val CardShape = RoundedCornerShape(16.dp)
+val CardShape = RoundedCornerShape(18.dp)
 val CtlShape = RoundedCornerShape(12.dp)
 
 @Composable
@@ -118,11 +118,11 @@ fun PhIcon(icon: ImageVector, modifier: Modifier = Modifier, size: Dp = 20.dp, t
 @Composable
 fun LekiButton(
     text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
-    primary: Boolean = false, danger: Boolean = false, enabled: Boolean = true, icon: ImageVector? = null, small: Boolean = false,
+    primary: Boolean = false, danger: Boolean = false, enabled: Boolean = true, icon: ImageVector? = null, small: Boolean = false, tonal: Boolean = false,
 ) {
-    val bg = if (primary) pal.accent else pal.surface
-    val fg = if (primary) pal.accentInk else if (danger) pal.danger else pal.ink
-    val border = if (primary) pal.accent else pal.line
+    val bg = if (primary) pal.accent else if (tonal) pal.accentSoft else pal.surface
+    val fg = if (primary) pal.accentInk else if (danger) pal.danger else if (tonal) pal.accent else pal.ink
+    val border = if (primary) pal.accent else if (tonal) pal.accentSoft else pal.line
     Row(
         modifier = modifier
             .heightIn(min = if (small) 40.dp else 48.dp)
@@ -352,7 +352,7 @@ fun ConfirmDialog(title: String, text: String, confirmText: String, onConfirm: (
 
 /** Edytor na całym ekranie z paskiem tytułu. */
 @Composable
-fun FullScreenDialog(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun FullScreenDialog(title: String, onClose: () -> Unit, footer: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize(), color = pal.bg) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
@@ -364,6 +364,10 @@ fun FullScreenDialog(title: String, onClose: () -> Unit, content: @Composable Co
                 }
                 Divider()
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+                if (footer != null) {
+                    Divider()
+                    Box(Modifier.fillMaxWidth().background(pal.surface).padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
+                }
             }
         }
     }
@@ -405,5 +409,55 @@ fun DropdownField(label: String, options: List<Pair<String, String>>, selectedId
                 }
             }
         }
+    }
+}
+
+/** Przełączana pigułka z ptaszkiem (wybór wielu opcji). */
+@Composable
+fun ToggleChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
+            .background(if (selected) pal.accentSoft else pal.surface).clickable(role = Role.Checkbox, onClick = onClick).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (selected) { Icon(Ph.Check, null, Modifier.size(15.dp), tint = pal.accent); Spacer(Modifier.size(6.dp)) }
+        Text(text, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accent else pal.ink2))
+    }
+}
+
+/** Mały nagłówek grupy nad listą. */
+@Composable
+fun Overline(text: String, modifier: Modifier = Modifier) {
+    Text(text.uppercase(), modifier = modifier.padding(bottom = 8.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp))
+}
+
+/** Przycisk z samą ikoną (np. kalendarz, wstecz). */
+@Composable
+fun IconAction(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = true) {
+    Box(
+        modifier.size(44.dp).clip(CircleShape).background(if (tonal) pal.accentSoft else Color.Transparent).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, Modifier.size(22.dp), tint = if (tonal) pal.accent else pal.ink) }
+}
+
+/** Ikona w kolorowym kółku, np. przy wierszu ustawień. */
+@Composable
+fun IconBadge(icon: ImageVector, modifier: Modifier = Modifier) {
+    Box(modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(pal.accentSoft), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(22.dp), tint = pal.accent) }
+}
+
+/** Okno wyboru daty uruchamiane samą ikoną kalendarza. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerButton(date: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    IconAction(Ph.CalendarBlank, "Wybierz datę", { open = true }, modifier)
+    if (open) {
+        val st = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = { TextButton(onClick = { st.selectedDateMillis?.let { onChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }; open = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("Anuluj") } },
+        ) { DatePicker(state = st) }
     }
 }

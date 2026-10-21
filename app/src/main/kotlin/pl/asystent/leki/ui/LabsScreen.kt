@@ -48,7 +48,7 @@ import pl.asystent.leki.core.shortDate
 import java.time.LocalDate
 
 @Composable
-fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifier = Modifier) {
+fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val toast = LocalToast.current
     var openId by rememberSaveable { mutableStateOf("") }
     var mode by rememberSaveable { mutableStateOf(0) }
@@ -56,18 +56,20 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     var markerEdit by remember { mutableStateOf<Marker?>(null) }
     var markerNew by remember { mutableStateOf(false) }
     var showNone by rememberSaveable { mutableStateOf(false) }
+    var scan by remember { mutableStateOf(false) }
 
     val model = s.labsModel()
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
     if (openId.isNotEmpty() && s.marker(openId) == null) openId = ""
     val open = s.marker(openId)
 
-    LazyColumn(modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
+    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         if (open == null) {
             item {
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Badania", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                    LekiButton("Dodaj wynik", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, primary = true, small = true)
+                Text("Badania", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 12.dp, bottom = 12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+                    LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.4f), primary = true, icon = Ph.Scan)
+                    LekiButton("Dodaj ręcznie", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, Modifier.weight(1f), tonal = true, icon = Ph.Plus)
                 }
                 SegRow(listOf("Parametry", "Według dat"), mode, { mode = it })
             }
@@ -138,6 +140,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
         }
     }
 
+    if (scan) ScanDialog(s, store, onClose = { scan = false })
     labEdit?.let { (lab, markerId) ->
         LabEditor(s, lab, markerId, onSave = { store.update { st -> st.saveLab(it) }; labEdit = null; toast("Zapisano wynik") },
             onDelete = { id -> store.update { it.deleteLab(id) }; labEdit = null; toast("Usunięto wynik") }, onDismiss = { labEdit = null })
@@ -156,7 +159,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overview(
             Stat("${model.out.size}", "poza zakresem", Modifier.weight(1f), valueColor = if (model.out.isNotEmpty()) pal.warn else pal.ink)
             Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie badanie", Modifier.weight(1f))
         }
-        if (model.withResults.isEmpty()) EmptyBox("Brak wyników. Dodaj pierwszy wynik lub dołącz plik z wynikami.", Modifier.padding(top = 16.dp))
+        if (model.withResults.isEmpty()) EmptyBox("Brak wyników. Zeskanuj wyniki ze zdjęcia lub pliku PDF albo dodaj pierwszy wynik ręcznie.", Modifier.padding(top = 16.dp))
     }
     if (model.out.isNotEmpty()) item {
         Column(Modifier.padding(top = 18.dp)) {

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -14,7 +15,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +52,7 @@ import pl.asystent.leki.core.deleteEvent
 import pl.asystent.leki.core.deleteSlot
 import pl.asystent.leki.core.hhmm
 import pl.asystent.leki.core.newId
+import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.phaseAt
 import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
@@ -62,11 +68,21 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
+private enum class Page(val title: String) {
+    Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"), Markers("Parametry badań"),
+    General("Ogólne"), Reminders("Przypomnienia o lekach"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
+}
+
 @Composable
-fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
+) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val today = LocalDate.now()
+    var pageName by rememberSaveable { mutableStateOf(initialPage) }
+    val page = Page.values().firstOrNull { it.name == pageName } ?: Page.Home
     var medEdit by remember { mutableStateOf<Pair<String?, String?>?>(null) } // (id leku, id leku zastępowanego)
     var slotEdit by remember { mutableStateOf<Slot?>(null) }
     var slotNew by remember { mutableStateOf(false) }
@@ -80,10 +96,12 @@ fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedReques
     var showAllMarkers by rememberSaveable { mutableStateOf(false) }
     val saveJson = rememberJsonSaver(s, store)
 
-    LaunchedEffect(newMedRequest) { if (newMedRequest) { medEdit = null to null; onNewMedHandled() } }
+    BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
+    LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
 
     val active = s.meds.filter { m -> m.end.let { e -> e == null || e >= today } }
     val ended = s.meds.filter { m -> m.end.let { e -> e != null && e < today } }
+    val upcomingEvents = s.events.count { it.date >= today }
     val evs = s.events.sortedWith { a, b ->
         val fa = a.date >= today; val fb = b.date >= today
         if (fa != fb) (if (fa) -1 else 1) else if (fa) a.date.compareTo(b.date) else b.date.compareTo(a.date)
@@ -91,65 +109,116 @@ fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedReques
     val c = s.settings
     fun setCfg(f: (AppSettings) -> AppSettings) = store.update { it.copy(settings = f(it.settings)) }
 
-    LazyColumn(modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 32.dp)) {
-        item {
-            SectionTitle("Leki") { LekiButton("Dodaj lek", { medEdit = null to null }, small = true, icon = Ph.Plus) }
-            if (active.isEmpty()) EmptyBox("Brak aktywnych leków.") else LekiCard { active.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
-            if (ended.isNotEmpty()) {
-                LinkButton((if (showEnded) "▾ " else "▸ ") + "Zakończone (${ended.size})", { showEnded = !showEnded })
-                if (showEnded) LekiCard { ended.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
-            }
-        }
-        item {
-            SectionTitle("Pory dnia") { LekiButton("Dodaj porę", { slotNew = true }, small = true, icon = Ph.Plus) }
-            LekiCard {
-                s.sortedSlots().forEachIndexed { i, sl ->
-                    if (i > 0) Divider()
-                    SettingRow(sl.name, sl.time.hhmm(), mono = true) { slotEdit = sl }
+    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)) {
+        if (page == Page.Home) {
+            item {
+                Text("Ustawienia", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                Overline("Plan")
+                LekiCard {
+                    NavRow(Ph.Pill, "Leki", if (active.isEmpty()) "Brak aktywnych leków" else "${active.size} ${plN(active.size, "aktywny", "aktywne", "aktywnych")}") { pageName = Page.Meds.name }
+                    Divider()
+                    NavRow(Ph.Clock, "Pory dnia", s.sortedSlots().joinToString(", ") { it.name }) { pageName = Page.Slots.name }
+                    Divider()
+                    NavRow(Ph.Stethoscope, "Kontrole i przypomnienia", if (upcomingEvents == 0) "Brak zaplanowanych" else "$upcomingEvents ${plN(upcomingEvents, "zaplanowana", "zaplanowane", "zaplanowanych")}") { pageName = Page.Events.name }
+                }
+                Spacer(Modifier.height(22.dp))
+                Overline("Badania")
+                LekiCard {
+                    NavRow(Ph.Flask, "Parametry badań", "${s.markers.size} ${plN(s.markers.size, "parametr", "parametry", "parametrów")}, zakresy odniesienia") { pageName = Page.Markers.name }
+                }
+                Spacer(Modifier.height(22.dp))
+                Overline("Aplikacja")
+                LekiCard {
+                    NavRow(Ph.Sliders, "Ogólne", "Imię do raportu, woda, progi ciśnienia, motyw") { pageName = Page.General.name }
+                    Divider()
+                    NavRow(Ph.Bell, "Przypomnienia o lekach", if (c.remindOn) "Włączone" else "Wyłączone") { pageName = Page.Reminders.name }
+                    Divider()
+                    NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
+                    Divider()
+                    NavRow(Ph.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME}") { pageName = Page.About.name }
                 }
             }
-        }
-        item {
-            SectionTitle("Kontrole i przypomnienia") { LekiButton("Dodaj", { eventNew = true }, small = true, icon = Ph.Plus) }
-            if (evs.isEmpty()) EmptyBox("Brak kontroli. Dodaj np. badanie krwi lub wizytę u lekarza, a pojawi się w danym dniu.")
-            else LekiCard { evs.forEachIndexed { i, e -> if (i > 0) Divider(); SettingRow(e.title, plDate(e.date) + if (e.field.isNotEmpty()) ", pole: ${e.field}" else "") { eventEdit = e } } }
-        }
-        item {
-            SectionTitle("Parametry badań") { LekiButton("Dodaj", { markerNew = true }, small = true, icon = Ph.Plus) }
-            val shown = if (s.markers.size > 8 && !showAllMarkers) s.markers.take(8) else s.markers
-            LekiCard {
-                shown.forEachIndexed { i, m ->
-                    if (i > 0) Divider()
-                    SettingRow(m.name, listOf(m.unit, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres odniesienia $it" } ?: "bez zakresu").filter { it.isNotEmpty() }.joinToString(", ")) { markerEdit = m }
-                }
-            }
-            if (s.markers.size > 8) LinkButton(if (showAllMarkers) "Pokaż mniej" else "Pokaż wszystkie (${s.markers.size})", { showAllMarkers = !showAllMarkers })
-            Hint("Zakresy są orientacyjne. Wpisz te z wyników swojego laboratorium.", Modifier.padding(top = 6.dp))
-        }
-        item { GeneralSection(s, store, ::setCfg) }
-        item { ReminderSection(s, store) }
-        item {
-            SectionTitle("Dane")
-            LekiCard {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BodyText("Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
-                    LekiButton("Zaszyfrowana kopia (hasło)", { encrypt = true }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
-                    Hint("Zalecane do chmury (Dysk Google, Filen). Dane są szyfrowane na tym urządzeniu, zanim opuszczą telefon.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), icon = Ph.DownloadSimple)
-                        LekiButton("Kopiuj JSON", {
-                            Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))
-                            store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
-                        }, Modifier.weight(1f), icon = Ph.Copy)
+        } else {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconAction(Ph.ArrowLeft, "Wróć", { pageName = Page.Home.name }, tonal = false)
+                    Text(page.title, style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f).padding(start = 4.dp))
+                    when (page) {
+                        Page.Meds -> LekiButton("Dodaj lek", { medEdit = null to null }, small = true, tonal = true, icon = Ph.Plus)
+                        Page.Slots -> LekiButton("Dodaj", { slotNew = true }, small = true, tonal = true, icon = Ph.Plus)
+                        Page.Events -> LekiButton("Dodaj", { eventNew = true }, small = true, tonal = true, icon = Ph.Plus)
+                        Page.Markers -> LekiButton("Dodaj", { markerNew = true }, small = true, tonal = true, icon = Ph.Plus)
+                        else -> {}
                     }
-                    LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
-                    LinkButton("Usuń wszystkie dane", { confirmClear = true }, danger = true)
                 }
             }
-        }
-        item {
-            SectionTitle("O aplikacji")
-            BodyText("Asystent leków ${BuildConfig.VERSION_NAME}. Dane zostają na tym urządzeniu, aplikacja nie łączy się z internetem. Ikony: Phosphor Icons (MIT). Aplikacja nie ocenia wyników i nie zastępuje lekarza.")
+            when (page) {
+                Page.Meds -> item {
+                    if (active.isEmpty()) EmptyBox("Brak aktywnych leków.", action = { LekiButton("Dodaj lek", { medEdit = null to null }, primary = true, icon = Ph.Plus) })
+                    else LekiCard { active.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
+                    if (ended.isNotEmpty()) {
+                        LinkButton((if (showEnded) "▾ " else "▸ ") + "Zakończone (${ended.size})", { showEnded = !showEnded }, Modifier.padding(top = 8.dp))
+                        if (showEnded) LekiCard { ended.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
+                    }
+                }
+                Page.Slots -> item {
+                    LekiCard { s.sortedSlots().forEachIndexed { i, sl -> if (i > 0) Divider(); SettingRow(sl.name, sl.time.hhmm(), mono = true) { slotEdit = sl } } }
+                    Hint("Godzina pory ustala kolejność na liście dnia i czas przypomnień.", Modifier.padding(top = 8.dp))
+                }
+                Page.Events -> item {
+                    if (evs.isEmpty()) EmptyBox("Brak kontroli. Dodaj np. badanie krwi lub wizytę u lekarza, a pojawi się w danym dniu.", action = { LekiButton("Dodaj kontrolę", { eventNew = true }, primary = true, icon = Ph.Plus) })
+                    else LekiCard { evs.forEachIndexed { i, e -> if (i > 0) Divider(); SettingRow(e.title, plDate(e.date) + if (e.field.isNotEmpty()) ", pole: ${e.field}" else "") { eventEdit = e } } }
+                }
+                Page.Markers -> item {
+                    val shown = if (s.markers.size > 8 && !showAllMarkers) s.markers.take(8) else s.markers
+                    LekiCard {
+                        shown.forEachIndexed { i, m ->
+                            if (i > 0) Divider()
+                            SettingRow(m.name, listOf(m.unit, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres odniesienia $it" } ?: "bez zakresu").filter { it.isNotEmpty() }.joinToString(", ")) { markerEdit = m }
+                        }
+                    }
+                    if (s.markers.size > 8) LinkButton(if (showAllMarkers) "Pokaż mniej" else "Pokaż wszystkie (${s.markers.size})", { showAllMarkers = !showAllMarkers })
+                    Hint("Zakresy są orientacyjne. Wpisz te z wyników swojego laboratorium.", Modifier.padding(top = 8.dp))
+                }
+                Page.General -> item { GeneralSection(s, store, ::setCfg) }
+                Page.Reminders -> item { ReminderSection(s, store) }
+                Page.Data -> item {
+                    LekiCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            BodyText("Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
+                            LekiButton("Zaszyfrowana kopia (hasło)", { encrypt = true }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
+                            Hint("Zalecane do chmury (Dysk Google, Filen). Dane są szyfrowane na tym urządzeniu, zanim opuszczą telefon.")
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), tonal = true, icon = Ph.DownloadSimple)
+                                LekiButton("Kopiuj JSON", {
+                                    Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))
+                                    store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
+                                }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
+                            }
+                            LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
+                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    LekiCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Usuwanie danych", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                            BodyText("Usuwa wszystko z tego urządzenia. Zrób wcześniej kopię.")
+                            LinkButton("Usuń wszystkie dane", { confirmClear = true }, danger = true)
+                        }
+                    }
+                }
+                Page.About -> item {
+                    LekiCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Asystent leków ${BuildConfig.VERSION_NAME}", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                            BodyText("Dane zostają na tym urządzeniu. Aplikacja nie ma dostępu do internetu, więc niczego nie wysyła, a rozpoznawanie tekstu ze zdjęć działa na telefonie.")
+                            BodyText("Aplikacja tylko zapisuje i porządkuje dane wpisane przez użytkownika. Nie ocenia wyników i nie zastępuje lekarza.")
+                            Hint("Ikony: Phosphor Icons (MIT). Rozpoznawanie tekstu: ML Kit Text Recognition (model dołączony do aplikacji).")
+                        }
+                    }
+                }
+                Page.Home -> {}
+            }
         }
     }
 
@@ -169,6 +238,19 @@ fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedReques
         "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
         "Usuń wszystko", onConfirm = { store.replace(AppState()); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
     )
+}
+
+/** Wiersz przejścia do podstrony ustawień: ikona, tytuł i krótkie podsumowanie. */
+@Composable
+private fun NavRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, summary: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        IconBadge(icon)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Text(summary, style = TextStyle(fontSize = 13.sp, color = pal.ink3), maxLines = 1, modifier = Modifier.padding(top = 1.dp))
+        }
+        PhIcon(Ph.CaretRight, size = 16.dp)
+    }
 }
 
 @Composable
@@ -198,7 +280,6 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
     var patient by remember { mutableStateOf(s.patient) }
     var reportNote by remember { mutableStateOf(c.reportNote) }
     var rules by remember { mutableStateOf(s.rules) }
-    SectionTitle("Ogólne")
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             LekiField("Imię i nazwisko (do raportu)", patient, { patient = it; store.update { st -> st.copy(patient = it.trim()) } })
@@ -259,7 +340,6 @@ private fun ReminderSection(s: AppState, store: Store) {
         } else enable()
     }
     val planned = if (c.remindOn) s.reminders(ZoneId.systemDefault(), System.currentTimeMillis(), LocalDate.now()).size else 0
-    SectionTitle("Przypomnienia o lekach")
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BodyText("Powiadomienie o porach dawek z Twojego planu, także przy zamkniętej aplikacji. Pomija pory, które są już odhaczone.")

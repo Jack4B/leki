@@ -56,6 +56,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.androidx.exifinterface)
     implementation(platform(libs.compose.bom))
     testImplementation(libs.junit)
     implementation(libs.compose.ui)
