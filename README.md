@@ -31,15 +31,11 @@ Okres jest ten sam co w raporcie dla lekarza (7, 14, 30 dni, wszystko albo włas
 
 ## Pobranie APK z GitHuba
 
-1. Wejdź w **Actions → Zbuduj APK** i otwórz ostatni udany przebieg (albo uruchom go przyciskiem **Run workflow**).
-2. Na dole strony przebiegu pobierz artefakt **asystent-lekow-apk** (plik `asystent-lekow-0.2.0-preview.apk` i suma kontrolna `.sha256`).
-3. Skopiuj APK na telefon i zainstaluj (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików).
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.2.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.2.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź.
 
-Po wypchnięciu tagu `v*` (np. `v0.2.0-preview`) workflow sam tworzy też wydanie (prerelease) z dołączonym APK:
+Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK** (na dole strony przebiegu, **asystent-lekow-apk**).
 
-```
-git tag v0.2.0-preview && git push origin v0.2.0-preview
-```
+Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików).
 
 ## Przywrócenie własnych danych
 
