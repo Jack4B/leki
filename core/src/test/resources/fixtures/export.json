@@ -1,0 +1,880 @@
+{
+  "app": "asystent-lekow",
+  "version": 3,
+  "exportedAt": "2026-10-21T12:00:01.483Z",
+  "data": {
+    "v": 3,
+    "patient": "Jan Testowy",
+    "created": "2026-09-26",
+    "lastBackup": "2026-10-21",
+    "settings": {
+      "rp": {
+        "bp": true,
+        "labs": true,
+        "labsPeriod": false,
+        "meds": true,
+        "plan": true,
+        "events": true
+      },
+      "ai": {
+        "meds": true,
+        "history": true,
+        "adherence": true,
+        "bp": true,
+        "labs": true,
+        "events": true,
+        "notes": true,
+        "name": false,
+        "context": "Mężczyzna, 60 lat\nnadciśnienie"
+      },
+      "lateMin": 60,
+      "waterGoal": 10,
+      "glassMl": 250,
+      "hiSys": 135,
+      "hiDia": 85,
+      "loSys": 100,
+      "loDia": 60,
+      "theme": "auto",
+      "reportNote": "Okres testowy",
+      "remind": {
+        "on": false,
+        "lead": 0
+      }
+    },
+    "rules": "Zasada 1: <ważne> & \"ostrożnie\"\n\nZasada 2",
+    "slots": [
+      {
+        "id": "morning",
+        "name": "Śniadanie",
+        "time": "08:00"
+      },
+      {
+        "id": "lunch",
+        "name": "Obiad",
+        "time": "14:30"
+      },
+      {
+        "id": "dinner",
+        "name": "Kolacja",
+        "time": "19:00"
+      },
+      {
+        "id": "night",
+        "name": "Przed snem",
+        "time": "22:00"
+      }
+    ],
+    "meds": [
+      {
+        "id": "a",
+        "name": "Lek A",
+        "substance": "substancja alfa",
+        "note": "po posiłku",
+        "unit": "tabl.",
+        "timerMin": 30,
+        "mmol": 10,
+        "end": null,
+        "phases": [
+          {
+            "from": "2026-10-01",
+            "doses": {
+              "morning": 2,
+              "dinner": 1
+            },
+            "dow": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          },
+          {
+            "from": "2026-10-11",
+            "doses": {
+              "morning": 1.5,
+              "dinner": 1
+            },
+            "dow": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          }
+        ]
+      },
+      {
+        "id": "b",
+        "name": "Lek B",
+        "substance": "",
+        "note": "",
+        "unit": "tabl.",
+        "timerMin": 0,
+        "mmol": 0,
+        "end": null,
+        "phases": [
+          {
+            "from": "2026-10-01",
+            "doses": {
+              "night": 1
+            },
+            "dow": [
+              1,
+              3,
+              5
+            ]
+          }
+        ]
+      },
+      {
+        "id": "c",
+        "name": "Lek C",
+        "substance": "beta",
+        "note": "",
+        "unit": "sasz.",
+        "timerMin": 0,
+        "mmol": 0,
+        "end": "2026-10-20",
+        "phases": [
+          {
+            "from": "2026-10-13",
+            "doses": {
+              "lunch": 1
+            },
+            "dow": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          }
+        ]
+      },
+      {
+        "id": "d",
+        "name": "Lek D",
+        "substance": "",
+        "note": "od jutra",
+        "unit": "tabl.",
+        "timerMin": 0,
+        "mmol": 0,
+        "end": null,
+        "phases": [
+          {
+            "from": "2026-10-23",
+            "doses": {
+              "morning": 1
+            },
+            "dow": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "id": "e0",
+        "date": "2026-10-20",
+        "title": "Badanie krwi",
+        "note": "na czczo",
+        "field": "Potas (mmol/l)",
+        "marker": "potas"
+      },
+      {
+        "id": "e1",
+        "date": "2026-10-26",
+        "title": "Wizyta",
+        "note": "",
+        "field": "",
+        "marker": ""
+      }
+    ],
+    "markers": [
+      {
+        "id": "potas",
+        "name": "Potas",
+        "unit": "mmol/l",
+        "lo": 3.5,
+        "hi": 5.5,
+        "grp": "Elektrolity"
+      },
+      {
+        "id": "sod",
+        "name": "Sód",
+        "unit": "mmol/l",
+        "lo": 136,
+        "hi": 146,
+        "grp": "Elektrolity"
+      },
+      {
+        "id": "tsh",
+        "name": "TSH",
+        "unit": "mIU/l",
+        "lo": 0.27,
+        "hi": 4.2,
+        "grp": "Wątroba i tarczyca"
+      },
+      {
+        "id": "x",
+        "name": "Bez wyników",
+        "unit": "",
+        "lo": null,
+        "hi": null,
+        "grp": "Inne"
+      }
+    ],
+    "labs": [
+      {
+        "id": "l1",
+        "date": "2026-10-09",
+        "marker": "potas",
+        "value": 2.8,
+        "note": "wyjściowy"
+      },
+      {
+        "id": "l2",
+        "date": "2026-10-15",
+        "marker": "potas",
+        "value": 3.4,
+        "note": ""
+      },
+      {
+        "id": "l3",
+        "date": "2026-10-18",
+        "marker": "sod",
+        "value": 134,
+        "note": ""
+      },
+      {
+        "id": "l4",
+        "date": "2026-10-18",
+        "marker": "tsh",
+        "value": 2.15,
+        "note": ""
+      },
+      {
+        "id": "ev:e0",
+        "date": "2026-10-20",
+        "marker": "potas",
+        "value": 4.3,
+        "note": "Badanie krwi"
+      }
+    ],
+    "days": {
+      "2026-10-01": {
+        "taken": {
+          "a|dinner": 1
+        },
+        "times": {
+          "a|dinner": "19:10"
+        },
+        "skipped": {
+          "b|night": {
+            "reason": "Brak leku",
+            "note": "skończył się"
+          }
+        },
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-02": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "07:55",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-03": {
+        "taken": {
+          "a|morning": 1,
+          "b|night": 1
+        },
+        "times": {
+          "a|morning": "09:30",
+          "b|night": "22:28"
+        },
+        "skipped": {},
+        "water": 4,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-04": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:40",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-05": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:05",
+          "a|dinner": "19:10"
+        },
+        "skipped": {
+          "b|night": {
+            "reason": "Brak leku",
+            "note": "skończył się"
+          }
+        },
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-06": {
+        "taken": {},
+        "times": {},
+        "skipped": {},
+        "water": 4,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-07": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1,
+          "b|night": 1
+        },
+        "times": {
+          "a|morning": "09:30",
+          "a|dinner": "19:10",
+          "b|night": "22:24"
+        },
+        "skipped": {},
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-08": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:40",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-09": {
+        "taken": {
+          "a|morning": 1
+        },
+        "times": {
+          "a|morning": "08:05"
+        },
+        "skipped": {
+          "b|night": {
+            "reason": "Brak leku",
+            "note": "skończył się"
+          }
+        },
+        "water": 4,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-10": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "07:55",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-11": {
+        "taken": {
+          "a|dinner": 1,
+          "b|night": 1
+        },
+        "times": {
+          "a|dinner": "19:10",
+          "b|night": "22:20"
+        },
+        "skipped": {},
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-12": {
+        "taken": {
+          "a|morning": 1
+        },
+        "times": {
+          "a|morning": "08:40"
+        },
+        "skipped": {},
+        "water": 4,
+        "note": "Dobre samopoczucie",
+        "results": {}
+      },
+      "2026-10-13": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:05",
+          "a|dinner": "19:10"
+        },
+        "skipped": {
+          "b|night": {
+            "reason": "Brak leku",
+            "note": "skończył się"
+          }
+        },
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-14": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "07:55",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-15": {
+        "taken": {
+          "a|morning": 1,
+          "b|night": 1
+        },
+        "times": {
+          "a|morning": "09:30",
+          "b|night": "22:16"
+        },
+        "skipped": {},
+        "water": 4,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-16": {
+        "taken": {
+          "a|dinner": 1
+        },
+        "times": {
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 2,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-17": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:05",
+          "a|dinner": "19:10"
+        },
+        "skipped": {
+          "b|night": {
+            "reason": "Brak leku",
+            "note": "skończył się"
+          }
+        },
+        "water": 3,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-18": {
+        "taken": {
+          "a|morning": 1
+        },
+        "times": {
+          "a|morning": "07:55"
+        },
+        "skipped": {},
+        "water": 4,
+        "note": "",
+        "results": {}
+      },
+      "2026-10-19": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1,
+          "b|night": 1
+        },
+        "times": {
+          "a|morning": "09:30",
+          "a|dinner": "19:10",
+          "b|night": "22:12"
+        },
+        "skipped": {},
+        "water": 2,
+        "note": "Zawroty głowy | po południu",
+        "results": {}
+      },
+      "2026-10-20": {
+        "taken": {
+          "a|morning": 1,
+          "a|dinner": 1
+        },
+        "times": {
+          "a|morning": "08:40",
+          "a|dinner": "19:10"
+        },
+        "skipped": {},
+        "water": 3,
+        "note": "",
+        "results": {
+          "e0": "4,3"
+        }
+      },
+      "2026-10-21": {
+        "taken": {},
+        "times": {},
+        "skipped": {},
+        "water": 4,
+        "note": "",
+        "results": {}
+      }
+    },
+    "bp": [
+      {
+        "id": "p-18a",
+        "date": "2026-10-03",
+        "time": "08:08",
+        "sys": 142,
+        "dia": 78,
+        "pulse": 62,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-18b",
+        "date": "2026-10-03",
+        "time": "20:30",
+        "sys": 138,
+        "dia": 80,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-17a",
+        "date": "2026-10-04",
+        "time": "08:07",
+        "sys": 124,
+        "dia": 81,
+        "pulse": 70,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-16a",
+        "date": "2026-10-05",
+        "time": "08:06",
+        "sys": 131,
+        "dia": 84,
+        "pulse": null,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-16b",
+        "date": "2026-10-05",
+        "time": "20:30",
+        "sys": 128,
+        "dia": 84,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-15a",
+        "date": "2026-10-06",
+        "time": "08:05",
+        "sys": 138,
+        "dia": 87,
+        "pulse": 68,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-14a",
+        "date": "2026-10-07",
+        "time": "08:04",
+        "sys": 120,
+        "dia": 76,
+        "pulse": 67,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-14b",
+        "date": "2026-10-07",
+        "time": "20:30",
+        "sys": 138,
+        "dia": 88,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-13a",
+        "date": "2026-10-08",
+        "time": "08:03",
+        "sys": 127,
+        "dia": 79,
+        "pulse": 66,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-12a",
+        "date": "2026-10-09",
+        "time": "08:02",
+        "sys": 134,
+        "dia": 82,
+        "pulse": null,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-12b",
+        "date": "2026-10-09",
+        "time": "20:30",
+        "sys": 128,
+        "dia": 80,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-11a",
+        "date": "2026-10-10",
+        "time": "08:01",
+        "sys": 141,
+        "dia": 85,
+        "pulse": 64,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-10a",
+        "date": "2026-10-11",
+        "time": "08:00",
+        "sys": 123,
+        "dia": 88,
+        "pulse": 63,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-10b",
+        "date": "2026-10-11",
+        "time": "20:30",
+        "sys": 138,
+        "dia": 84,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-9a",
+        "date": "2026-10-12",
+        "time": "08:09",
+        "sys": 130,
+        "dia": 77,
+        "pulse": 62,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-8a",
+        "date": "2026-10-13",
+        "time": "08:08",
+        "sys": 137,
+        "dia": 80,
+        "pulse": null,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-8b",
+        "date": "2026-10-13",
+        "time": "20:30",
+        "sys": 128,
+        "dia": 88,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-7a",
+        "date": "2026-10-14",
+        "time": "08:07",
+        "sys": 119,
+        "dia": 83,
+        "pulse": 69,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-6a",
+        "date": "2026-10-15",
+        "time": "08:06",
+        "sys": 126,
+        "dia": 86,
+        "pulse": 68,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-6b",
+        "date": "2026-10-15",
+        "time": "20:30",
+        "sys": 138,
+        "dia": 80,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-5a",
+        "date": "2026-10-16",
+        "time": "08:05",
+        "sys": 133,
+        "dia": 89,
+        "pulse": 67,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-4a",
+        "date": "2026-10-17",
+        "time": "08:04",
+        "sys": 140,
+        "dia": 78,
+        "pulse": null,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-4b",
+        "date": "2026-10-17",
+        "time": "20:30",
+        "sys": 128,
+        "dia": 84,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-3a",
+        "date": "2026-10-18",
+        "time": "08:03",
+        "sys": 122,
+        "dia": 81,
+        "pulse": 65,
+        "ctx": "rano",
+        "note": "po kawie"
+      },
+      {
+        "id": "p-2a",
+        "date": "2026-10-19",
+        "time": "08:02",
+        "sys": 129,
+        "dia": 84,
+        "pulse": 64,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p-2b",
+        "date": "2026-10-19",
+        "time": "20:30",
+        "sys": 138,
+        "dia": 88,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      },
+      {
+        "id": "p-1a",
+        "date": "2026-10-20",
+        "time": "08:01",
+        "sys": 136,
+        "dia": 87,
+        "pulse": 63,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p0a",
+        "date": "2026-10-21",
+        "time": "08:00",
+        "sys": 118,
+        "dia": 76,
+        "pulse": null,
+        "ctx": "rano",
+        "note": ""
+      },
+      {
+        "id": "p0b",
+        "date": "2026-10-21",
+        "time": "20:30",
+        "sys": 128,
+        "dia": 80,
+        "pulse": 70,
+        "ctx": "wieczór",
+        "note": ""
+      }
+    ],
+    "timerEnd": 0,
+    "timerMed": "",
+    "timerNote": ""
+  }
+}

@@ -1,0 +1,158 @@
+package pl.asystent.leki.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import pl.asystent.leki.Store
+import pl.asystent.leki.core.AppState
+import pl.asystent.leki.core.Bp
+import pl.asystent.leki.core.addBp
+import pl.asystent.leki.core.bpChart
+import pl.asystent.leki.core.bpFlag
+import pl.asystent.leki.core.bpOrder
+import pl.asystent.leki.core.bpStats
+import pl.asystent.leki.core.deleteBp
+import pl.asystent.leki.core.hhmm
+import pl.asystent.leki.core.longDay
+import pl.asystent.leki.core.newId
+import pl.asystent.leki.core.thresholdText
+import java.time.LocalDate
+import java.time.LocalTime
+
+@Composable
+fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier) {
+    val now by rememberNow()
+    val today = now.toLocalDate()
+    val toast = LocalToast.current
+    var sys by rememberSaveable { mutableStateOf("") }
+    var dia by rememberSaveable { mutableStateOf("") }
+    var pulse by rememberSaveable { mutableStateOf("") }
+    var bpNote by rememberSaveable { mutableStateOf("") }
+    var dateStr by rememberSaveable { mutableStateOf(today.toString()) }
+    var timeStr by rememberSaveable { mutableStateOf(now.toLocalTime().withSecond(0).withNano(0).toString()) }
+    var ctxIdx by rememberSaveable { mutableStateOf(if (now.hour < 11) 0 else if (now.hour >= 17) 1 else 2) }
+    var err by remember { mutableStateOf("") }
+    var range by rememberSaveable { mutableStateOf(7) }
+    var delId by remember { mutableStateOf<String?>(null) }
+    val ctxNames = listOf("rano", "wieczór", "inne")
+
+    val list = s.bp.sortedWith(bpOrder).let { all -> if (range == 0) all else all.filter { it.date >= today.minusDays((range - 1).toLong()) } }
+    val st = bpStats(list)
+
+    LazyColumn(modifier, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        item {
+            Text("Nowy pomiar", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            BodyText("Mierz siedząc, po 5 minutach odpoczynku, na tym samym ramieniu.", Modifier.padding(top = 4.dp, bottom = 14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LekiField("Skurczowe", sys, { sys = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
+                    LekiField("Rozkurczowe", dia, { dia = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
+                    LekiField("Tętno", pulse, { pulse = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DateField("Data", LocalDate.parse(dateStr), { dateStr = it.toString() }, Modifier.weight(1f))
+                    TimeField("Godzina", LocalTime.parse(timeStr), { timeStr = it.toString() }, Modifier.weight(1f))
+                }
+                Column {
+                    Text("Pora pomiaru", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    SegRow(listOf("Rano", "Wieczór", "Inne"), ctxIdx, { ctxIdx = it })
+                }
+                LekiField("Notatka (opcjonalnie)", bpNote, { bpNote = it }, placeholder = "np. po spacerze, brak skurczów")
+                ErrorText(err)
+                LekiButton("Zapisz pomiar", {
+                    val sy = sys.toIntOrNull(); val di = dia.toIntOrNull(); val pu = pulse.toIntOrNull()?.takeIf { it > 0 }
+                    err = when {
+                        sy == null || di == null || sy == 0 || di == 0 -> "Wpisz ciśnienie skurczowe i rozkurczowe."
+                        sy < 60 || sy > 260 || di < 30 || di > 160 -> "Wartości poza zakresem (skurczowe 60-260, rozkurczowe 30-160)."
+                        sy <= di -> "Skurczowe musi być większe od rozkurczowego."
+                        pu != null && (pu < 30 || pu > 220) -> "Tętno powinno mieścić się w zakresie 30-220."
+                        else -> ""
+                    }
+                    if (err.isEmpty()) {
+                        store.update { it.addBp(Bp(newId(), LocalDate.parse(dateStr), LocalTime.parse(timeStr), sy!!, di!!, pu, ctxNames[ctxIdx], bpNote.trim())) }
+                        toast("Zapisano pomiar $sy/$di")
+                        sys = ""; dia = ""; pulse = ""; bpNote = ""
+                        dateStr = today.toString(); timeStr = now.toLocalTime().withSecond(0).withNano(0).toString()
+                    }
+                }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Plus)
+            }
+        }
+        item {
+            Column(Modifier.padding(top = 24.dp)) {
+                if (s.bp.isNotEmpty()) SegRow(listOf("7 dni", "30 dni", "Wszystko"), when (range) { 7 -> 0; 30 -> 1; else -> 2 }, { range = when (it) { 0 -> 7; 1 -> 30; else -> 0 } }, Modifier.padding(bottom = 14.dp))
+                if (list.isNotEmpty()) {
+                    Text("Podsumowanie", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Stat("${st.s}/${st.d}", "średnie ciśnienie", Modifier.weight(1f))
+                        Stat("${st.n}", "pomiarów", Modifier.weight(1f))
+                        Stat(st.p?.toString() ?: "brak", "średnie tętno", Modifier.weight(1f))
+                    }
+                    val sb = StringBuilder()
+                    if (st.rano.n > 0) sb.append("Rano: ${st.rano.s}/${st.rano.d} (${st.rano.n}). ")
+                    if (st.wieczor.n > 0) sb.append("Wieczór: ${st.wieczor.s}/${st.wieczor.d} (${st.wieczor.n}). ")
+                    sb.append("Oznaczenia: ${s.settings.thresholdText()}. Ocenia lekarz.")
+                    Hint(sb.toString(), Modifier.padding(top = 10.dp))
+                } else if (s.bp.isNotEmpty()) Hint("Brak pomiarów w tym okresie.")
+            }
+        }
+        val geo = bpChart(list)
+        if (geo != null) item {
+            Column(Modifier.padding(top = 24.dp)) {
+                Text("Przebieg", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                Row(Modifier.padding(top = 6.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Hint("● skurczowe"); Hint("○ rozkurczowe"); Hint("mmHg")
+                }
+                BpChartView(geo, "Wykres ciśnienia skurczowego i rozkurczowego w czasie")
+            }
+        }
+        if (s.bp.isEmpty()) item { EmptyBox("Brak pomiarów. Wpisz pierwszy wynik w formularzu powyżej.", Modifier.padding(top = 24.dp)) }
+        else if (list.isNotEmpty()) {
+            val groups = list.reversed().groupBy { it.date }
+            item { Text("Zapisane pomiary", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 24.dp)) }
+            groups.forEach { (date, rows) ->
+                item(key = "g$date") {
+                    Column(Modifier.padding(top = 14.dp)) {
+                        Text(longDay(date), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                        LekiCard {
+                            rows.forEachIndexed { i, r ->
+                                if (i > 0) Divider()
+                                val f = s.settings.bpFlag(r)
+                                val meta = listOfNotNull(r.pulse?.let { "tętno $it" }, r.ctx, r.note.ifEmpty { null }).joinToString(", ")
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(r.time.hhmm(), style = TextStyle(fontSize = 13.sp, fontFamily = Mono, color = pal.ink3), modifier = Modifier.padding(end = 2.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("${r.sys}/${r.dia}", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                                        Text(buildString { append(meta); if (f.isNotEmpty()) { if (meta.isNotEmpty()) append(' '); append(f) } },
+                                            style = TextStyle(fontSize = 12.5.sp, color = if (f.isNotEmpty()) pal.warn else pal.ink3))
+                                    }
+                                    LekiButton("Usuń", { delId = r.id }, danger = true, small = true)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    delId?.let { id ->
+        ConfirmDialog("Usunąć pomiar?", "Pomiar zniknie z listy, wykresu i raportów.", "Usuń", onConfirm = { store.update { it.deleteBp(id) }; toast("Usunięto pomiar") }, onDismiss = { delId = null }, danger = true)
+    }
+}

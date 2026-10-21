@@ -16,39 +16,32 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
       - name: Android SDK z obrazu runnera, akceptacja licencji
         run: yes | sdkmanager --licenses > /dev/null || true
-      - run: npm ci
-      - run: npm run check
-      - name: Stały klucz podpisu (opcjonalnie, sekret DEBUG_KEYSTORE_BASE64)
+      - name: Klucz podpisu (stały z sekretu DEBUG_KEYSTORE_BASE64 albo nowy)
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
+          mkdir -p ~/.android
           if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
-            mkdir -p ~/.android
             echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
             echo "Użyto klucza z sekretu."
-          else
-            echo "Brak sekretu: Gradle wygeneruje nowy klucz debug (aktualizacja na wierzch może wymagać eksportu i importu danych)."
+          elif [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            echo "Brak sekretu: wygenerowano nowy klucz (aktualizacja na wierzch może wymagać eksportu i importu danych)."
           fi
-      - name: Przygotuj projekt Androida
-        run: npm run android:init
-        env:
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
-      - name: Zbuduj APK (debug)
-        run: cd android && ./gradlew assembleDebug --no-daemon
+      - name: Testy logiki i zbudowanie APK
+        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
       - name: Nazwij plik według wersji
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          cp android/app/build/outputs/apk/debug/app-debug.apk "asystent-lekow-${VERSION}.apk"
+          VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
+          cp app/build/outputs/apk/release/app-release.apk "asystent-lekow-${VERSION}.apk"
           sha256sum "asystent-lekow-${VERSION}.apk" | tee "asystent-lekow-${VERSION}.apk.sha256"
       - uses: actions/upload-artifact@v4
         with:
@@ -56,6 +49,12 @@ jobs:
           path: |
             asystent-lekow-*.apk
             asystent-lekow-*.apk.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raporty-testow
+          path: core/build/reports/tests
+          if-no-files-found: ignore
 
   release:
     needs: apk
@@ -72,7 +71,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           TAG="v${VERSION}"
           SUBJECT=$(git log -1 --format=%s "$SHA")
           # Wydanie jest nadpisywane przy każdym wypchnięciu na gałąź: tag zawsze wskazuje najnowszy build tej wersji.
