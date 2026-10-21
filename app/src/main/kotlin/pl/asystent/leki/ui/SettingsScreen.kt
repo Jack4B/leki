@@ -120,7 +120,7 @@ fun SettingsScreen(s: AppState, store: Store, importer: () -> Unit, newMedReques
             LekiCard {
                 shown.forEachIndexed { i, m ->
                     if (i > 0) Divider()
-                    SettingRow(m.name, m.unit + (rangeText(m).takeIf { it.isNotEmpty() }?.let { ", zakres odniesienia $it" } ?: ", bez zakresu")) { markerEdit = m }
+                    SettingRow(m.name, listOf(m.unit, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres odniesienia $it" } ?: "bez zakresu").filter { it.isNotEmpty() }.joinToString(", ")) { markerEdit = m }
                 }
             }
             if (s.markers.size > 8) LinkButton(if (showAllMarkers) "Pokaż mniej" else "Pokaż wszystkie (${s.markers.size})", { showAllMarkers = !showAllMarkers })
@@ -203,9 +203,10 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             LekiField("Imię i nazwisko (do raportu)", patient, { patient = it; store.update { st -> st.copy(patient = it.trim()) } })
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                IntField("Cel wody, szklanek (0 = wyłączone)", c.waterGoal, { v -> setCfg { it.copy(waterGoal = v) } }, 0..20, Modifier.weight(1f))
+                IntField("Cel wody, szklanek", c.waterGoal, { v -> setCfg { it.copy(waterGoal = v) } }, 0..20, Modifier.weight(1f))
                 IntField("Szklanka, ml", c.glassMl, { v -> setCfg { it.copy(glassMl = v) } }, 50..1000, Modifier.weight(1f))
             }
+            Hint("Cel wody 0 wyłącza licznik wody.")
             IntField("Dawka spóźniona po (min od pory, 0 = wyłączone)", c.lateMin, { v -> setCfg { it.copy(lateMin = v) } }, 0..600)
             Column {
                 Text("Oznaczaj ciśnienie jako podwyższone od", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))

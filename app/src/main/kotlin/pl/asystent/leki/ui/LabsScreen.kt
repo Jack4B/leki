@@ -181,7 +181,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overview(
                     Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onAddTo(m.id) }.padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(m.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                            Hint(m.unit + (rangeText(m).takeIf { it.isNotEmpty() }?.let { ", zakres $it" } ?: ""))
+                            Hint(listOfNotNull(m.unit.takeIf { it.isNotEmpty() }, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres $it" }).joinToString(", "))
                         }
                         Text("Dodaj", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
                     }

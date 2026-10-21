@@ -305,9 +305,9 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subti
 }
 
 @Composable
-fun Stat(value: String, label: String, modifier: Modifier = Modifier, valueColor: Color = pal.ink) {
+fun Stat(value: String, label: String, modifier: Modifier = Modifier, valueColor: Color = pal.ink, mono: Boolean = true) {
     Column(modifier) {
-        Text(value, style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = valueColor))
+        Text(value, style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor))
         Text(label, style = TextStyle(fontSize = 12.sp, color = pal.ink3))
     }
 }
