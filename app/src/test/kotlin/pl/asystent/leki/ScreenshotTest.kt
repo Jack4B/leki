@@ -95,7 +95,7 @@ class ScreenshotTest {
             )
         })
     }
-    @Test fun cisnienieRok() = slices("cisnienie-rok", 2) { BpScreen(yearState, store, listState = it) }
+    @Test fun cisnienieRok() = slices("cisnienie-rok", 2) { BpScreen(yearState, store, listState = it, initialRange = 365) }
 
     private val analysisState: AppState = state.copy(analyses = listOf(Analysis("a1", LocalDate.of(2026, 1, 15), "Analiza AI", "# Analiza\n\n## Podsumowanie\nPrzykładowy wniosek.\n\n## Szczegóły\nDługi opis.\n\n## Pytania do lekarza\n1. Przykładowe pytanie?", listOf("Szczegóły"))))
     @Test fun raportAnaliza() = slices("raport-analiza", 1) { ReportScreen(analysisState, store, listState = it, initialMode = 0) }

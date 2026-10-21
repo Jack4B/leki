@@ -42,7 +42,7 @@ private val RANGES = listOf(7, 30, 90, 365, 0)
 private val RANGE_LABELS = listOf("7 dni", "30 dni", "90 dni", "Rok", "Wszystko")
 
 @Composable
-fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), initialRange: Int = 7) {
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
@@ -54,7 +54,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
     var timeStr by rememberSaveable { mutableStateOf(now.toLocalTime().withSecond(0).withNano(0).toString()) }
     var ctxIdx by rememberSaveable { mutableStateOf(if (now.hour < 11) 0 else if (now.hour >= 17) 1 else 2) }
     var err by remember { mutableStateOf("") }
-    var range by rememberSaveable { mutableStateOf(7) }
+    var range by rememberSaveable { mutableStateOf(initialRange) }
     var delId by remember { mutableStateOf<String?>(null) }
     val ctxNames = listOf("rano", "wieczór", "inne")
 
