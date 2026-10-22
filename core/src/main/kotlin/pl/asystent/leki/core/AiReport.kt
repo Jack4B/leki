@@ -142,6 +142,8 @@ object AiReport {
                     p("- Tętno z zapisu: mediana ${Math.round(r.hrMedian)}/min, średnia ${Math.round(r.hrMean ?: r.hrMedian)}/min, zakres ${Math.round(r.hrMin ?: 0.0)}–${Math.round(r.hrMax ?: 0.0)}/min.")
                     p("- Zmienność odstępów RR: SDNN ${Math.round(r.sdnnMs ?: 0.0)} ms, RMSSD ${Math.round(r.rmssdMs ?: 0.0)} ms, pNN50 ${Math.round((r.pnn50 ?: 0.0) * 100)}%. Wykryte uderzenia: ${r.beats.size}.")
                 }
+                if (r.nRmssd != null && r.tpr != null && r.sampEn != null) p("- Wskaźniki losowej nieregularności RR: RMSSD/RR ${"%.2f".format(java.util.Locale.ROOT, r.nRmssd)}, punkty zwrotne ${Math.round(r.tpr * 100)}%, entropia próbkowa ${"%.1f".format(java.util.Locale.ROOT, r.sampEn)}; wzorzec jak przy migotaniu przedsionków: ${if (r.afPattern) "tak (heurystyka, nie rozpoznanie)" else "nie"}.")
+                if (r.qrsWidthMs != null && r.shapeCorr != null) p("- Kształt uderzeń: szerokość QRS około ${Math.round(r.qrsWidthMs)} ms (orientacyjnie, rozdzielczość 8 ms), mediana korelacji uderzeń z szablonem ${"%.2f".format(java.util.Locale.ROOT, r.shapeCorr)}.")
                 p("- Jakość zapisu: ${r.quality}" + (if (r.artifacts.isNotEmpty()) "; zakłócenia pominięte w analizie w sekundach: " + r.artifacts.joinToString(", ") { "%.1f–%.1f".format(java.util.Locale.ROOT, it.start, it.endInclusive) } else "") + ".")
                 r.flags.forEach { p("- Wynik analizy: ${it.title}. ${it.text}") }
                 val rr = r.validRr

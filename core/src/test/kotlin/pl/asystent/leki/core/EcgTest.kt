@@ -18,15 +18,16 @@ class EcgTest {
     private fun g(t: Double, c: Double, a: Double, s: Double) = a * exp(-((t - c) * (t - c)) / (2 * s * s))
 
     /** Syntetyczne EKG: P, QRS (Q, R, S), T w zadanych momentach uderzeń, z dryfem linii i szumem. */
-    private fun ecg(beatTimes: List<Double>, seconds: Double = 30.0, rAmp: Double = 1.2, extra: (Double) -> Double = { 0.0 }): DoubleArray {
+    private fun ecg(beatTimes: List<Double>, seconds: Double = 30.0, rAmp: Double = 1.2, wide: Set<Int> = emptySet(), noise: Double = 0.01, extra: (Double) -> Double = { 0.0 }): DoubleArray {
         val n = (seconds * fs).toInt()
         val rnd = java.util.Random(7)
         return DoubleArray(n) { i ->
             val t = i / fs
-            var v = 0.2 * sin(2 * PI * 0.3 * t) + 0.01 * rnd.nextGaussian() + extra(t)
-            for (b in beatTimes) {
+            var v = 0.2 * sin(2 * PI * 0.3 * t) + noise * rnd.nextGaussian() + extra(t)
+            for ((k, b) in beatTimes.withIndex()) {
                 if (abs(t - b) > 0.6) continue
-                v += g(t, b - 0.16, 0.15, 0.025) + g(t, b - 0.025, -0.15, 0.010) + g(t, b, rAmp, 0.012) + g(t, b + 0.027, -0.25, 0.010) + g(t, b + 0.28, 0.3, 0.045)
+                v += if (k in wide) g(t, b, 1.5, 0.028) + g(t, b + 0.30, -0.45, 0.06)   // szerokie uderzenie bez P, z odwróconym T (jak komorowe)
+                else g(t, b - 0.16, 0.15, 0.025) + g(t, b - 0.025, -0.15, 0.010) + g(t, b, rAmp, 0.012) + g(t, b + 0.027, -0.25, 0.010) + g(t, b + 0.28, 0.3, 0.045)
             }
             v
         }
@@ -49,7 +50,7 @@ class EcgTest {
         val rnd = java.util.Random(3)
         val rrs = List(60) { 0.45 + rnd.nextDouble() * 0.7 }
         val r = EcgAnalysis.analyze(ecg(fromRr(rrs)), fs)
-        assertTrue("irregular" in codes(r), codes(r).toString())
+        assertTrue("irregular" in codes(r) || "af_pattern" in codes(r), codes(r).toString())
     }
 
     @Test fun singlePrematureBeatIsACandidate() {
@@ -240,6 +241,66 @@ class EcgTest {
     @Test fun methodDescriptionMatchesTheCodeConstants() {
         val all = EcgInfo.STEPS.joinToString(" ") { it.text }
         // wartości z opisu muszą odpowiadać stałym w algorytmie (0,6 s, 60 ms, 40%, 250 ms, 0,35 s, 2,5, 0,9, 4x; progi 50 i 100)
-        for (k in listOf("0,6 s", "60 ms", "40%", "250 ms", "±70 ms", "±0,35 s", "2,5", "0,9", "4 razy", "poniżej 50/min", "powyżej 100/min", "35%", "15%", "80%", "110%", "1,6 mediany", "1,8 s", "8 uderzeń", "6 wiarygodnych")) assertTrue(k in all, k)
+        for (k in listOf("0,6 s", "60 ms", "25%", "250 ms", "±70 ms", "±0,35 s", "2,5", "0,9", "4 razy", "poniżej 50/min", "powyżej 100/min", "35%", "15%", "80%", "110%", "1,6 mediany", "1,8 s", "8 uderzeń", "6 wiarygodnych")) assertTrue(k in all, k)
+    }
+
+    // ---------- wzorzec losowej nieregularności, kształt uderzeń, jakość ----------
+
+    @Test fun afLikeRandomRrIsFlaggedWithItsOwnMessage() {
+        var hits = 0
+        for (seed in 0 until 8) {
+            val r2 = java.util.Random(seed + 100L)
+            val rrs = List(60) { Math.exp(Math.log(0.7) + 0.22 * r2.nextGaussian()).coerceIn(0.35, 1.6) }
+            val res = EcgAnalysis.analyze(ecg(fromRr(rrs)), fs)
+            if (res.afPattern) { hits++; assertTrue("af_pattern" in codes(res) && "irregular" !in codes(res)) }
+        }
+        assertTrue(hits >= 6, "wykryto $hits z 8 (oczekiwane co najmniej 6)")
+    }
+
+    @Test fun regularPatternsAreNotCalledAf() {
+        // bigeminia, trigeminia, zmienność oddechowa i pojedyncze przedwczesne uderzenie
+        val bigeminy = fromRr(List(40) { if (it % 2 == 0) 0.55 else 1.05 })
+        val trigeminy = fromRr(List(40) { listOf(0.8, 0.55, 1.05)[it % 3] })
+        val rsa = fromRr(List(45) { 0.8 + 0.07 * sin(2 * PI * it * 0.8 / 4.5) + 0.01 * ((it * 7919) % 13 - 6) / 6.0 })
+        for ((name, t) in listOf("bigeminia" to bigeminy, "trigeminia" to trigeminy, "oddech" to rsa)) {
+            assertTrue(!EcgAnalysis.analyze(ecg(t), fs).afPattern, name)
+        }
+        val single = MutableList(40) { 0.8 }; single[12] = 0.5; single[13] = 1.1
+        assertTrue(!EcgAnalysis.analyze(ecg(fromRr(single)), fs).afPattern)
+    }
+
+    @Test fun indicatorsBehaveAsDocumented() {
+        assertEquals(1.0, EcgAnalysis.turningPointRatio(List(20) { if (it % 2 == 0) 0.5 else 1.0 }))
+        assertEquals(0.0, EcgAnalysis.turningPointRatio(List(20) { it * 0.01 }))
+        assertTrue(EcgAnalysis.sampleEntropy(List(40) { if (it % 2 == 0) 0.5 else 1.0 })!! < 0.3)
+        val rnd = java.util.Random(5)
+        assertTrue(EcgAnalysis.sampleEntropy(List(40) { 0.4 + rnd.nextDouble() })!! > 1.2)
+        assertEquals(null, EcgAnalysis.turningPointRatio(listOf(1.0, 2.0)))
+        assertEquals(0.0, EcgAnalysis.sampleEntropy(List(20) { 0.8 }))
+    }
+
+    @Test fun prematureBeatShapeIsDescribed() {
+        val rrs = MutableList(40) { 0.8 }; rrs[12] = 0.5; rrs[13] = 1.1
+        val times = fromRr(rrs)
+        val narrow = EcgAnalysis.analyze(ecg(times), fs)
+        assertTrue(narrow.prematureShapes.single().contains("zbliżony") && narrow.prematureShapes.single().contains("przedsionkowe"), narrow.prematureShapes.toString())
+        val wide = EcgAnalysis.analyze(ecg(times, wide = setOf(13)), fs)
+        assertTrue(wide.prematureShapes.single().contains("odmienny") && wide.prematureShapes.single().contains("komorowe"), wide.prematureShapes.toString())
+        assertTrue(wide.flags.single { it.code == "premature" }.text.contains("komorowe"))
+    }
+
+    @Test fun qrsWidthAndShapeQualityAreReported() {
+        val res = EcgAnalysis.analyze(ecg(regular(0.8)), fs)
+        assertTrue(res.qrsWidthMs!! in 30.0..150.0, "szerokość ${res.qrsWidthMs}")
+        assertTrue(res.shapeCorr!! > 0.9, "korelacja ${res.shapeCorr}")
+        assertEquals("dobra", res.quality)
+        // silny szum pogarsza korelację kształtu i jakość
+        val noisy = EcgAnalysis.analyze(ecg(regular(0.8), noise = 0.45), fs)
+        assertTrue(noisy.quality != "dobra", "jakość ${noisy.quality}, korelacja ${noisy.shapeCorr}")
+    }
+
+    @Test fun newMethodConstantsAreDescribed() {
+        val all = EcgInfo.STEPS.joinToString(" ") { it.text }
+        for (k in listOf("0,12", "od 55% do 82%", "r = 0,2", "co najmniej 1,0", "co najmniej 20 odstępów", "od -0,10 do +0,14 s", "poniżej 0,8 jakość umiarkowana", "poniżej 0,6 słaba", "15% maksymalnego", "niższa niż 0,75", "o ponad 30% (i 10 ms)")) assertTrue(k in all, k)
     }
 }

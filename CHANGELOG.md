@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.6.2-preview
+
+- **EKG: wzorzec losowej nieregularności odstępów RR.** Trzy wskaźniki z literatury o wykrywaniu migotania przedsionków z samych odstępów między uderzeniami (znormalizowane RMSSD, odsetek punktów zwrotnych, entropia próbkowa) dają oznaczenie „Odstępy jak przy migotaniu przedsionków”, gdy spełnione są wszystkie trzy. Bigeminia, trigeminia, zmienność oddechowa i pojedyncze przedwczesne uderzenie nie są tak oznaczane. Na sygnałach syntetycznych wzorzec jest wykrywany w ok. 90% zapisów losowych, bez fałszywych oznaczeń w zdrowym rytmie. **Progi nie były walidowane na prawdziwych zapisach z migotaniem** (brak dostępu do baz PhysioNet w środowisku budowania) i aplikacja nie rozpoznaje migotania, więc oznaczenie jest tylko sygnałem do konsultacji.
+- **Kształt uderzeń i szerokość QRS.** Z czystych uderzeń powstaje szablon; zgodność kształtu z szablonem wpływa na ocenę jakości zapisu, a przedwczesne uderzenie dostaje opis „kształt odmienny (możliwe komorowe)” albo „zbliżony (możliwe przedsionkowe lub nadkomorowe)”. Szerokość QRS (z rozdzielczością 8 ms, zwykle niższa niż pomiar kliniczny) służy do porównania uderzeń.
+- Detektor uderzeń ma niższy próg (25% zamiast 40% mediany maksimów), żeby nie pomijać szerokich zespołów o łagodniejszych zboczach (typowych dla pobudzeń komorowych). Na sprawdzonym prawdziwym wydruku wynik się nie zmienił.
+- Nowe wskaźniki są w widoku zapisu, w raporcie dla lekarza (szerokość QRS) i dla AI (wskaźniki i kształt). Opis algorytmów w aplikacji i README jest rozszerzony, a test pilnuje zgodności liczb z kodem.
+- 6 nowych testów (wzorzec jak przy migotaniu, wzorce regularne, własności wskaźników, kształt przedwczesnego uderzenia, szerokość i jakość, opis metody).
+
 ## 0.6.1-preview
 
 - **Przyciski na dole okien edycji nie chowają się już za paskiem systemowym** (zgłoszone dla ekranu „Nowe EKG z zegarka”). Pełnoekranowe edytory (EKG, lek, wynik, analiza AI i inne) są rysowane w głównym oknie aplikacji zamiast w osobnym oknie dialogu, więc marginesy pasków systemowych i klawiatury działają tak samo jak na zwykłych ekranach. Komunikaty są widoczne także nad edytorem.

@@ -57,6 +57,7 @@ object EcgReport {
             if (e.watchNote.isNotBlank()) parts.add("ocena zegarka: <b>${esc(e.watchNote)}</b>")
             r.hrMedian?.let { parts.add("tętno z zapisu: <b>${Math.round(it)}/min</b>" + (if (r.hrMin != null && r.hrMax != null) " (zakres ${Math.round(r.hrMin)}–${Math.round(r.hrMax)})" else "")) }
             r.sdnnMs?.let { parts.add("zmienność odstępów RR (SDNN): ${Math.round(it)} ms") }
+            r.qrsWidthMs?.let { parts.add("szerokość QRS: ok. ${Math.round(it)} ms (orientacyjnie)") }
             parts.add("jakość zapisu: ${r.quality}")
             h.append("<p style=\"margin:0 0 6px\">${parts.joinToString("; ")}.</p>")
             h.append("<ul>")
