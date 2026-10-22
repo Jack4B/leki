@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.6.10-preview
+
+- **Decyzja: zostajemy przy własnych algorytmach EKG.** Modele HeartKit (TensorFlow Lite) nie będą dodawane: były trenowane na EKG z plastra i mogłyby pogarszać odczyt zapisów odtworzonych z zegarka, a własne reguły są jawne, opisane w aplikacji i sprawdzone testami. Usunięto je z planów w README; licencja HeartKit pozostaje w wykazie jako oceniona i niedołączona. Bez zmian w kodzie.
+
 ## 0.6.9-preview
 
 Poprawki z niezależnego przeglądu modułu EKG i całej aplikacji (każdą uwagę sprawdzono w kodzie, kilka potwierdzono uruchomieniem).

@@ -195,7 +195,7 @@ scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Pho
 
 Lista składników dołączonych do aplikacji, ich licencje i noty praw autorskich są w pliku `THIRD-PARTY-NOTICES.md` i w aplikacji (O aplikacji → Licencje i źródła algorytmów); kod danych: `core/.../Licenses.kt`. Algorytmy EKG napisano od zera na podstawie publikacji, bez kopiowania kodu. Przy każdym dodaniu cudzego kodu, modelu, danych lub zależności aktualizuj ten plik, listę w aplikacji, README i CHANGELOG.
 
-**HeartKit (AmbiqAI), BSD-3-Clause:** oceniony, **niedołączony**. Licencja pozwala na użycie komercyjne i w zamkniętej aplikacji pod warunkiem zachowania noty i zastrzeżenia w dystrybucji (dla APK: w aplikacji i w `THIRD-PARTY-NOTICES.md`) oraz niewykorzystywania nazwy Ambiq do promocji. Przed dołączeniem trzeba jeszcze sprawdzić licencje modeli i zbiorów treningowych oraz zależności.
+**HeartKit (AmbiqAI), BSD-3-Clause:** oceniony, **niedołączony (decyzja: zostajemy przy własnych algorytmach)**. Licencja pozwala na użycie komercyjne i w zamkniętej aplikacji pod warunkiem zachowania noty i zastrzeżenia w dystrybucji (dla APK: w aplikacji i w `THIRD-PARTY-NOTICES.md`) oraz niewykorzystywania nazwy Ambiq do promocji. Przed dołączeniem trzeba jeszcze sprawdzić licencje modeli i zbiorów treningowych oraz zależności.
 
 ## Prywatność
 
@@ -212,7 +212,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 - Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
 - Podgląd zdjęcia obok wyników na ekranie sprawdzania.
-- **Modele HeartKit w TensorFlow Lite** (migotanie przedsionków, klasyfikacja uderzeń) jako drugi głos obok reguł: wstrzymane, bo pliki modeli (Model Zoo) są niedostępne ze środowiska budowania. Potrzebne: pliki `.tflite` z opisem wejścia (częstotliwość próbkowania, długość okna, normalizacja, klasy) i licencją, pobrane z Model Zoo i dołączone do projektu; wtedy można je sprawdzić na syntetycznych sygnałach i na zapisie z zegarka, przed dodaniem zależności TensorFlow Lite. Uwaga: modele były trenowane na EKG z plastra na klatce piersiowej, więc na odtworzonych zapisach z zegarka mogą działać gorzej.
+- **Modele HeartKit (TensorFlow Lite): zrezygnowano.** Zostajemy przy własnych, jawnych algorytmach (opisanych wyżej i w aplikacji), bo modele trenowane na EKG z plastra na klatce piersiowej mogłyby dawać gorszy odczyt na odtworzonych zapisach z zegarka i byłyby czarną skrzynką bez możliwości wyjaśnienia wyniku. Nie dodajemy zależności TensorFlow Lite ani plików modeli.
 - Wykres ciśnienia: oznaczanie kolorem pomiarów powyżej progu.
 - Ręczne kadrowanie zdjęcia przed rozpoznaniem.
 
