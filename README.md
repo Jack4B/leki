@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.5.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.5.1 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -60,7 +60,7 @@ Wskazówki: cała tabela w kadrze, tekst poziomo, bez cienia i odblasków. PDF p
 
 ## Pobranie APK z GitHuba
 
-Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków 0.5.0-preview** (sekcja **Assets**: plik `asystent-lekow-0.5.0-preview.apk` i suma kontrolna `.sha256`). Wydanie jest oznaczone jako testowe (prerelease) i odświeża się automatycznie po każdym wypchnięciu zmian na gałąź. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków <wersja> (kompilacja N)** (sekcja **Assets**: plik `asystent-lekow-<wersja>.apk` i suma kontrolna `.sha256`). Każde wypchnięcie zmian na gałąź tworzy nowe wydanie testowe (prerelease) z tagiem `v<wersja>-b<N>`; zostaje 5 ostatnich. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
 
 Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików). Wymagany Android 8.0 lub nowszy.
 
@@ -89,16 +89,32 @@ Samą logikę (moduł `core`) można budować i testować bez Androida: `./gradl
 
 ## Aktualizacja aplikacji
 
-Zainstaluj nowy APK **na wierzch** (bez odinstalowywania), a dane zostaną. Android wymaga, żeby każdy APK był podpisany tym samym kluczem. Domyślnie GitHub Actions generuje nowy klucz w każdym przebiegu, więc przy aktualizacji z innego przebiegu Android może odmówić. Są dwa wyjścia:
+Nowy APK instaluje się **na wierzch** (bez odinstalowywania) i dane zostają, ale tylko wtedy, gdy każda wersja jest podpisana **tym samym kluczem**. Dlatego workflow podpisuje APK stałym kluczem z sekretu repozytorium `DEBUG_KEYSTORE_BASE64`. Bez sekretu każdy przebieg generuje nowy klucz i Android odmawia aktualizacji (workflow ostrzega o tym, a opis wydania zawiera uwagę).
 
-- zrób kopię danych, odinstaluj aplikację, zainstaluj nową i wczytaj kopię, albo
-- ustaw stały klucz: wygeneruj go raz i dodaj w repozytorium jako sekret `DEBUG_KEYSTORE_BASE64` (Settings → Secrets and variables → Actions). Workflow użyje go w każdym kolejnym przebiegu.
+### Stały klucz podpisu (jednorazowa konfiguracja)
 
-```
-keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey \
-  -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-base64 -w0 debug.keystore   # wynik wklej do sekretu; sam plik trzymaj poza repozytorium
-```
+1. Wygeneruj klucz (albo użyj gotowego pliku `.keystore`):
+
+   ```
+   keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey \
+     -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Asystent lekow,O=Asystent lekow,C=PL"
+   base64 -w0 debug.keystore
+   ```
+
+2. Wynik `base64` wklej w repozytorium: **Settings → Secrets and variables → Actions → New repository secret**, nazwa `DEBUG_KEYSTORE_BASE64`.
+3. **Zachowaj kopię klucza** (plik albo napis base64) w menedżerze haseł, poza repozytorium. Bez niego nie da się podpisać aktualizacji tym samym podpisem, a zgubienie klucza oznacza jednorazową reinstalację aplikacji (z kopii zapasowej danych). Klucz nigdy nie może trafić do repozytorium (`*.keystore` jest w `.gitignore`, a repozytorium jest publiczne).
+4. Po poprawnej konfiguracji opis każdego wydania zawiera linię „Podpis: stały klucz” z odciskiem certyfikatu (SHA-256). Ten odcisk ma być taki sam w każdej wersji.
+
+Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
+
+### Aktualizacje przez Obtainium
+
+[Obtainium](https://obtainium.imranr.dev/) sprawdza wydania w GitHubie i instaluje aktualizacje. Każda kompilacja ma własne wydanie z unikalnym tagiem w postaci `v<wersja>-b<numer>` (np. `v0.5.1-preview-b16`), więc Obtainium widzi każdą nową kompilację. Zostaje 5 ostatnich wydań kompilacji, starsze są usuwane automatycznie.
+
+1. W Obtainium: **Dodaj aplikację**, adres `https://github.com/Jack4B/leki`.
+2. Włącz **Uwzględniaj wersje wstępne** (Include prereleases), bo wydania są oznaczone jako testowe.
+3. Jeśli Obtainium zgłosi brak APK w najnowszym wydaniu, włącz „Wróć do starszych wydań” (fallback to older releases) albo ustaw filtr tytułów wydań `^Asystent` (wydanie „Zrzuty ekranów” zawiera tylko obrazki).
+4. Pierwszą instalację zrób przez Obtainium, ale pamiętaj o jednorazowej reinstalacji z poprzedniego punktu, jeśli masz zainstalowaną wersję podpisaną innym kluczem.
 
 ## Struktura projektu
 
