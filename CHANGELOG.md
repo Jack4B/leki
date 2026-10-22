@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.6.12-preview
+
+- **Szybkie usuwanie EKG z listy.** Przy każdym zapisie w Badania → EKG jest przycisk „Usuń” (jak przy pomiarach ciśnienia), z pytaniem o potwierdzenie. Nie trzeba wchodzić w zapis. Stuknięcie w sam wiersz nadal otwiera zapis.
+
 ## 0.6.11-preview
 
 - **Regresja z 0.6.9: głębokie skoki w przeciwną stronę (ruch, odklejenie elektrody) były liczone jako uderzenia** (na wykresie pojawiały się trójkąty przy zakłóceniach, a z nimi fałszywe odstępy RR). Ratowanie dużych uderzeń przed uznaniem za zakłócenie dotyczy teraz tylko wychyleń tego samego kierunku co zwykły QRS; skoki przeciwne zostają zakłóceniem. Test: duże uderzenie tego samego kierunku jest uderzeniem, głęboki skok przeciwny jest zakłóceniem i nie tworzy uderzenia.

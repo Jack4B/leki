@@ -40,6 +40,8 @@ import pl.asystent.leki.core.markerUsed
 import pl.asystent.leki.core.newId
 import pl.asystent.leki.core.parseNum
 import pl.asystent.leki.core.plDate
+import pl.asystent.leki.core.hhmm
+import pl.asystent.leki.core.deleteEcg
 import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.rangeText
 import pl.asystent.leki.core.saveLab
@@ -60,6 +62,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     var ecgDraft by remember { mutableStateOf<pl.asystent.leki.core.Ecg?>(null) }
     var ecgOpenId by rememberSaveable { mutableStateOf("") }
     val ecgImport = rememberEcgImporter { ecgDraft = it }
+    var ecgDel by remember { mutableStateOf<String?>(null) }
 
     val model = s.labsModel()
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
@@ -79,7 +82,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 }
                 SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
-            if (mode == 2) ecgSection(s, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it })
+            if (mode == 2) ecgSection(s, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
             else if (mode == 1) labsByDate(s) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
             if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {
@@ -150,6 +153,12 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     if (scan) ScanDialog(s, store, onClose = { scan = false })
     ecgDraft?.let { EcgEditor(it, true, store) { ecgDraft = null } }
     s.ecg(ecgOpenId)?.let { EcgEditor(it, false, store) { ecgOpenId = "" } }
+    ecgDel?.let { id ->
+        s.ecg(id)?.let { e ->
+            ConfirmDialog("Usunąć EKG?", "Zapis z ${plDate(e.date)} ${e.time.hhmm()} zniknie z aplikacji, raportów i przyszłych kopii zapasowych.", "Usuń",
+                onConfirm = { store.update { it.deleteEcg(id) }; ecgDel = null; toast("Usunięto EKG") }, onDismiss = { ecgDel = null }, danger = true)
+        } ?: run { ecgDel = null }
+    }
     labEdit?.let { (lab, markerId) ->
         LabEditor(s, lab, markerId, onSave = { store.update { st -> st.saveLab(it) }; labEdit = null; toast("Zapisano wynik") },
             onDelete = { id -> store.update { it.deleteLab(id) }; labEdit = null; toast("Usunięto wynik") }, onDismiss = { labEdit = null })

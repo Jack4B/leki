@@ -86,7 +86,7 @@ private const val DPI = 300
 private const val DPI_FALLBACK = 200
 
 /** Lista zapisów EKG w zakładce Badania. */
-fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit) {
+fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit, onDelete: (String) -> Unit = {}) {
     item {
         Column(Modifier.padding(top = 14.dp)) {
             BodyText("Zapisy EKG z zegarka lub opaski (jedno odprowadzenie). Wczytaj wydruk PDF z aplikacji zegarka: aplikacja odtworzy przebieg, policzy tętno i odstępy między uderzeniami oraz wskaże ewentualne nieregularności do omówienia z lekarzem.")
@@ -108,7 +108,7 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
                         Text(listOf(hr, e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" }, style = TextStyle(fontSize = 13.sp, color = pal.ink3))
                         if (attention > 0) Text("Do omówienia z lekarzem: $attention", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 2.dp))
                     }
-                    PhIcon(Ph.CaretRight, size = 18.dp, tint = pal.ink3)
+                    LekiButton("Usuń", { onDelete(e.id) }, danger = true, small = true)
                 }
             }
         }
