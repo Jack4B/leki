@@ -34,7 +34,7 @@ import pl.asystent.leki.core.longDay
 import pl.asystent.leki.core.periodLabel
 import java.time.LocalDate
 
-/** Ile ostatnich dni na liście „Dni” jest rozwiniętych; starsze trafiają do zwiniętych kart tygodniowych. */
+/** Domyślnie tyle ostatnich dni na liście „Dni” jest rozwiniętych; starsze trafiają do zwiniętych kart tygodniowych (rzadkie badania mają dłuższe okno). */
 private const val RECENT_DAYS = 7
 private val VIEW_LABELS = listOf("Dni", "Tygodnie", "Miesiące")
 private val VIEWS = listOf(HistoryView.Days, HistoryView.Weeks, HistoryView.Months)
@@ -103,7 +103,7 @@ private fun PeriodCard(label: String, summary: String, warn: Boolean, expanded: 
 fun <T> LazyListScope.historyList(
     prefix: String, title: String, items: List<T>, hist: HistoryState, today: LocalDate, dateOf: (T) -> LocalDate,
     filterOn: String, filterOff: String, emptyText: String,
-    summary: (List<T>) -> Pair<String, Boolean>, rows: @Composable ColumnScope.(List<T>) -> Unit,
+    summary: (List<T>) -> Pair<String, Boolean>, recentDays: Int = RECENT_DAYS, rows: @Composable ColumnScope.(List<T>) -> Unit,
 ) {
     val view = VIEWS[hist.view.coerceIn(0, VIEWS.size - 1)]
     item(key = "$prefix-bar") { HistoryBar(title, hist, filterOn, filterOff) }
@@ -127,7 +127,7 @@ fun <T> LazyListScope.historyList(
 
     when (view) {
         HistoryView.Days -> {
-            val from = today.minusDays((RECENT_DAYS - 1).toLong())
+            val from = today.minusDays((recentDays - 1).toLong())
             val recent = items.filter { dateOf(it) >= from }
             val older = items.filter { dateOf(it) < from }
             groupByPeriod(recent, HistoryView.Days, dateOf).forEach { g ->

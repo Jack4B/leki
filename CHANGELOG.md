@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.9.6-preview
+
+- **Badania dzielą się na okresy tak jak ciśnienie i EKG.** Zakładka **Według dat** ma przełącznik **Dni | Tygodnie | Miesiące**, zwijane karty okresów z podsumowaniem (np. „8 wyników · dni badań: 2 · poza zakresem: 1”) i filtr **„Tylko poza zakresem”**. W widoku „Dni” ostatnie 90 dni jest rozwinięte dzień po dniu (badania są rzadsze niż pomiary ciśnienia), starsze w zwiniętych kartach tygodniowych.
+- **Historia jednego parametru** (ekran szczegółów, „Wyniki, od najnowszego”): do 12 wyników zwykła lista jak dotąd, a dłuższa jest dzielona tym samym przełącznikiem (okno „Dni” to ostatni rok). Podsumowanie okresu pokazuje zakres wartości, np. „3 wyniki · 4,1–4,8 mmol/l · poza zakresem: 1”.
+- `core`: `labGroupSummary` (podsumowanie okresu wyników) z testem. Widok „Parametry” (ostatnie wyniki w grupach) bez zmian.
+
 ## 0.9.5-preview
 
 - **Poprawki z przeglądu układu na wąskim ekranie** (zrzuty 320 dp, czcionka 130%, patrz 0.9.3). Zrzuty pokazały, że:

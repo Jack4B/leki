@@ -57,3 +57,26 @@ fun ecgGroupSummary(items: List<Ecg>): Pair<String, Boolean> {
     if (flagged > 0) parts.add("do omówienia: $flagged")
     return parts.joinToString(" · ") to (flagged > 0)
 }
+
+/**
+ * Podsumowanie okresu wyników badań: liczba wyników, przy kilku parametrach także liczba dni badań, przy jednym zakres wartości,
+ * oraz liczba wyników poza zakresem odniesienia (i znacznik, czy takie są).
+ */
+fun labGroupSummary(items: List<Lab>, markers: List<Marker>): Pair<String, Boolean> {
+    if (items.isEmpty()) return "brak wyników" to false
+    val byId = markers.associateBy { it.id }
+    val out = items.count { l -> byId[l.marker]?.let { labFlag(l.value, it).isNotEmpty() } == true }
+    val parts = ArrayList<String>()
+    parts.add("${items.size} ${plN(items.size, "wynik", "wyniki", "wyników")}")
+    val ids = items.map { it.marker }.distinct()
+    if (ids.size == 1 && items.size > 1) {
+        val lo = items.minOf { it.value }; val hi = items.maxOf { it.value }
+        val unit = byId[ids[0]]?.unit.orEmpty()
+        parts.add((if (lo == hi) lnum(lo) else lnum(lo) + "–" + lnum(hi)) + if (unit.isNotEmpty()) " $unit" else "")
+    } else {
+        val days = items.map { it.date }.distinct().size
+        if (days > 1) parts.add("dni badań: $days")
+    }
+    if (out > 0) parts.add("poza zakresem: $out")
+    return parts.joinToString(" · ") to (out > 0)
+}

@@ -33,6 +33,7 @@ import pl.asystent.leki.core.deleteLab
 import pl.asystent.leki.core.deleteMarker
 import pl.asystent.leki.core.labChart
 import pl.asystent.leki.core.labFlag
+import pl.asystent.leki.core.labGroupSummary
 import pl.asystent.leki.core.labsModel
 import pl.asystent.leki.core.labsOf
 import pl.asystent.leki.core.lnum
@@ -64,6 +65,8 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     val ecgImport = rememberEcgImporter { ecgDraft = it }
     var ecgDel by remember { mutableStateOf<String?>(null) }
     val ecgHist = rememberHistoryState()
+    val labHist = rememberHistoryState()
+    val markerHist = rememberHistoryState()
 
     val model = s.labsModel()
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
@@ -84,7 +87,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
             if (mode == 2) ecgSection(s, ecgHist, java.time.LocalDate.now(), onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
-            else if (mode == 1) labsByDate(s) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
+            else if (mode == 1) labsByDate(s, labHist, java.time.LocalDate.now()) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
             if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
@@ -126,28 +129,18 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                     LinkButton("Zmień nazwę lub zakres odniesienia", { markerEdit = open }, Modifier.padding(top = 8.dp))
                 }
             }
-            if (list.isNotEmpty()) item {
+            // do 12 wyników zwykła lista, dłuższą historię parametru dzieli widok Dni | Tygodnie | Miesiące
+            if (list.size in 1..12) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     Text("Wyniki, od najnowszego", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                    LekiCard {
-                        list.reversed().forEachIndexed { i, l ->
-                            if (i > 0) Divider()
-                            val fl = labFlag(l.value, open)
-                            Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { openLab(l, l.marker) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column(Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(lnum(l.value), style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
-                                        Hint(open.unit)
-                                        if (fl.isNotEmpty()) Text(fl, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
-                                    }
-                                    Hint(plDate(l.date) + if (l.note.isNotEmpty()) ", ${l.note}" else "")
-                                }
-                                Text("Edytuj", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
-                            }
-                        }
-                    }
+                    LekiCard { LabResultRows(list.reversed(), open) { openLab(it, it.marker) } }
                 }
-            }
+            } else if (list.size > 12) historyList(
+                "labm", "Wyniki, od najnowszego",
+                list.reversed().let { l -> if (markerHist.flagOnly) l.filter { labFlag(it.value, open).isNotEmpty() } else l },
+                markerHist, java.time.LocalDate.now(), { it.date }, "Tylko poza zakresem", "Pokaż wszystkie", "Brak wyników poza zakresem odniesienia.",
+                { labGroupSummary(it, listOf(open)) }, 365,
+            ) { rows -> LabResultRows(rows, open) { openLab(it, it.marker) } }
         }
     }
 
@@ -213,18 +206,39 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overview(
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.labsByDate(s: AppState, onEdit: (Lab) -> Unit) {
-    val byDate = s.labs.groupBy { it.date }.toSortedMap(compareByDescending { it })
-    if (byDate.isEmpty()) item { EmptyBox("Brak wyników.", Modifier.padding(top = 16.dp)) }
-    byDate.forEach { (d, labs) ->
-        item(key = "d$d") {
-            val rows = labs.mapNotNull { l -> s.marker(l.marker)?.let { m -> Triple(m, l, s.markers.indexOf(m)) } }.sortedBy { it.third }
-            val nOut = rows.count { labFlag(it.second.value, it.first).isNotEmpty() }
-            Column(Modifier.padding(top = 18.dp)) {
-                Text(plDate(d) + " · ${rows.size} ${plN(rows.size, "wynik", "wyniki", "wyników")}" + if (nOut > 0) ", poza zakresem: $nOut" else "",
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                LekiCard { rows.forEachIndexed { i, (m, l, _) -> if (i > 0) Divider(); LabRowItem(LabRow(m, listOf(l)), showDate = false, spark = false) { onEdit(l) } } }
+private fun androidx.compose.foundation.lazy.LazyListScope.labsByDate(s: AppState, hist: HistoryState, today: java.time.LocalDate, onEdit: (Lab) -> Unit) {
+    if (s.labs.isEmpty()) { item { EmptyBox("Brak wyników.", Modifier.padding(top = 16.dp)) }; return }
+    // od najnowszego dnia; w obrębie dnia w kolejności parametrów z ustawień
+    val all = s.labs.filter { s.marker(it.marker) != null }
+        .sortedWith(compareByDescending<Lab> { it.date }.thenBy { l -> s.markers.indexOfFirst { it.id == l.marker } })
+    val items = if (hist.flagOnly) all.filter { l -> s.marker(l.marker)?.let { labFlag(l.value, it).isNotEmpty() } == true } else all
+    historyList(
+        "lab", "Wyniki według dat", items, hist, today, { it.date }, "Tylko poza zakresem", "Pokaż wszystkie", "Brak wyników poza zakresem odniesienia.",
+        { labGroupSummary(it, s.markers) }, 90,
+    ) { rows ->
+        rows.forEachIndexed { i, l ->
+            if (i > 0) Divider()
+            s.marker(l.marker)?.let { m -> LabRowItem(LabRow(m, listOf(l)), showDate = false, spark = false) { onEdit(l) } }
+        }
+    }
+}
+
+/** Wyniki jednego parametru: wartość, ocena względem zakresu, data i notatka; dotknięcie otwiera edycję. */
+@Composable
+private fun LabResultRows(rows: List<Lab>, m: Marker, onEdit: (Lab) -> Unit) {
+    rows.forEachIndexed { i, l ->
+        if (i > 0) Divider()
+        val fl = labFlag(l.value, m)
+        Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onEdit(l) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(lnum(l.value), style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                    Hint(m.unit)
+                    if (fl.isNotEmpty()) Text(fl, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
+                }
+                Hint(plDate(l.date) + if (l.note.isNotEmpty()) ", ${l.note}" else "")
             }
+            Text("Edytuj", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
         }
     }
 }

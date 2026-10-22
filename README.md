@@ -83,13 +83,13 @@ Zapis wektorowy (punkt 9) nie pogarsza tego istotnie: błąd średniokwadratowy 
 
 ## Długie listy: dni, tygodnie, miesiące
 
-Lista **Zapisane pomiary** (Ciśnienie) i lista zapisów **EKG** (Badania → EKG) nie rosną w nieskończoność. Przełącznik nad listą ma trzy widoki:
+Lista **Zapisane pomiary** (Ciśnienie), lista zapisów **EKG** (Badania → EKG), widok **Według dat** w Badaniach oraz historia jednego parametru (powyżej 12 wyników) nie rosną w nieskończoność. Przełącznik nad listą ma trzy widoki:
 
 - **Dni:** ostatnie 7 dni rozwinięte dzień po dniu, starsze pozycje w zwiniętych kartach tygodniowych.
 - **Tygodnie** (od poniedziałku): same karty tygodni, najnowszy rozwinięty.
 - **Miesiące:** same karty miesięcy, wszystkie zwinięte.
 
-Karta okresu pokazuje podsumowanie (liczba pozycji, średnie ciśnienie i tętno albo zakres tętna z EKG, liczba pozycji do uwagi); dotknięcie rozwija ją i pokazuje pozycje pogrupowane dniami, z przyciskiem „Usuń”. Przycisk **Tylko podwyższone** (ciśnienie) albo **Tylko z oznaczeniami** (EKG) zostawia na liście pozycje na progu lub powyżej, albo z oznaczeniami do omówienia z lekarzem. Lista pokazuje wszystkie pomiary niezależnie od zakresu wykresu. Logika grupowania i podsumowań jest w `core/.../History.kt`.
+Karta okresu pokazuje podsumowanie (liczba pozycji, średnie ciśnienie i tętno albo zakres tętna z EKG, liczba pozycji do uwagi); dotknięcie rozwija ją i pokazuje pozycje pogrupowane dniami, z przyciskiem „Usuń”. Przycisk **Tylko podwyższone** (ciśnienie), **Tylko z oznaczeniami** (EKG) albo **Tylko poza zakresem** (badania) zostawia na liście pozycje na progu lub powyżej, albo z oznaczeniami do omówienia z lekarzem. Lista pokazuje wszystkie pomiary niezależnie od zakresu wykresu. Logika grupowania i podsumowań jest w `core/.../History.kt`.
 
 ## Wykres ciśnienia w czasie
 
@@ -243,7 +243,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Eksport CSV** (otwarcie w arkuszu: polskie znaki, przecinki dziesiętne).
 - [ ] **Wykres ciśnienia:** czerwone punkty powyżej progu; trend EKG po przewijaniu.
 - [ ] **Wąski ekran i duża czcionka** (Ustawienia systemu → Wyświetlanie → rozmiar czcionki): czy etykiety przełączników i przycisków nie są ucięte ani łamane w środku słowa.
-- [ ] **Listy podzielone na okresy** (Ciśnienie i EKG): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
+- [ ] **Listy podzielone na okresy** (Ciśnienie, EKG, Badania → Według dat i historia parametru): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
 
 ### Do zrobienia po testach
 

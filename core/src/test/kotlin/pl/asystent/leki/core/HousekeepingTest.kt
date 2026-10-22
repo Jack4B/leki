@@ -280,4 +280,16 @@ class HousekeepingTest {
         assertEquals(flagged > 0, es.contains("do omówienia: $flagged"), es)
         assertEquals("brak zapisów", ecgGroupSummary(emptyList()).first)
     }
+
+    @Test fun labSummaryCountsRangesAndDays() {
+        val k = Marker("k", "Potas", "mmol/l", lo = 3.5, hi = 5.5)
+        val na = Marker("na", "Sód", "mmol/l", lo = 136.0, hi = 146.0)
+        fun lab(id: String, d: Int, m: String, v: Double) = Lab(id, LocalDate.of(2026, 10, d), m, v)
+        val (multi, warn) = labGroupSummary(listOf(lab("1", 18, "k", 4.3), lab("2", 18, "na", 134.0), lab("3", 20, "k", 4.1)), listOf(k, na))
+        assertEquals("3 wyniki · dni badań: 2 · poza zakresem: 1", multi); assertTrue(warn)
+        val (one, w1) = labGroupSummary(listOf(lab("1", 18, "k", 4.3), lab("2", 20, "k", 4.1)), listOf(k, na))
+        assertEquals("2 wyniki · 4,1–4,3 mmol/l", one); assertFalse(w1)
+        assertEquals("1 wynik", labGroupSummary(listOf(lab("1", 18, "k", 4.3)), listOf(k)).first)
+        assertEquals("brak wyników", labGroupSummary(emptyList(), listOf(k)).first)
+    }
 }
