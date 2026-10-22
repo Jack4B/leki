@@ -6,7 +6,7 @@ object EcgInfo {
 
     val STEPS = listOf(
         Step("Odtworzenie przebiegu z PDF",
-            "Strona PDF jest renderowana do obrazu (300 dpi; przy braku pamięci 200 dpi). Piksele czerwonej linii (R ≥ 170, G i B ≤ 130) są zamieniane na przebieg: każdy wiersz obrazu to chwila czasu, a odległość linii od jej mediany to napięcie. Skala z wydruku: 25 mm/s i 10 mm/mV (około 295 próbek na sekundę przy 300 dpi). Zapis jest następnie przeliczany do 125 próbek na sekundę z dokładnością do 0,01 mV."),
+            "Strona PDF jest renderowana do obrazu (300 dpi; przy braku pamięci 200 dpi). Piksele czerwonej linii (R ≥ 170, G i B ≤ 130) są zamieniane na przebieg: każdy wiersz obrazu to chwila czasu, a odległość linii od jej mediany to napięcie. Skala z wydruku: 25 mm/s i 10 mm/mV (około 295 próbek na sekundę przy 300 dpi). Przebieg jest następnie przeliczany do 250 próbek na sekundę (setne części mV) i zapisywany wektorowo: tylko punkty załamania linii, z błędem pionowym do 0,02 mV (uproszczenie Ramera, Douglasa i Peuckera), co daje około 4,5 KB na 30 s."),
         Step("Usunięcie dryfu linii podstawowej",
             "Od sygnału odejmowana jest ruchoma mediana z okna 0,6 s, co usuwa powolne falowanie linii (oddech, ruch)."),
         Step("Wykrywanie uderzeń (zespół QRS)",

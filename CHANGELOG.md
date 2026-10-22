@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.6.5-preview
+
+- **Zapis EKG wektorowy: wierny i mały.** Przebieg (250 próbek/s) jest zapisywany jako punkty załamania linii (uproszczenie Ramera, Douglasa i Peuckera, błąd pionowy do 0,02 mV, czyli ok. 2 piksele wydruku w 300 dpi): na zmierzonym wydruku 30 s to ok. 4,5 KB (1657 punktów z 7410) wobec 9,9 KB poprzedniego zapisu z równymi próbkami i 93 KB pierwotnej listy liczb. Pomiar: błąd względem natywnych obrazów z PDF to 0,050 mV, tak samo jak dla równych próbek (0,049 mV), bo o wierności decyduje rastrowa kopia linii w PDF, a nie zapis. Szczyty R zostają zachowane. Przebieg w pamięci jest sprowadzany do punktu stałego zapisu, więc wielokrotne zapisywanie i odczyt nie zmieniają go ani o jedną próbkę. Zapisy w starszych formatach (lista liczb, zapis różnicowy) wczytują się i są przepakowywane.
+- **Mniej pamięci przy renderowaniu 300 dpi.** Strona PDF nie jest trzymana jako duża bitmapa ani jako tablica pikseli: czytana wierszami zamienia się od razu na maskę jednobajtową (ok. 8,7 MB zamiast 35 MB tablicy pikseli) i jest zwalniana, a OCR nagłówka ma osobny, mały render 200 dpi. Szacunkowy szczyt pamięci spada z ok. 100 MB do ok. 44 MB (wartość policzona z rozmiarów, nie zmierzona na telefonie).
+- Częstotliwość próbkowania zapisu 250 Hz (wcześniej 125 Hz): dokładniejsze położenie szczytów R i pomiar szerokości QRS (rozdzielczość 4 ms zamiast 8 ms).
+- 4 nowe testy (granica błędu i rozmiar zapisu wektorowego, brak dryfu przy wielokrotnym zapisie, uszkodzone dane, zgodność digitalizacji z maski i z pikseli).
+
 ## 0.6.4-preview
 
 - **Podgląd EKG z powiększaniem.** W edytorze zapisu przycisk „Powiększ przebieg” otwiera jeden ciągły pas całego zapisu: przesuwasz go palcem, dwoma palcami powiększasz i zmniejszasz (od całego zapisu do 2 s na ekranie), a przyciski „Całość, 10 s, 5 s, 2 s” ustawiają skalę jednym ruchem. Siatka jak na papierze (mała kratka 0,04 s i 0,1 mV), trójkąty przy uderzeniach, szare tło przy zakłóceniach, podpisy sekund.

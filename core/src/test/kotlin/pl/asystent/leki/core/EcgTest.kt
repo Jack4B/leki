@@ -163,7 +163,7 @@ class EcgTest {
     // ---------- zapis, kopia zapasowa, raport ----------
 
     private fun sampleEcg(id: String = "e1", date: LocalDate = LocalDate.of(2026, 10, 13)): Ecg =
-        Ecg(id, date, LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm zatokowy", fs = 100, cmv = EcgAnalysis.toRecord(ecg(regular(0.8)), fs, 100), note = "po spacerze")
+        Ecg(id, date, LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm zatokowy", fs = 100, cmv = EcgVector.normalize(EcgAnalysis.toRecord(ecg(regular(0.8)), fs, 100)), note = "po spacerze")
 
     @Test fun ecgSurvivesBackupAndEncryptedBackup() {
         val s = AppState().saveEcg(sampleEcg())
@@ -314,8 +314,8 @@ class EcgTest {
         assertEquals(null, EcgPacking.unpack(java.util.Base64.getEncoder().encodeToString(ByteArray(5) { 0xFF.toByte() })))
         assertEquals(emptyList(), EcgPacking.unpack(""))
         val json = Backup.export(AppState().saveEcg(sampleEcg()))
-        assertTrue(json.length < 30_000, "kopia z jednym EKG ma ${json.length} znaków")
-        assertTrue("\"cmvz\"" in json && "\"cmv\"" !in json)
+        assertTrue(json.length < 20_000, "kopia z jednym EKG ma ${json.length} znaków")
+        assertTrue("\"cmvp\"" in json && "\"cmv\"" !in json && "\"cmvz\"" !in json)
     }
 
     @Test fun legacyListFormatStillLoads() {
@@ -349,5 +349,50 @@ class EcgTest {
         val hk = Licenses.evaluated.single { "HeartKit" in it.name }
         assertEquals("BSD-3-Clause", hk.license); assertTrue("Ambiq" in hk.copyright)
         assertTrue(Licenses.references.size >= 3)
+    }
+
+    @Test fun vectorStorageKeepsErrorBelowToleranceAndIsMuchSmaller() {
+        val cmv = EcgAnalysis.toRecord(ecg(regular(0.8), noise = 0.004), 250.0, 250)
+        val packed = EcgVector.pack(cmv)
+        val back = EcgVector.unpack(packed)!!
+        assertEquals(cmv.size, back.size)
+        val maxErr = cmv.indices.maxOf { abs(cmv[it] - back[it]) }
+        assertTrue(maxErr <= EcgVector.EPS, "błąd $maxErr")
+        assertTrue(packed.length < EcgPacking.pack(cmv).length, "wektor ${packed.length} B, różnice ${EcgPacking.pack(cmv).length} B")
+        // szczyty R zostają zachowane (są wierzchołkami)
+        val peak = cmv.indices.maxByOrNull { cmv[it] }!!
+        assertTrue(abs(back[peak] - cmv[peak]) <= EcgVector.EPS)
+        // wynik analizy po zapisie jest taki sam
+        val a = EcgAnalysis.analyze(Ecg("a", LocalDate.of(2026, 1, 1), LocalTime.of(8, 0), fs = 250, cmv = cmv))
+        val b = EcgAnalysis.analyze(Ecg("b", LocalDate.of(2026, 1, 1), LocalTime.of(8, 0), fs = 250, cmv = back))
+        assertEquals(a.beats.size, b.beats.size); assertTrue(abs(a.hrMedian!! - b.hrMedian!!) < 0.1)
+    }
+
+    @Test fun repeatedSavingDoesNotDrift() {
+        for (noise in listOf(0.004, 0.02, 0.05)) {
+            val raw = EcgAnalysis.toRecord(ecg(regular(0.8), noise = noise), 250.0, 250)
+            val first = EcgVector.normalize(raw)
+            var cur = first
+            repeat(6) { cur = EcgVector.unpack(EcgVector.pack(cur))!! }
+            assertEquals(first, cur, "wielokrotny zapis i odczyt nie może zmieniać przebiegu (szum $noise)")
+            val err = raw.indices.maxOf { abs(raw[it] - first[it]) }
+            assertTrue(err <= 2 * EcgVector.EPS, "błąd po normalizacji $err")
+        }
+    }
+
+    @Test fun corruptVectorDataIsRejected() {
+        assertEquals(null, EcgVector.unpack("%%%"))
+        assertEquals(null, EcgVector.unpack(java.util.Base64.getEncoder().encodeToString(byteArrayOf(5, 0))))        // brak punktów
+        assertEquals(null, EcgVector.unpack(java.util.Base64.getEncoder().encodeToString(byteArrayOf(5, 2, 1, 2))))  // pierwszy punkt nie na początku
+        assertEquals(emptyList(), EcgVector.unpack(EcgVector.pack(emptyList())))
+        assertEquals(listOf(7), EcgVector.unpack(EcgVector.pack(listOf(7))))
+        assertEquals(listOf(1, 2), EcgVector.unpack(EcgVector.pack(listOf(1, 2))))
+    }
+
+    @Test fun maskDigitizerMatchesPixelDigitizer() {
+        val img = render(ecg(regular(0.8)), 6.0, true)
+        val a = EcgDigitizer.digitize(img.px, img.w, img.h, 6.0)!!
+        val b = EcgDigitizer.digitizeMask(EcgDigitizer.mask(img.px, img.w, img.h), img.w, img.h, 6.0)!!
+        assertEquals(a.mv.toList(), b.mv.toList())
     }
 }

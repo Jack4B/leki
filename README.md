@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.6.4 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.6.5 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -37,10 +37,10 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 2. Tekst nagłówka (OCR na urządzeniu) daje datę, godzinę, tętno i ocenę rytmu zegarka. Imię, płeć, wiek, wzrost i waga z wydruku **nie są odczytywane ani zapisywane**. Datę i resztę możesz poprawić przed zapisem.
 3. Z przebiegu aplikacja liczy tętno, odstępy RR i ich zmienność, rozpoznaje zakłócenia ruchowe (są pomijane) i wskazuje kandydatów do omówienia z lekarzem: tętno poniżej 50 lub powyżej 100/min, wyraźnie nieregularny rytm, przedwczesne uderzenia z dłuższą przerwą po nich, długie przerwy.
 4. W podglądzie można przebieg **powiększać i przewijać** (dwa palce, przyciski „Całość, 10 s, 5 s, 2 s”), z siatką jak na papierze.
-5. Zapis (sam przebieg w 125 próbkach na sekundę, zapisany zwarcie: ok. 8 KB na 30 s) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
+5. Zapis (przebieg w 250 próbkach na sekundę, zapisany wektorowo: ok. 4,5 KB na 30 s) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
 
 **Jak to jest liczone (algorytmy).** Obliczenia robi sama aplikacja na telefonie, bez bibliotek zewnętrznych, internetu i modeli AI (kod: `core/.../Ecg.kt`, opis w `EcgInfo.kt` i w aplikacji pod „Jak to jest liczone”):
-1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (300 dpi, a przy braku pamięci 200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV, potem zapis w 125 próbkach/s.
+1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (300 dpi, a przy braku pamięci 200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV. Strona nie jest trzymana jako duża bitmapa: od razu powstaje z niej maska jednobajtowa (czwarta część pamięci), a bitmapa jest zwalniana; do odczytu nagłówka (OCR) służy osobny, mały render 200 dpi. Przebieg jest potem przeliczany do 250 próbek/s i zapisywany wektorowo (punkt 9).
 2. **Dryf linii podstawowej** usuwany ruchomą medianą z okna 0,6 s.
 3. **Uderzenia (QRS):** metoda energii pochodnej w duchu algorytmu Pana i Tompkinsa (1985), uproszczona: kwadrat różnicy próbek wygładzony oknem 60 ms, próg 25% mediany maksimów z okien 1,5 s, odstęp refrakcji 250 ms, punkt R jako maksimum w ±70 ms, kierunek QRS według większości uderzeń.
 4. **Zakłócenia:** pomijane fragmenty ±0,35 s wokół wychyleń ponad 2,5 amplitudy R, wychyleń przeciwnych do QRS o amplitudzie co najmniej 0,9 R i skoków ponad 4 razy bardziej stromych niż QRS.
@@ -48,6 +48,8 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 6. **Wzorzec losowej nieregularności (z samych odstępów RR):** RMSSD/średni RR co najmniej 0,12, odsetek punktów zwrotnych w ciągu od 55% do 82% (losowy ciąg ma ok. 67%, gładka zmienność oddechowa mniej, bigeminia 100%) i entropia próbkowa (m = 1, r = 0,2 SD) co najmniej 1,0; wszystkie trzy naraz i co najmniej 20 odstępów dają oznaczenie „odstępy jak przy migotaniu przedsionków”. Progi dobrano na sygnałach syntetycznych, bez walidacji na prawdziwych zapisach z migotaniem.
 7. **Kształt uderzeń i szerokość QRS:** szablon to mediana czystych uderzeń; korelacja z szablonem ocenia jakość; szerokość QRS mierzona na stromych zboczach (próg 15% maksymalnego nachylenia, rozdzielczość 8 ms) służy do porównań. Przedwczesne uderzenie dostaje opis „kształt odmienny (możliwe komorowe)” (korelacja poniżej 0,75 albo QRS o ponad 30% szerszy) albo „zbliżony (możliwe przedsionkowe lub nadkomorowe)”.
 8. **Reguły oznaczeń:** wolne tętno (mediana poniżej 50/min), szybkie (powyżej 100/min), rytm wyraźnie nieregularny (co najmniej 35% odstępów odbiega o ponad 15% od mediany i współczynnik zmienności powyżej 0,1), przedwczesne uderzenie (odstęp poniżej 80% mediany, po nim powyżej 110%), przerwa (odstęp powyżej 1,6 mediany i powyżej 1,8 s). Do oceny potrzeba co najmniej 8 uderzeń.
+
+9. **Zapis wektorowy (mały rozmiar bez utraty wierności):** zamiast równych próbek zapisywane są tylko punkty załamania linii (uproszczenie Ramera, Douglasa i Peuckera z błędem pionowym do 0,02 mV, czyli ok. 2 piksele wydruku w 300 dpi), jako różnice indeksów i wartości w zmiennej długości, base64. Odtworzenie przez interpolację liniową różni się od przebiegu o najwyżej 0,02 mV, a szczyty R zostają zachowane (są wierzchołkami). Przebieg w pamięci jest sprowadzany do punktu stałego zapisu, więc wielokrotne zapisywanie nie powoduje dryfu. Na zmierzonym wydruku (30 s): równe próbki 250 Hz w poprzednim zapisie ok. 9,9 KB, zapis wektorowy ok. 4,5 KB (1657 punktów z 7410), pierwotna lista liczb ok. 93 KB.
 
 To zwykła heurystyka, a nie zatwierdzony algorytm medyczny; nie była walidowana klinicznie.
 
@@ -59,7 +61,7 @@ To zwykła heurystyka, a nie zatwierdzony algorytm medyczny; nie była walidowan
 | 300 dpi (obecnie w aplikacji) | 0,05 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
 | 400 dpi | 0,03–0,04 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
 
-Zapis w 125 próbkach na sekundę i z dokładnością 0,01 mV nie pogarsza tego istotnie (R wychodzi o ok. 1% niższe niż przed zapisem, bo próbki nie zawsze trafiają dokładnie w szczyt). Największe odchylenia (do ok. 1–2 mV) są w miejscach zakłóceń ruchowych, gdzie linia na wydruku ma strome skoki. Zawyżenie amplitudy R o 2–3% wynika z grubości linii na obrazie. Tętno, liczba uderzeń i odstępy RR zgadzają się z wzorcem, co jest najważniejsze dla analizy rytmu; **drobne szczegóły kształtu (np. początek i koniec załamków) nie są odwzorowane dokładnie** i nie nadają się do pomiarów.
+Zapis wektorowy (punkt 9) nie pogarsza tego istotnie: błąd średniokwadratowy względem wzorca wynosi 0,050 mV tak samo jak dla równych próbek (0,049 mV), bo o błędzie decyduje rastrowa kopia linii w PDF, a nie sposób zapisu. Największe odchylenia (do ok. 1–2 mV) są w miejscach zakłóceń ruchowych, gdzie linia na wydruku ma strome skoki. Zawyżenie amplitudy R o 2–3% wynika z grubości linii na obrazie. Tętno, liczba uderzeń i odstępy RR zgadzają się z wzorcem, co jest najważniejsze dla analizy rytmu; **drobne szczegóły kształtu (np. początek i koniec załamków) nie są odwzorowane dokładnie** i nie nadają się do pomiarów.
 
 **Ograniczenia, które trzeba znać:**
 - To narzędzie pomocnicze do rozmowy z lekarzem, a nie diagnoza ani wyrób medyczny. Brak oznaczeń nie wyklucza choroby serca.

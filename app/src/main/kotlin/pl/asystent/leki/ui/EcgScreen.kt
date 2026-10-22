@@ -61,6 +61,7 @@ import pl.asystent.leki.core.EcgDigitizer
 import pl.asystent.leki.core.EcgInfo
 import pl.asystent.leki.core.EcgMeta
 import pl.asystent.leki.core.EcgResult
+import pl.asystent.leki.core.EcgVector
 import pl.asystent.leki.core.EcgSeverity
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.deleteEcg
@@ -109,26 +110,30 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
 
 /** Renderuje stronę, odtwarza przebieg i odczytuje nagłówek; null, gdy w pliku nie ma przebiegu EKG. */
 private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Uri, dpi: Int): Ecg? {
-    val bmp = ScanImages.renderFirstPdfPage(ctx, uri, dpi)
-    val w = bmp.width; val h = bmp.height
+    // przebieg: strona w pełnej rozdzielczości jest od razu zamieniana na maskę jednobajtową (czwarta część pamięci bitmapy) i zwalniana
     val dig = run {
-        val px = IntArray(w * h)
-        bmp.getPixels(px, 0, w, 0, 0, w, h)
-        EcgDigitizer.digitize(px, w, h, dpi / 25.4)
-    }
-    if (dig == null) { bmp.recycle(); return null }
-    // nagłówek wydruku (data, tętno, ocena rytmu): OCR na kopii 200 dpi (sprawdzonej rozdzielczości), żeby nie trzymać w pamięci kilku dużych bitmap
+        val bmp = ScanImages.renderFirstPdfPage(ctx, uri, dpi)
+        try {
+            val w = bmp.width; val h = bmp.height
+            val m = ByteArray(w * h); val row = IntArray(w)
+            for (y in 0 until h) {
+                bmp.getPixels(row, 0, w, 0, y, w, 1)
+                val o = y * w
+                for (x in 0 until w) if (EcgDigitizer.isTrace(row[x])) m[o + x] = 1
+            }
+            EcgDigitizer.digitizeMask(m, w, h, dpi / 25.4)
+        } finally { bmp.recycle() }
+    } ?: return null
+    // nagłówek wydruku (data, tętno, ocena rytmu): osobny, mały render 200 dpi, na którym OCR był sprawdzony
     val meta = runCatching {
-        val small = Bitmap.createScaledBitmap(bmp, w * DPI_FALLBACK / dpi, h * DPI_FALLBACK / dpi, true)
-        bmp.recycle()
+        val small = ScanImages.renderFirstPdfPage(ctx, uri, DPI_FALLBACK)
         val upright = if (dig.vertical) Bitmap.createBitmap(small, 0, 0, small.width, small.height, Matrix().apply { postRotate(-90f) }, true).also { small.recycle() } else small
         OcrEngine().use { eng -> EcgMeta.parse(LabScan.rows(eng.recognize(upright))) }
     }.getOrNull()
-    if (!bmp.isRecycled) bmp.recycle()
     val now = java.time.LocalDateTime.now()
     return Ecg(
         newId(), meta?.date ?: now.toLocalDate(), meta?.time ?: now.toLocalTime().withSecond(0).withNano(0),
-        watchHr = meta?.hr ?: 0, watchNote = meta?.note.orEmpty(), fs = 125, cmv = EcgAnalysis.toRecord(dig.mv, dig.fs),
+        watchHr = meta?.hr ?: 0, watchNote = meta?.note.orEmpty(), fs = 250, cmv = EcgVector.normalize(EcgAnalysis.toRecord(dig.mv, dig.fs, 250)),
     )
 }
 

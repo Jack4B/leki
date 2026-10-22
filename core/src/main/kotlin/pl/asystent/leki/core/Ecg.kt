@@ -22,7 +22,7 @@ data class Ecg(
     val watchHr: Int = 0,
     /** Ocena rytmu podana przez zegarek, np. „Rytm zatokowy”. */
     val watchNote: String = "",
-    val fs: Int = 125,
+    val fs: Int = 250,
     /** Przebieg w setnych częściach mV. */
     val cmv: List<Int> = emptyList(),
     val note: String = "",
@@ -314,9 +314,18 @@ object EcgDigitizer {
     /** [vertical]: pasy były ułożone pionowo (strona obrócona o 90°), więc do odczytu tekstu obraz trzeba obrócić o 90° w lewo. */
     class Result(val fs: Double, val mv: DoubleArray, val strips: Int, val vertical: Boolean)
 
-    private fun isTrace(p: Int): Boolean {
+    /** Czy piksel ARGB należy do czerwonej linii przebiegu. */
+    fun isTrace(p: Int): Boolean {
         val r = (p shr 16) and 255; val g = (p shr 8) and 255; val b = p and 255
         return r >= 170 && g <= 130 && b <= 130 && r - max(g, b) >= 70
+    }
+
+    /** Maska jednobajtowa (1 = ślad): cztery razy mniej pamięci niż piksele ARGB, więc pełna strona w 300 dpi nie wymaga trzymania dużej bitmapy. */
+    fun mask(px: IntArray, w: Int, h: Int): ByteArray = ByteArray(w * h) { if (isTrace(px[it])) 1 else 0 }
+
+    fun digitize(px: IntArray, w: Int, h: Int, pxPerMm: Double, gainMmPerMv: Double = 10.0, paperMmPerS: Double = 25.0): Result? {
+        if (w <= 0 || h <= 0 || px.size < w * h) return null
+        return digitizeMask(mask(px, w, h), w, h, pxPerMm, gainMmPerMv, paperMmPerS)
     }
 
     /**
@@ -324,17 +333,17 @@ object EcgDigitizer {
      * Wydruk zegarka ma przebieg w pasach po 10 s: na stronie pionowej pasy są obrócone o 90° (czas biegnie w dół, pierwszy pas po prawej).
      * Zakładamy standard wydruku: 25 mm/s i 10 mm/mV.
      */
-    fun digitize(px: IntArray, w: Int, h: Int, pxPerMm: Double, gainMmPerMv: Double = 10.0, paperMmPerS: Double = 25.0): Result? {
-        if (w <= 0 || h <= 0 || px.size < w * h || pxPerMm <= 0) return null
+    fun digitizeMask(m: ByteArray, w: Int, h: Int, pxPerMm: Double, gainMmPerMv: Double = 10.0, paperMmPerS: Double = 25.0): Result? {
+        if (w <= 0 || h <= 0 || m.size < w * h || pxPerMm <= 0) return null
         var x0 = w; var x1 = -1; var y0 = h; var y1 = -1; var count = 0
-        for (y in 0 until h) for (x in 0 until w) if (isTrace(px[y * w + x])) {
+        for (y in 0 until h) for (x in 0 until w) if (m[y * w + x].toInt() != 0) {
             count++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
         }
         if (count < 300) return null
         val vertical = (y1 - y0) > (x1 - x0)
         val uN = if (vertical) h else w
         val vN = if (vertical) w else h
-        fun hit(u: Int, v: Int) = if (vertical) isTrace(px[u * w + v]) else isTrace(px[v * w + u])
+        fun hit(u: Int, v: Int) = (if (vertical) m[u * w + v] else m[v * w + u]).toInt() != 0
 
         // pasy: ciągłe zakresy osi amplitudy, w których jest ślad; luka większa niż 8 mm oddziela kolejne pasy
         val has = BooleanArray(vN)
@@ -424,6 +433,92 @@ object EcgPacking {
             if (out.size > maxSamples) return null
         }
         return out
+    }
+}
+
+/**
+ * Zapis wektorowy: zamiast równych próbek przechowujemy tylko punkty załamania linii (uproszczenie Ramera, Douglasa i Peuckera z błędem pionowym
+ * do [EPS] setnych mV). Odtworzenie przez interpolację liniową różni się od przebiegu o najwyżej [EPS] (0,02 mV, a błąd samego odtworzenia
+ * z obrazu PDF to około 0,05 mV), a załamki i szczyty R zostają zachowane dokładnie, bo są wierzchołkami. Fragmenty płaskie między uderzeniami zajmują kilka punktów.
+ */
+object EcgVector {
+    /** Dopuszczalny błąd pionowy w setnych mV (0,02 mV to około 2 piksele wydruku w 300 dpi, mniej niż błąd samego odtworzenia z obrazu). */
+    const val EPS = 2
+
+    /** Indeksy zachowanych punktów (pierwszy i ostatni zawsze). */
+    fun simplify(y: List<Int>, eps: Int = EPS): List<Int> {
+        val n = y.size
+        if (n <= 2) return y.indices.toList()
+        val keep = BooleanArray(n); keep[0] = true; keep[n - 1] = true
+        val stack = ArrayDeque<IntArray>(); stack.addLast(intArrayOf(0, n - 1))
+        while (stack.isNotEmpty()) {
+            val (a, b) = stack.removeLast()
+            if (b <= a + 1) continue
+            var maxD = -1.0; var idx = -1
+            for (i in a + 1 until b) {
+                val line = y[a] + (y[b] - y[a]).toDouble() * (i - a) / (b - a)
+                val d = abs(y[i] - line)
+                if (d > maxD) { maxD = d; idx = i }
+            }
+            if (maxD > eps) { keep[idx] = true; stack.addLast(intArrayOf(a, idx)); stack.addLast(intArrayOf(idx, b)) }
+        }
+        return keep.indices.filter { keep[it] }
+    }
+
+    private fun put(out: java.io.ByteArrayOutputStream, v: Int) { var z = v; while (z >= 0x80) { out.write((z and 0x7F) or 0x80); z = z ushr 7 }; out.write(z) }
+    private fun zig(d: Int) = (d shl 1) xor (d shr 31)
+
+    /** Pakuje przebieg do tekstu: liczba próbek, liczba punktów, potem dla każdego punktu odstęp indeksu i zmiana wartości (zigzag), wszystko jako zmienna długość i base64. */
+    fun pack(cmv: List<Int>, eps: Int = EPS): String {
+        val idx = simplify(cmv, eps)
+        val out = java.io.ByteArrayOutputStream(idx.size * 3 + 8)
+        put(out, cmv.size); put(out, idx.size)
+        var pi = 0; var pv = 0
+        for (i in idx) { put(out, i - pi); put(out, zig(cmv[i] - pv)); pi = i; pv = cmv[i] }
+        return java.util.Base64.getEncoder().encodeToString(out.toByteArray())
+    }
+
+    /**
+     * Sprowadza przebieg do punktu stałego zapisu (zapis i odczyt nie zmieniają go już ani o jedną próbkę), więc przebieg w pamięci jest taki sam jak ten w pliku
+     * i wielokrotne zapisywanie nie powoduje dryfu. Pierwsze przejście jest stratne (do [EPS]), kolejne zwykle niczego nie zmieniają.
+     */
+    fun normalize(cmv: List<Int>, maxPasses: Int = 8): List<Int> {
+        var cur = cmv
+        repeat(maxPasses) {
+            val next = unpack(pack(cur)) ?: return cur
+            if (next == cur) return cur
+            cur = next
+        }
+        return cur
+    }
+
+    /** Odtwarza równe próbki przez interpolację liniową; null przy uszkodzonych danych. */
+    fun unpack(s: String, maxSamples: Int = 200_000): List<Int>? {
+        val b = try { java.util.Base64.getDecoder().decode(s) } catch (e: IllegalArgumentException) { return null }
+        var pos = 0
+        fun get(): Int? {
+            var z = 0; var shift = 0
+            while (true) {
+                if (pos >= b.size || shift > 28) return null
+                val x = b[pos++].toInt() and 0xFF
+                z = z or ((x and 0x7F) shl shift)
+                if (x < 0x80) return z
+                shift += 7
+            }
+        }
+        val n = get() ?: return null; val k = get() ?: return null
+        if (n < 0 || n > maxSamples || k < 0 || k > n || (n > 0 && k < 1)) return null
+        val out = IntArray(n)
+        var pi = 0; var pv = 0; var first = true
+        repeat(k) {
+            val di = get() ?: return null; val dz = get() ?: return null
+            val i = pi + di; val v = (pv + ((dz ushr 1) xor -(dz and 1))).coerceIn(-1000, 1000)
+            if (i >= n || (!first && di <= 0) || (first && i != 0)) return null
+            if (!first) for (t in pi + 1..i) out[t] = Math.round(pv + (v - pv).toDouble() * (t - pi) / (i - pi)).toInt()
+            out[i] = v; pi = i; pv = v; first = false
+        }
+        if (n > 0 && pi != n - 1) return null
+        return out.toList()
     }
 }
 
