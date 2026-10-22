@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.6.3-preview
+
+- **Zwarty zapis EKG w kopii zapasowej.** Przebieg był zapisywany jako czytelna lista liczb i jedno 30-sekundowe EKG zajmowało w kopii około 93 KB (100 zapisów to prawie 9 MB, a plik danych jest serializowany przy każdej zmianie, ok. pół sekundy). Teraz przebieg jest pakowany (różnice kolejnych próbek, zmienna długość, base64) i zajmuje około 8 KB, bez utraty dokładności. Zapisy w starym formacie wczytują się i przepakują przy następnym zapisie danych; uszkodzony zapis jest pomijany, a reszta kopii się wczytuje.
+- **Zmierzona wierność odtworzenia przebiegu** (opis w README): porównanie z natywnymi obrazami pasów zapisanymi w PDF (454 ppi) na jednym wydruku z zegarka.
+- 2 nowe testy (pakowanie bez strat i rozmiar, wczytywanie starego formatu i uszkodzonego zapisu).
+
 ## 0.6.2-preview
 
 - **EKG: wzorzec losowej nieregularności odstępów RR.** Trzy wskaźniki z literatury o wykrywaniu migotania przedsionków z samych odstępów między uderzeniami (znormalizowane RMSSD, odsetek punktów zwrotnych, entropia próbkowa) dają oznaczenie „Odstępy jak przy migotaniu przedsionków”, gdy spełnione są wszystkie trzy. Bigeminia, trigeminia, zmienność oddechowa i pojedyncze przedwczesne uderzenie nie są tak oznaczane. Na sygnałach syntetycznych wzorzec jest wykrywany w ok. 90% zapisów losowych, bez fałszywych oznaczeń w zdrowym rytmie. **Progi nie były walidowane na prawdziwych zapisach z migotaniem** (brak dostępu do baz PhysioNet w środowisku budowania) i aplikacja nie rozpoznaje migotania, więc oznaczenie jest tylko sygnałem do konsultacji.

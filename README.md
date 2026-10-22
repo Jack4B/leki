@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.6.2 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.6.3 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -36,7 +36,7 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 1. Aplikacja renderuje stronę na telefonie i odtwarza przebieg z obrazu: czerwona linia na siatce, wydruk w standardzie 25 mm/s i 10 mm/mV, strona pionowa (pasy obrócone o 90°) lub pozioma.
 2. Tekst nagłówka (OCR na urządzeniu) daje datę, godzinę, tętno i ocenę rytmu zegarka. Imię, płeć, wiek, wzrost i waga z wydruku **nie są odczytywane ani zapisywane**. Datę i resztę możesz poprawić przed zapisem.
 3. Z przebiegu aplikacja liczy tętno, odstępy RR i ich zmienność, rozpoznaje zakłócenia ruchowe (są pomijane) i wskazuje kandydatów do omówienia z lekarzem: tętno poniżej 50 lub powyżej 100/min, wyraźnie nieregularny rytm, przedwczesne uderzenia z dłuższą przerwą po nich, długie przerwy.
-4. Zapis (sam przebieg w 125 próbkach na sekundę) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
+4. Zapis (sam przebieg w 125 próbkach na sekundę, zapisany zwarcie: ok. 8 KB na 30 s) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
 
 **Jak to jest liczone (algorytmy).** Obliczenia robi sama aplikacja na telefonie, bez bibliotek zewnętrznych, internetu i modeli AI (kod: `core/.../Ecg.kt`, opis w `EcgInfo.kt` i w aplikacji pod „Jak to jest liczone”):
 1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV, potem zapis w 125 próbkach/s.
@@ -49,6 +49,16 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 8. **Reguły oznaczeń:** wolne tętno (mediana poniżej 50/min), szybkie (powyżej 100/min), rytm wyraźnie nieregularny (co najmniej 35% odstępów odbiega o ponad 15% od mediany i współczynnik zmienności powyżej 0,1), przedwczesne uderzenie (odstęp poniżej 80% mediany, po nim powyżej 110%), przerwa (odstęp powyżej 1,6 mediany i powyżej 1,8 s). Do oceny potrzeba co najmniej 8 uderzeń.
 
 To zwykła heurystyka, a nie zatwierdzony algorytm medyczny; nie była walidowana klinicznie.
+
+**Wierność odtworzenia przebiegu.** Zmierzono ją na jednym wydruku z zegarka, porównując odtworzenie z obrazu strony z natywnymi obrazami pasów zapisanymi w PDF (454 ppi, czyli jeden piksel to ok. 2,2 ms i 0,006 mV). Wzorzec nie jest „prawdą” o sercu, tylko najlepszą dostępną kopią tego, co narysował zegarek:
+
+| Rozdzielczość renderowania | Błąd średniokwadratowy | R (amplituda) | Tętno z odtworzenia |
+|---|---|---|---|
+| 200 dpi (obecnie w aplikacji) | 0,12 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
+| 300 dpi | 0,05 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
+| 400 dpi | 0,03–0,04 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
+
+Zapis w 125 próbkach na sekundę i z dokładnością 0,01 mV nie pogarsza tego istotnie (R wychodzi o ok. 1% niższe niż przed zapisem, bo próbki nie zawsze trafiają dokładnie w szczyt). Największe odchylenia (do ok. 1–2 mV) są w miejscach zakłóceń ruchowych, gdzie linia na wydruku ma strome skoki. Zawyżenie amplitudy R o 2–3% wynika z grubości linii na obrazie. Tętno, liczba uderzeń i odstępy RR zgadzają się z wzorcem, co jest najważniejsze dla analizy rytmu; **drobne szczegóły kształtu (np. początek i koniec załamków) nie są odwzorowane dokładnie** i nie nadają się do pomiarów.
 
 **Ograniczenia, które trzeba znać:**
 - To narzędzie pomocnicze do rozmowy z lekarzem, a nie diagnoza ani wyrób medyczny. Brak oznaczeń nie wyklucza choroby serca.

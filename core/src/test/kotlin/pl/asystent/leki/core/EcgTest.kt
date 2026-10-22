@@ -303,4 +303,28 @@ class EcgTest {
         val all = EcgInfo.STEPS.joinToString(" ") { it.text }
         for (k in listOf("0,12", "od 55% do 82%", "r = 0,2", "co najmniej 1,0", "co najmniej 20 odstępów", "od -0,10 do +0,14 s", "poniżej 0,8 jakość umiarkowana", "poniżej 0,6 słaba", "15% maksymalnego", "niższa niż 0,75", "o ponad 30% (i 10 ms)")) assertTrue(k in all, k)
     }
+
+    @Test fun ecgPackingIsLosslessAndCompact() {
+        val cmv = EcgAnalysis.toRecord(ecg(regular(0.8)), fs, 125)
+        val packed = EcgPacking.pack(cmv)
+        assertEquals(cmv, EcgPacking.unpack(packed))
+        assertTrue(packed.length < cmv.size * 3, "zapis ${packed.length} znaków dla ${cmv.size} próbek")
+        assertEquals(listOf(0, 1000, -1000, 5), EcgPacking.unpack(EcgPacking.pack(listOf(0, 1000, -1000, 5))))
+        assertEquals(null, EcgPacking.unpack("%%%nie-base64%%%"))
+        assertEquals(null, EcgPacking.unpack(java.util.Base64.getEncoder().encodeToString(ByteArray(5) { 0xFF.toByte() })))
+        assertEquals(emptyList(), EcgPacking.unpack(""))
+        val json = Backup.export(AppState().saveEcg(sampleEcg()))
+        assertTrue(json.length < 30_000, "kopia z jednym EKG ma ${json.length} znaków")
+        assertTrue("\"cmvz\"" in json && "\"cmv\"" !in json)
+    }
+
+    @Test fun legacyListFormatStillLoads() {
+        val e = sampleEcg()
+        val legacy = """{"v":3,"days":{},"ecgs":[{"id":"old","date":"2026-10-13","time":"19:08","source":"zegarek","watchHr":73,"watchNote":"Rytm zatokowy","fs":100,"note":"","cmv":[${e.cmv.joinToString(",")}]}]}"""
+        val st = Backup.parseState(legacy)
+        assertEquals(e.cmv, st.ecgs.single().cmv)
+        // uszkodzony zapis zwarty jest pomijany, reszta kopii się wczytuje
+        val bad = """{"v":3,"days":{},"ecgs":[{"id":"x","date":"2026-10-13","time":"19:08","fs":100,"cmvz":"!!!"}]}"""
+        assertTrue(Backup.parseState(bad).ecgs.isEmpty())
+    }
 }

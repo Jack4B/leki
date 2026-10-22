@@ -388,6 +388,45 @@ object EcgDigitizer {
     }
 }
 
+/**
+ * Zwarty zapis przebiegu w kopii zapasowej: różnice kolejnych próbek (zigzag, zmienna długość) jako base64. Typowy 30-sekundowy zapis ma ok. 8 KB
+ * zamiast ok. 90 KB jako lista liczb, więc plik danych nie puchnie przy dziesiątkach zapisów.
+ */
+object EcgPacking {
+    fun pack(cmv: List<Int>): String {
+        val out = java.io.ByteArrayOutputStream(cmv.size * 2)
+        var prev = 0
+        for (v in cmv) {
+            val d = v - prev; prev = v
+            var z = (d shl 1) xor (d shr 31)
+            while (z >= 0x80) { out.write((z and 0x7F) or 0x80); z = z ushr 7 }
+            out.write(z)
+        }
+        return java.util.Base64.getEncoder().encodeToString(out.toByteArray())
+    }
+
+    /** Odwrotność [pack]; null przy uszkodzonych danych. Wartości są ograniczone do ±1000 (±10 mV). */
+    fun unpack(s: String, maxSamples: Int = 200_000): List<Int>? {
+        val b = try { java.util.Base64.getDecoder().decode(s) } catch (e: IllegalArgumentException) { return null }
+        val out = ArrayList<Int>(b.size)
+        var i = 0; var prev = 0
+        while (i < b.size) {
+            var z = 0; var shift = 0
+            while (true) {
+                if (i >= b.size || shift > 28) return null
+                val x = b[i++].toInt() and 0xFF
+                z = z or ((x and 0x7F) shl shift)
+                if (x < 0x80) break
+                shift += 7
+            }
+            prev += (z ushr 1) xor -(z and 1)
+            out.add(prev.coerceIn(-1000, 1000))
+            if (out.size > maxSamples) return null
+        }
+        return out
+    }
+}
+
 /** Dane odczytane z tekstu wydruku zegarka (po OCR). Imię, płeć, wiek, wzrost i wagę celowo pomijamy. */
 object EcgMeta {
     /** OCR skleja kolumny nagłówka w jeden wiersz („Rytm zatokowy Średnie tętno:73…”): zostawiamy tylko samą ocenę rytmu. */

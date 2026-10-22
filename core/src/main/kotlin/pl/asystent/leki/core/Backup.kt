@@ -226,7 +226,10 @@ object Backup {
             val date = o["date"].date() ?: return@mapNotNull null
             val time = o["time"].time() ?: return@mapNotNull null
             val fs = o["fs"].number()?.let { Math.round(it).toInt() }?.takeIf { it in 50..1000 } ?: return@mapNotNull null
-            val cmv = o["cmv"].arr().orEmpty().take(200_000).mapNotNull { v -> v.number()?.let { Math.round(it).toInt().coerceIn(-1000, 1000) } }
+            // nowy zapis zwarty (cmvz) albo starszy, jako lista liczb (cmv)
+            val packed = o["cmvz"].str()
+            val cmv = if (packed != null) EcgPacking.unpack(packed) ?: return@mapNotNull null
+            else o["cmv"].arr().orEmpty().take(200_000).mapNotNull { v -> v.number()?.let { Math.round(it).toInt().coerceIn(-1000, 1000) } }
             if (cmv.size < fs) return@mapNotNull null
             Ecg(id, date, time, o["source"].strOr("zegarek"), intOr(o["watchHr"], 0, 0, 300), o["watchNote"].strOr().take(200), fs, cmv, o["note"].strOr().take(500))
         }
@@ -354,7 +357,7 @@ object Backup {
                 add(buildJsonObject {
                     put("id", e.id); put("date", e.date.toString()); put("time", e.time.hhmm()); put("source", e.source)
                     put("watchHr", e.watchHr); put("watchNote", e.watchNote); put("fs", e.fs); put("note", e.note)
-                    putJsonArray("cmv") { e.cmv.forEach { add(JsonPrimitive(it)) } }
+                    put("cmvz", EcgPacking.pack(e.cmv))
                 })
             }
         }
