@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.9.5-preview
+
+- **Poprawki z przeglądu układu na wąskim ekranie** (zrzuty 320 dp, czcionka 130%, patrz 0.9.3). Zrzuty pokazały, że:
+  - `FitText` z 0.9.3 nie wystarczał (szerokość była poprawiana dopiero w kolejnej klatce, więc etykiety nadal były ucięte, m.in. „Wszystk”, „Skanuj wynik”, „Dodaj r”). Teraz szerokość tekstu jest mierzona od razu w układzie (`BoxWithConstraints` + miernik tekstu), czcionka zmniejsza się do 11 sp, a dopiero potem tekst się łamie.
+  - w Raporcie przycisk „Własny zakres” znikał, bo data zajmowała cały wiersz; data ma teraz wagę, a przycisk zachowuje szerokość.
+  - na ekranie Leki trzecia statystyka („woda”) była ściskana i łamana w środku wyrazu; trzy statystyki dzielą wiersz po równo.
+  - wartości w statystykach (np. „130/83”) zmniejszają się, zamiast dotykać sąsiedniej kolumny.
+
 ## 0.9.4-preview
 
 - Poprawka testów zrzutów ekranu (brakujący import `HistoryState`), przez co zrzuty nie powstawały od 0.9.2. Bez zmian w aplikacji względem 0.9.3.

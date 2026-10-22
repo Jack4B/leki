@@ -149,10 +149,10 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
                     }
                 }
                 if (st.tot > 0) {
-                    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Stat("${st.n}/${st.tot}", "leki przyjęte")
-                        if (st.hasMmol) Stat("${num(st.mmolTaken)}/${num(st.mmolPlan)}", "potas z leków, mmol")
-                        if (s.settings.waterGoal > 0) Stat(num(rec.water * s.settings.glassMl / 1000.0) + " l", "woda", mono = false)
+                    Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Stat("${st.n}/${st.tot}", "leki przyjęte", Modifier.weight(1f))
+                        if (st.hasMmol) Stat("${num(st.mmolTaken)}/${num(st.mmolPlan)}", "potas z leków, mmol", Modifier.weight(1f))
+                        if (s.settings.waterGoal > 0) Stat(num(rec.water * s.settings.glassMl / 1000.0) + " l", "woda", Modifier.weight(1f), mono = false)
                     }
                     Spacer(Modifier.height(12.dp))
                     ProgressBar(st.n.toFloat() / st.tot)

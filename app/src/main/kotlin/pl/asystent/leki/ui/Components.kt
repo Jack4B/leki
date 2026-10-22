@@ -148,20 +148,25 @@ fun LekiButton(
 }
 
 /**
- * Krótka etykieta (przycisk, segment, pigułka), która ma się zmieścić w jednym wierszu: gdy jest za szeroka, zmniejsza czcionkę (do [minSp]),
- * a dopiero potem łamie wiersze. Dzięki temu na wąskim ekranie albo przy dużej czcionce systemowej słowo nie rozrywa się w środku („Wszystk-o”).
+ * Krótka etykieta (przycisk, segment, pigułka, wartość), która ma się zmieścić w jednym wierszu: gdy jest za szeroka dla dostępnego miejsca,
+ * zmniejsza czcionkę (do [minSp]), a dopiero potem łamie wiersze (albo, z [wrap] = false, zostaje w jednym). Dzięki temu na wąskim ekranie
+ * albo przy dużej czcionce systemowej słowo nie rozrywa się w środku („Wszystk-o”). Szerokość tekstu jest mierzona od razu, w tym samym
+ * przebiegu układu (bez pętli zwrotnej), więc wynik jest ten sam w pierwszej klatce i w zrzutach ekranu z testów.
  */
 @Composable
-fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, textAlign: TextAlign? = null, minSp: Float = 11f) {
-    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
-    var scale by remember(text, style.fontSize, cfg.screenWidthDp, cfg.fontScale) { mutableStateOf(1f) }
-    val floor = (minSp / style.fontSize.value).coerceAtMost(1f)
-    val shrunk = scale <= floor + 0.001f
-    Text(
-        text, modifier, style = style.copy(fontSize = style.fontSize * scale), textAlign = textAlign,
-        maxLines = if (shrunk) 3 else 1, softWrap = shrunk,
-        onTextLayout = { if (!shrunk && it.hasVisualOverflow) scale = (scale - 0.06f).coerceAtLeast(floor) },
-    )
+fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, textAlign: TextAlign? = null, minSp: Float = 11f, wrap: Boolean = true) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        val avail = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        val full = measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+        val floor = (minSp / style.fontSize.value).coerceAtMost(1f)
+        val scale = if (full <= avail) 1f else (avail.toFloat() / full * 0.97f).coerceIn(floor, 1f)
+        val fits = full * scale <= avail
+        Text(
+            text, style = style.copy(fontSize = style.fontSize * scale), textAlign = textAlign,
+            maxLines = if (fits || !wrap) 1 else 3, softWrap = !fits && wrap,
+        )
+    }
 }
 
 @Composable
@@ -339,7 +344,7 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subti
 fun Stat(value: String, label: String, modifier: Modifier = Modifier, valueColor: Color = pal.ink, mono: Boolean = true) {
     Column(modifier) {
         // wartości tekstowe (np. „umiarkowana”) są mniejsze, żeby nie łamały się w środku wyrazu
-        Text(value, style = TextStyle(fontSize = if (value.length > 7) 17.sp else 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor), maxLines = 1)
+        FitText(value, TextStyle(fontSize = if (value.length > 7) 17.sp else 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor), minSp = 13f, wrap = false)
         Text(label, style = TextStyle(fontSize = 12.sp, color = pal.ink3))
     }
 }

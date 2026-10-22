@@ -89,7 +89,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     SegRow(listOf("7 dni", "14 dni", "30 dni", "Wszystko"), if (custom != null) -1 else listOf(7, 14, 30, 0).indexOf(preset),
                         { preset = listOf(7, 14, 30, 0)[it]; fromStr = ""; toStr = ""; customRange = false })
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Text(plDate(per.from) + " – " + plDate(per.to), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                        Text(plDate(per.from) + " – " + plDate(per.to), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink), modifier = Modifier.weight(1f))
                         LinkButton(if (customRange) "Ukryj daty" else "Własny zakres", { customRange = !customRange })
                     }
                     if (customRange) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
