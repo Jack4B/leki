@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.7.2-preview
+
+- **Trend tętna z zapisów EKG jest skalowalny jak wykres ciśnienia:** wybór zakresu (30 dni, 90 dni, rok, wszystko), stała skala czasu (co najmniej 7 dp na dzień), więc przy wielu zapisach wykres jest szerszy i przewija się palcem w bok (otwiera się na najnowszych), a oś tętna zostaje po lewej. Podpisy dat dobierane do skali. Punkty zapisów z oznaczeniami są pomarańczowe (wcześniej podpis mówił błędnie „czerwone”).
+
 ## 0.7.1-preview
 
 - Poprawka testów zrzutów ekranu (zdublowana nazwa testu), które w 0.7.0 nie powstały. Bez zmian w aplikacji.

@@ -5,6 +5,10 @@ import android.graphics.Matrix
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -104,7 +108,7 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
             LekiCard {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     EcgTrendChart(trend)
-                    Hint(EcgTrend.summary(trend) + " Czerwone punkty: zapisy z oznaczeniami do omówienia z lekarzem.")
+                    Hint(EcgTrend.summary(trend) + " Pomarańczowe punkty: zapisy z oznaczeniami do omówienia z lekarzem. Przesuń wykres palcem, żeby zobaczyć wcześniejsze zapisy.")
                 }
             }
         }
@@ -534,42 +538,84 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
 }
 
 
-/** Tętno z kolejnych zapisów EKG w czasie (mediana z przebiegu, a gdy jej nie ma, tętno z zegarka). Punkty zapisów z oznaczeniami do omówienia są wyróżnione. */
+/**
+ * Tętno z kolejnych zapisów EKG w czasie (mediana z przebiegu, a gdy jej nie ma, tętno z zegarka), jak wykres ciśnienia: zakres (30 dni, 90 dni, rok, wszystko),
+ * stała skala czasu (co najmniej 7 dp na dzień), więc przy wielu zapisach wykres jest szerszy i przewija się w bok (domyślnie na najnowszych), a oś tętna zostaje po lewej.
+ * Pomarańczowe punkty to zapisy z oznaczeniami do omówienia z lekarzem.
+ */
 @Composable
-fun EcgTrendChart(points: List<EcgTrendPoint>, modifier: Modifier = Modifier) {
-    val pts = points.filter { it.hr != null }
-    if (pts.size < 2) return
-    val grid = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val warn = pal.warn; val surface = pal.surface
-    val values = pts.map { it.hr ?: 0.0 }
-    val lo = Math.floor((values.min() - 5) / 10) * 10
-    val hi = Math.max(Math.ceil((values.max() + 5) / 10) * 10, lo + 30)
-    fun t(p: EcgTrendPoint) = p.date.toEpochDay() + p.time.minutes / 1440.0
-    val t0 = t(pts.first()); val t1 = t(pts.last())
-    Canvas(modifier.fillMaxWidth().height(150.dp).semantics { contentDescription = "Wykres tętna z zapisów EKG: " + EcgTrend.summary(points) }) {
-        val k = density
-        val padL = 34f * k; val padR = 10f * k; val top = 8f * k; val bottom = 22f * k
-        val w = size.width - padL - padR; val h = size.height - top - bottom
-        fun x(p: EcgTrendPoint) = padL + (if (t1 > t0) ((t(p) - t0) / (t1 - t0)).toFloat() else 0.5f) * w
-        fun y(v: Double) = top + ((hi - v) / (hi - lo)).toFloat() * h
-        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
-        var g = lo
-        while (g <= hi) {
-            drawLine(grid, Offset(padL, y(g)), Offset(padL + w, y(g)), strokeWidth = 1f)
-            paint.textAlign = android.graphics.Paint.Align.RIGHT
-            drawContext.canvas.nativeCanvas.drawText(g.toInt().toString(), padL - 5f * k, y(g) + 3.5f * k, paint)
-            g += 10.0
+fun EcgTrendChart(points: List<EcgTrendPoint>, modifier: Modifier = Modifier, today: java.time.LocalDate = java.time.LocalDate.now()) {
+    val ranges = listOf(30, 90, 365, 0)
+    var range by rememberSaveable { mutableStateOf(3) }
+    val days = ranges[range]
+    val shown = points.filter { it.hr != null && (days == 0 || it.date >= today.minusDays(days - 1L)) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SegRow(listOf("30 dni", "90 dni", "Rok", "Wszystko"), range, { range = it })
+        if (shown.size < 2) {
+            Hint("W tym okresie jest za mało zapisów EKG, żeby narysować trend.")
+            return@Column
         }
-        val path = Path()
-        pts.forEachIndexed { i, p -> val px = x(p); val py = y(p.hr ?: lo); if (i == 0) path.moveTo(px, py) else path.lineTo(px, py) }
-        drawPath(path, accent, style = Stroke(width = 2f * k))
-        pts.forEach { p ->
-            val c = Offset(x(p), y(p.hr ?: lo))
-            drawCircle(if (p.attention > 0) warn else accent, 5f * k, c)
-            drawCircle(surface, 5f * k, c, style = Stroke(width = 1.5f * k))
+        val grid = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val warn = pal.warn; val surface = pal.surface
+        val values = shown.map { it.hr ?: 0.0 }
+        val lo = Math.floor((values.min() - 5) / 10) * 10
+        val hi = Math.max(Math.ceil((values.max() + 5) / 10) * 10, lo + 30)
+        fun t(p: EcgTrendPoint) = p.date.toEpochDay() + p.time.minutes / 1440.0
+        val t0 = t(shown.first()); val span = Math.max(1.0, t(shown.last()) - t0)
+        val axisW = 34
+        val chartH = 160
+        val scroll = rememberScrollState()
+        LaunchedEffect(shown.size, range) {
+            withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { it > 0 } }?.let { scroll.scrollTo(it) }
         }
-        paint.textAlign = android.graphics.Paint.Align.LEFT
-        drawContext.canvas.nativeCanvas.drawText(shortDate(pts.first().date), padL, size.height - 5f * k, paint)
-        paint.textAlign = android.graphics.Paint.Align.RIGHT
-        drawContext.canvas.nativeCanvas.drawText(shortDate(pts.last().date), padL + w, size.height - 5f * k, paint)
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val viewport = maxWidth.value - axisW
+            val padL = 8f; val padR = 14f
+            val width = Math.max(viewport, span.toFloat() * 7f + padL + padR)
+            val pxPerDay = (width - padL - padR) / span.toFloat()
+            Row(Modifier.fillMaxWidth().semantics { contentDescription = "Wykres tętna z zapisów EKG, przewijany w poziomie: " + EcgTrend.summary(shown) }) {
+                Canvas(Modifier.width(axisW.dp).height(chartH.dp)) {
+                    val k = density
+                    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k; textAlign = android.graphics.Paint.Align.RIGHT }
+                    var g = lo
+                    while (g <= hi) {
+                        val y = (8f + ((hi - g) / (hi - lo)).toFloat() * (chartH - 8f - 24f)) * k
+                        drawContext.canvas.nativeCanvas.drawText(g.toInt().toString(), (axisW - 4) * k, y + 3.5f * k, paint)
+                        g += 10.0
+                    }
+                }
+                Box(Modifier.weight(1f).horizontalScroll(scroll)) {
+                    Canvas(Modifier.width(width.dp).height(chartH.dp)) {
+                        val k = density
+                        fun x(p: EcgTrendPoint) = (padL + ((t(p) - t0) / span).toFloat() * (width - padL - padR)) * k
+                        fun y(v: Double) = (8f + ((hi - v) / (hi - lo)).toFloat() * (chartH - 8f - 24f)) * k
+                        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
+                        var g = lo
+                        while (g <= hi) { drawLine(grid, Offset(0f, y(g)), Offset(size.width, y(g)), strokeWidth = 1f); g += 10.0 }
+                        // podpisy dat: krok dobrany do skali (co najmniej 56 dp między podpisami)
+                        val step = listOf(1, 2, 7, 14, 30, 61, 91, 182, 365).firstOrNull { it * pxPerDay >= 56f } ?: 365
+                        val first = shown.first().date
+                        var i = 0
+                        while (i * step <= span + 1) {
+                            val d = first.plusDays(i * step.toLong())
+                            val px = (padL + ((d.toEpochDay() - t0) / span).toFloat() * (width - padL - padR)) * k
+                            if (px >= 0f && px <= size.width) {
+                                drawLine(grid.copy(alpha = .5f), Offset(px, y(hi)), Offset(px, y(lo)), strokeWidth = 1f)
+                                paint.textAlign = if (i == 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.CENTER
+                                drawContext.canvas.nativeCanvas.drawText(shortDate(d) + if (step >= 91) "." + d.year % 100 else "", px, size.height - 6f * k, paint)
+                            }
+                            i++
+                        }
+                        val path = Path()
+                        shown.forEachIndexed { n, p -> val px = x(p); val py = y(p.hr ?: lo); if (n == 0) path.moveTo(px, py) else path.lineTo(px, py) }
+                        drawPath(path, accent, style = Stroke(width = 2f * k))
+                        shown.forEach { p ->
+                            val c = Offset(x(p), y(p.hr ?: lo))
+                            drawCircle(if (p.attention > 0) warn else accent, 5f * k, c)
+                            drawCircle(surface, 5f * k, c, style = Stroke(width = 1.5f * k))
+                        }
+                    }
+                }
+            }
+        }
     }
 }

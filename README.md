@@ -19,7 +19,7 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 - **Blokada aplikacji:** odcisk palca, twarz albo blokada ekranu telefonu (system pyta o PIN, wzór lub hasło; aplikacja ich nie widzi). Ustawienia → Blokada aplikacji: włączenie wymaga potwierdzenia, można wybrać opóźnienie (zaraz, 30 s, 5 min) i opcjonalnie ukryć aplikację w ostatnich aplikacjach oraz zablokować zrzuty ekranu. Ustawienia blokady są tylko na tym telefonie i **nie trafiają do kopii zapasowej**.
 - **Eksport CSV** do arkusza (Ustawienia → Kopie zapasowe i dane): ciśnienie, wyniki badań, dawki z ostatnich 90 dni, podsumowanie EKG. Format polski: separator średnik, przecinek dziesiętny, UTF-8 z BOM; tekst zaczynający się od `=`, `+`, `-`, `@` dostaje apostrof (ochrona przed wykonaniem jako formuły).
 - **Szybkie dodanie pomiaru ciśnienia:** skrót na ikonie aplikacji (przytrzymaj ikonę) oraz widżet na ekran główny; oba otwierają ekran dodawania pomiaru. Widżet pokazuje tylko, kiedy był ostatni pomiar (bez wartości, bo ekran główny widzą też inni).
-- **Trend tętna z zapisów EKG** nad listą zapisów (od dwóch zapisów) i **czerwone punkty na wykresie ciśnienia** dla pomiarów na progu podwyższonego ciśnienia lub powyżej.
+- **Trend tętna z zapisów EKG** nad listą zapisów (od dwóch zapisów; zakres 30 dni, 90 dni, rok lub wszystko, przewijany w bok jak wykres ciśnienia) i **czerwone punkty na wykresie ciśnienia** dla pomiarów na progu podwyższonego ciśnienia lub powyżej.
 - **Kopie zapasowe:** plik JSON albo plik zaszyfrowany hasłem (AES-256-GCM, PBKDF2), zapis do pliku lub przez systemowe „Udostępnij”.
 
 Aplikacja tylko zapisuje i porządkuje dane wpisane przez użytkownika. Nie ocenia wyników i nie zastępuje lekarza. Dawkowanie zmieniaj zgodnie z jego zaleceniami.
