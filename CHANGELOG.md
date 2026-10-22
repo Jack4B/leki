@@ -6,6 +6,7 @@
 - **Przeciąganie i powiększanie:** jeden palec przesuwa wykres poziomo (ruch pionowy nadal przewija ekran), dwa palce powiększają wokół punktu dotyku (od całego zapisu do 2 s). Przyciski „Całość, 10 s, 5 s, 2 s” zachowują środek bieżącego zdarzenia.
 - **Mapa zapisu** pod wykresem: pokazuje okno i zdarzenia (żółte: wymagające uwagi); dotknięcie przeskakuje do wskazanego miejsca.
 - Okno podglądu (`EcgViewport`) leży w module `core`: ograniczanie do zapisu, przejście do zdarzenia, powiększanie z zachowaniem sekundy pod palcem, przesuwanie.
+- Podpis osi czasu przy prawej krawędzi nie jest już ucinany.
 - 3 nowe testy (przejście do każdego zdarzenia, w tym przy brzegach zapisu; powiększanie; przesuwanie i krótkie zapisy).
 
 ## 0.6.7-preview

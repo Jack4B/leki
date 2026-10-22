@@ -306,7 +306,7 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
             // podpisy sekund: krok dobrany tak, żeby podpisy nie nachodziły na siebie
             val step = listOf(1, 2, 5, 10).firstOrNull { it * secPx >= 40f * k } ?: 10
             var sec = (Math.ceil(t0 / step) * step).toInt()
-            while (sec <= t1) { drawContext.canvas.nativeCanvas.drawText("$sec s", x(sec.toDouble()) + 3f * k, h - 4f * k, txt); sec += step }
+            while (sec <= t1) { val label = "$sec s"; val lx = x(sec.toDouble()) + 3f * k; if (lx + txt.measureText(label) <= w) drawContext.canvas.nativeCanvas.drawText(label, lx, h - 4f * k, txt); sec += step }
         }
         // mapa zapisu: położenie okna i zdarzeń; dotknięcie przesuwa okno
         Canvas(
