@@ -597,7 +597,8 @@ fun EcgTrendChart(points: List<EcgTrendPoint>, modifier: Modifier = Modifier, to
                         var i = 0
                         while (i * step <= span + 1) {
                             val d = first.plusDays(i * step.toLong())
-                            val px = (padL + ((d.toEpochDay() - t0) / span).toFloat() * (width - padL - padR)) * k
+                            // pierwszy podpis stoi przy pierwszym zapisie (zapis ma godzinę, więc północ jego dnia wypadałaby tuż przed osią)
+                            val px = if (i == 0) padL * k else (padL + ((d.toEpochDay() - t0) / span).toFloat() * (width - padL - padR)) * k
                             if (px >= 0f && px <= size.width) {
                                 drawLine(grid.copy(alpha = .5f), Offset(px, y(hi)), Offset(px, y(lo)), strokeWidth = 1f)
                                 paint.textAlign = if (i == 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.CENTER
