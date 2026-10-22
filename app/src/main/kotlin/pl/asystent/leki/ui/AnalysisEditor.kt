@@ -70,7 +70,7 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
             }
         },
     ) {
-        BodyText("Wklej odpowiedź modelu AI na raport z karty „Dla AI”. Zostanie dołączona na końcu raportu dla lekarza, wyraźnie opisana jako analiza AI, i zapisze się w kopii zapasowej.")
+        BodyText("Wklej odpowiedź modelu AI na raport z karty „Dla AI”. Zostanie dołączona na końcu raportu dla lekarza, wyraźnie opisana jako analiza AI, i zapisze się w kopii zapasowej. Jeśli model trzymał się formatu z polecenia, w raporcie zobaczysz kolorowe ramki (Pilne, Do omówienia, Informacja), tabele, plakietki ważności i wyróżnione sekcje: podsumowanie, sprawy pilne i pytania do lekarza.")
         LekiButton("Wklej ze schowka", { paste() }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Copy)
         LekiField("Tytuł", title, { title = it.take(80) })
         DateField("Data analizy", LocalDate.parse(dateStr), { dateStr = it.toString() })

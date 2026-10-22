@@ -192,6 +192,9 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
+                    Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
+                    SegRow(listOf("Krótko (ok. 1 strony)", "Szczegółowo"), ai.detail, { setAi { a -> a.copy(detail = it) } })
+                    Hint("Polecenie prosi model o odpowiedź w stałym formacie (nagłówki, tabele, ramki Pilne i Do omówienia, plakietki ważności), który aplikacja ostyluje w raporcie dla lekarza.", Modifier.padding(top = 6.dp))
                     var context by remember { mutableStateOf(ai.context) }
                     LekiField("Kontekst medyczny (opcjonalnie)", context, { context = it.take(2000); setAi { a -> a.copy(context = it.take(2000)) } },
                         Modifier.padding(top = 18.dp), singleLine = false, minLines = 3, placeholder = "np. wiek, płeć, choroby, alergie, leki bez recepty i suplementy, godziny posiłków")

@@ -75,4 +75,58 @@ class MarkdownTest {
         val h = Markdown.toHtml("Tekst <script>alert(1)</script> & \"cudzysłów\"")
         assertFalse(h.contains("<script>")); assertTrue(h.contains("&lt;script&gt;")); assertTrue(h.contains("&amp;"))
     }
+
+    // ---------- odpowiedź w formacie z polecenia dla AI ----------
+
+    private val styled = """
+## Podsumowanie
+- Najważniejszy wniosek [WYSOKIE]
+- Drugi wniosek [ŚREDNIE]
+
+## Sprawy pilne
+> **Pilne:** coś wymaga szybkiej konsultacji.
+
+## Interakcje lek–lek
+| Leki | Nasilenie | Mechanizm | Co zrobić | Pewność |
+| --- | --- | --- | --- | --- |
+| Lek A + Lek B | [ŚREDNIE] | krótko | rozdzielić w czasie | [wysokie] |
+
+> **Do omówienia:** pora przyjmowania.
+> **Informacja:** to tylko wskazówka.
+
+## Pytania do lekarza
+1. Pierwsze pytanie.
+2. Drugie pytanie.
+""".trimIndent()
+
+    @Test fun styledAnswerBecomesCalloutsBadgesTablesAndCards() {
+        val html = Markdown.toHtml(styled)
+        // ramki z etykietą: kolor według rodzaju
+        assertTrue("<div class=\"co co-urgent\"><b>Pilne:</b> coś wymaga szybkiej konsultacji.</div>" in html, html)
+        assertTrue("class=\"co co-talk\"" in html && "class=\"co co-info\"" in html)
+        // plakietki ważności (także małymi literami) i tabela z plakietkami w komórkach
+        assertTrue("<span class=\"bd bd-hi\">WYSOKIE</span>" in html && "<span class=\"bd bd-mid\">ŚREDNIE</span>" in html)
+        assertEquals(2, Regex("bd bd-hi").findAll(html).count())   // [WYSOKIE] w podsumowaniu i [wysokie] w tabeli
+        assertTrue("<table>" in html && "<th>Nasilenie</th>" in html && "<td><span class=\"bd bd-mid\">ŚREDNIE</span></td>" in html)
+        // sekcje wyróżnione ramką: podsumowanie, sprawy pilne, pytania do lekarza; reszta bez
+        assertTrue("card card-sum" in html && "card card-urgent" in html && "card card-ask" in html)
+        assertEquals(3, Regex("""class="card """).findAll(html).count())
+        assertEquals(Regex("<div").findAll(html).count(), Regex("</div>").findAll(html).count())   // wszystkie ramki zamknięte
+    }
+
+    @Test fun plainQuotesAndUnknownMarkersStayAsBefore() {
+        val html = Markdown.toHtml("> zwykły cytat bez etykiety\n\nTekst [NIEZNANE] i [WYSOKIE ryzyko]")
+        assertTrue("<blockquote>zwykły cytat bez etykiety</blockquote>" in html && "class=\"co" !in html)
+        assertTrue("[NIEZNANE]" in html && "[WYSOKIE ryzyko]" in html && "class=\"bd" !in html)
+        // tekst z HTML nie przechodzi: znaczniki są ucinane (esc), a nie wykonywane
+        val evil = Markdown.toHtml("> **Pilne:** <script>alert(1)</script> [WYSOKIE]")
+        assertTrue("<script>" !in evil && "&lt;script&gt;" in evil)
+    }
+
+    @Test fun shortVersionKeepsTheContractSections() {
+        val ex = Markdown.shortExclusions(styled)
+        assertEquals(listOf("Interakcje lek–lek"), ex)   // zostają podsumowanie, sprawy pilne i pytania do lekarza
+        val text = Markdown.selected(styled, ex)
+        assertTrue("## Podsumowanie" in text && "## Pytania do lekarza" in text && "Interakcje" !in text)
+    }
 }

@@ -94,6 +94,15 @@ object Markdown {
     private val listRe = Regex("""^(\s*)([-*+•]|\d+[.)])\s+(.*)$""")
     private val sepRe = Regex("""^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$""")
 
+    /** Znaczniki ważności i pewności z polecenia dla AI: [WYSOKIE], [ŚREDNIE], [NISKIE] (i bliskie odmiany) zamieniane na plakietki. */
+    private val badgeRe = Regex("""\[(WYSOKIE|WYSOKA|POWAŻNA|POWAŻNE|ŚREDNIE|ŚREDNIA|UMIARKOWANA|UMIARKOWANE|NISKIE|NISKA|SŁABA|SŁABE)\]""", RegexOption.IGNORE_CASE)
+
+    private fun badgeClass(word: String): String = when (word.uppercase()) {
+        "WYSOKIE", "WYSOKA", "POWAŻNA", "POWAŻNE" -> "bd-hi"
+        "ŚREDNIE", "ŚREDNIA", "UMIARKOWANA", "UMIARKOWANE" -> "bd-mid"
+        else -> "bd-lo"
+    }
+
     private fun inline(s: String): String {
         // bardzo długie linie bez formatowania: wyrażenia regularne mają tu kwadratowy czas i zamrażały ekran
         if (s.length > 3000) return esc(s)
@@ -101,7 +110,28 @@ object Markdown {
         t = codeRe.replace(t) { "<code>${it.groupValues[1]}</code>" }
         t = boldRe.replace(t) { "<b>${it.groupValues[1]}</b>" }
         t = italicRe.replace(t) { "<i>${it.groupValues[1]}</i>" }
+        t = badgeRe.replace(t) { "<span class=\"bd ${badgeClass(it.groupValues[1])}\">${it.groupValues[1].uppercase()}</span>" }
         return t
+    }
+
+    /** Ramka z etykietą z polecenia dla AI („> **Pilne:** …”); null, gdy cytat nie zaczyna się od znanej etykiety. */
+    private val calloutRe = Regex("""^\*\*\s*(pilne|uwaga|do omówienia|ważne|informacja|info)\s*[:.]?\s*\*\*""", RegexOption.IGNORE_CASE)
+
+    private fun calloutClass(label: String): String = when (label.lowercase()) {
+        "pilne", "uwaga" -> "co-urgent"
+        "do omówienia", "ważne" -> "co-talk"
+        else -> "co-info"
+    }
+
+    /** Sekcje raportu AI wyróżniane ramką: podsumowanie, sprawy pilne i pytania do lekarza (po słowie w nagłówku). */
+    private fun cardFor(heading: String): String? {
+        val h = heading.lowercase()
+        return when {
+            "pilne" in h || "pilna" in h -> "card-urgent"
+            "pytani" in h -> "card-ask"
+            "podsumowan" in h -> "card-sum"
+            else -> null
+        }
     }
 
     private fun cells(row: String): List<String> {
@@ -115,6 +145,8 @@ object Markdown {
     fun toHtml(md: String): String {
         val lines = cleanLatex(md).replace("\r\n", "\n").split("\n")
         val out = StringBuilder()
+        var card = false
+        fun closeCard() { if (card) { out.append("</div>"); card = false } }
         val para = ArrayList<String>()
         fun flushPara() {
             if (para.isNotEmpty()) { out.append("<p>").append(para.joinToString(" ") { inline(it) }).append("</p>"); para.clear() }
@@ -128,6 +160,10 @@ object Markdown {
             if (h != null) {
                 flushPara()
                 val lvl = h.groupValues[1].length
+                if (lvl <= 2) {
+                    closeCard()
+                    cardFor(headingText(h.groupValues[2]))?.let { out.append("<div class=\"card $it\">"); card = true }
+                }
                 out.append(if (lvl <= 2) "<h4>" else "<h5>").append(inline(h.groupValues[2])).append(if (lvl <= 2) "</h4>" else "</h5>")
                 i++; continue
             }
@@ -148,7 +184,15 @@ object Markdown {
                 flushPara()
                 val q = ArrayList<String>()
                 while (i < lines.size && lines[i].trim().startsWith(">")) { q.add(lines[i].trim().removePrefix(">").trim()); i++ }
-                out.append("<blockquote>").append(q.joinToString(" ") { inline(it) }).append("</blockquote>")
+                // każda linia z etykietą (Pilne, Do omówienia, Informacja) zaczyna osobną ramkę, także bez pustego wiersza między nimi
+                val groups = ArrayList<MutableList<String>>()
+                for (line in q) if (groups.isEmpty() || calloutRe.containsMatchIn(line)) groups.add(mutableListOf(line)) else groups.last().add(line)
+                for (g in groups) {
+                    val text = g.joinToString(" ")
+                    val label = calloutRe.find(text)
+                    if (label != null) out.append("<div class=\"co ${calloutClass(label.groupValues[1])}\">").append(inline(text)).append("</div>")
+                    else out.append("<blockquote>").append(inline(text)).append("</blockquote>")
+                }
                 continue
             }
             val li = listRe.find(ln)
@@ -164,6 +208,7 @@ object Markdown {
             i++
         }
         flushPara()
+        closeCard()
         return out.toString()
     }
 }

@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.9.1-preview
+
+- **Odpowiedź AI w stałym formacie, ostylowana w raporcie.** Polecenie dla AI ma nową sekcję „Format odpowiedzi”: model ma odpowiedzieć w Markdown z **ustalonymi nagłówkami** (Podsumowanie, Sprawy pilne, Interakcje lek–lek, Interakcje z jedzeniem i napojami, Pory dnia i harmonogram, Duplikaty i dawki, Powiązania z wynikami (i EKG), Systematyczność, Pytania do lekarza), **tabelami** (kolumny podane w poleceniu), **ramkami** (`> **Pilne:** …`, `> **Do omówienia:** …`, `> **Informacja:** …`), **znacznikami** `[WYSOKIE]`, `[ŚREDNIE]`, `[NISKIE]` i limitem długości. Do polecenia dołączony jest krótki szkielet układu (treść zmyślona).
+- **Renderer w raporcie** rozpoznaje te elementy: kolorowe ramki (Pilne czerwona, Do omówienia pomarańczowa, Informacja zielona; każda linia z etykietą to osobna ramka), **plakietki ważności** w tekście i tabelach (także małymi literami i bliskie odmiany: WYSOKA, POWAŻNA, UMIARKOWANA, SŁABA…), a sekcje Podsumowanie, Sprawy pilne i Pytania do lekarza dostają **wyróżnioną kartę**. Stałe nagłówki działają z wyłączaniem sekcji i skracaniem („Tylko podsumowanie i pytania”). Nieznane znaczniki i zwykłe cytaty wyglądają jak dotąd; HTML w odpowiedzi nie jest wykonywany (jest zamieniany na tekst).
+- **Szczegółowość odpowiedzi** (Raport → Dla AI): „Krótko (ok. 1 strony)”, czyli ok. 350 słów i 3–5 punktów podsumowania, albo „Szczegółowo” (ok. 1000 słów, 5–8 punktów). Zapisywana w kopii (`ai.detail`, starsze pliki: szczegółowo).
+- Dane wzorcowe polecenia AI w testach zaktualizowane celowo (nowa sekcja formatu). 3 nowe testy renderera.
+- Nie zrobiono (opcjonalne z propozycji): importer sformatowanego tekstu ze schowka (schowek zwykle daje czysty tekst) oraz podgląd analizy w aplikacji; podgląd stylu jest w podglądzie raportu dla lekarza.
+
 ## 0.9.0-preview
 
 Dopracowanie modułu OCR (odczyt leku ze zdjęcia opakowania oraz wyników badań ze zdjęcia).

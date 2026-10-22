@@ -103,6 +103,8 @@ data class AiParts(
     val ecg: Boolean = true,
     val name: Boolean = false,
     val context: String = "",
+    /** Szczegółowość odpowiedzi, o którą prosi polecenie: 0 = krótko (ok. 350 słów), 1 = szczegółowo (ok. 1000 słów). */
+    val detail: Int = 1,
 )
 
 enum class ThemeMode(val id: String) { Auto("auto"), Light("light"), Dark("dark") }

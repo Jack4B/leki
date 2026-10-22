@@ -112,6 +112,7 @@ object Backup {
             bp = aiIn["bp"].bool(aD.bp), labs = aiIn["labs"].bool(aD.labs), events = aiIn["events"].bool(aD.events),
             notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), name = aiIn["name"].bool(aD.name),
             context = aiIn["context"].str()?.take(2000) ?: "",
+            detail = intOr(aiIn["detail"], aD.detail, 0, 1),
         )
         val D = Settings()
         val settings = Settings(
@@ -288,7 +289,7 @@ object Backup {
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
                 put("bp", c.ai.bp); put("labs", c.ai.labs); put("events", c.ai.events)
-                put("notes", c.ai.notes); put("ecg", c.ai.ecg); put("name", c.ai.name); put("context", c.ai.context)
+                put("notes", c.ai.notes); put("ecg", c.ai.ecg); put("name", c.ai.name); put("context", c.ai.context); put("detail", c.ai.detail)
             }
             put("lateMin", c.lateMin); put("waterGoal", c.waterGoal); put("glassMl", c.glassMl)
             put("hiSys", c.hiSys); put("hiDia", c.hiDia); put("loSys", c.loSys); put("loDia", c.loDia)

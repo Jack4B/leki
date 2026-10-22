@@ -69,6 +69,19 @@ blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--line);color
 hr{border:0;border-top:1px solid var(--line);margin:10px 0}
 code{font-family:var(--mono);font-size:12px}
 .ai table{margin:6px 0 10px}
+.co{margin:6px 0 8px;padding:7px 11px;border-radius:8px;border-left:4px solid;font-size:12.5px}
+.co-urgent{background:#fdecea;border-color:#b3261e}
+.co-talk{background:#fff4e0;border-color:#b07000}
+.co-info{background:#e8f3f0;border-color:#0b6b58}
+.bd{display:inline-block;padding:0 6px;border-radius:9px;font-size:10.5px;font-weight:650;letter-spacing:.2px;border:1px solid;white-space:nowrap}
+.bd-hi{background:#fdecea;color:#b3261e;border-color:#b3261e}
+.bd-mid{background:#fff4e0;color:#8a5a00;border-color:#b07000}
+.bd-lo{background:#e8f3f0;color:#0b6b58;border-color:#0b6b58}
+.card{margin:10px 0;padding:2px 12px 6px;border:1px solid var(--line);border-radius:10px;page-break-inside:avoid}
+.card-urgent{border-color:#b3261e;background:#fffafa}
+.card-ask{border-color:#0b6b58;background:#f6fbf9}
+.card-sum{background:#fafafa}
+.card h4{margin-top:8px}
 @page{size:A4;margin:14mm}
 @media print{body{padding:0;font-size:12px}}
 """

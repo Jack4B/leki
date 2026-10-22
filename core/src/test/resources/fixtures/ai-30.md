@@ -21,6 +21,43 @@ Zasady odpowiedzi:
 - To analiza pomocnicza. Nie zalecaj samodzielnego odstawiania leków ani zmiany dawek bez konsultacji z lekarzem.
 - Jeśli brakuje danych potrzebnych do oceny (wiek, waga, funkcja nerek, leki bez recepty, suplementy, godziny posiłków), wypisz, o co zapytać pacjenta.
 
+## Format odpowiedzi (ważne: aplikacja ostyluje Twoją odpowiedź w raporcie, więc trzymaj się tych reguł)
+
+Odpowiedz w Markdown. Bez HTML, wzorów LaTeX, obrazków, linków, emoji i bloków kodu. Użyj dokładnie tych nagłówków poziomu 2, w tej kolejności (podpunkty: nagłówki poziomu 3):
+
+- `## Podsumowanie`
+- `## Sprawy pilne`
+- `## Interakcje lek–lek`
+- `## Interakcje z jedzeniem i napojami`
+- `## Pory dnia i harmonogram`
+- `## Duplikaty i dawki`
+- `## Powiązania z wynikami`
+- `## Systematyczność`
+- `## Pytania do lekarza`
+
+Sekcja bez uwag: jedno zdanie „Brak uwag.” (nie pomijaj nagłówka). Dozwolone elementy:
+
+- **Tabele Markdown.** Interakcje: `| Leki | Nasilenie | Mechanizm | Co zrobić | Pewność |`. Harmonogram: `| Pora | Leki | Uwagi |`.
+- **Ramki** (każda to jeden akapit w jednej linii): `> **Pilne:** …`, `> **Do omówienia:** …`, `> **Informacja:** …`.
+- **Znaczniki ważności i pewności**, dokładnie w tej postaci: `[WYSOKIE]`, `[ŚREDNIE]`, `[NISKIE]`.
+- **Listy** tylko jako „- ” (najwyżej dwa poziomy) lub „1. ”, pogrubienia jako `**tekst**`.
+- **Długość:** szczegółowo, do około 1000 słów łącznie; w Podsumowaniu 5–8 punktów.
+
+Układ (przykład szkieletu, treść zmyślona):
+
+```
+## Podsumowanie
+- Najważniejszy wniosek w jednym zdaniu [WYSOKIE]
+## Sprawy pilne
+> **Pilne:** co wymaga szybkiej konsultacji i dlaczego.
+## Interakcje lek–lek
+| Leki | Nasilenie | Mechanizm | Co zrobić | Pewność |
+| --- | --- | --- | --- | --- |
+| Lek A + Lek B | [ŚREDNIE] | krótko, jak działa | rozdzielić w czasie | [WYSOKIE] |
+## Pytania do lekarza
+1. Pytanie, które warto zadać.
+```
+
 ## Pacjent
 
 - Kontekst podany przez pacjenta (wiek, płeć, choroby, alergie, leki bez recepty, suplementy): Mężczyzna, 60 lat / nadciśnienie

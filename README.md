@@ -28,6 +28,8 @@ Aplikacja tylko zapisuje i porządkuje dane wpisane przez użytkownika. Nie ocen
 
 ## Raport dla AI
 
+> **Odpowiedź AI w stałym formacie.** Polecenie zawiera sekcję „Format odpowiedzi”: ustalone nagłówki, tabele, ramki `> **Pilne:**`, `> **Do omówienia:**`, `> **Informacja:**` i znaczniki `[WYSOKIE]`/`[ŚREDNIE]`/`[NISKIE]`. Wklejona odpowiedź jest w raporcie dla lekarza stylowana (kolorowe ramki, plakietki, tabele, wyróżnione karty Podsumowania, Spraw pilnych i Pytań do lekarza). Szczegółowość (krótko lub szczegółowo) wybierasz w Raport → Dla AI. Gdy model nie trzyma się formatu, tekst wyświetla się po prostu zwykłym Markdownem.
+
 W zakładce **Raport** jest sekcja **Raport dla AI**. Generuje ona jeden tekst w Markdown, który kopiujesz, udostępniasz jako plik `.md` albo wklejasz do wybranego modelu (ChatGPT, Claude, Gemini i inne).
 
 Tekst składa się z dwóch części:
