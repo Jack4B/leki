@@ -210,4 +210,16 @@ class HousekeepingTest {
         assertFalse(gl.detailed)
         assertEquals(10, gl.days.count { it.high })
     }
+
+    @Test fun stockOverviewListsTrackedMedsSoonestFirst() {
+        val a = base(stockLeft = 60.0)
+        val b = Med("b", "Lek B", unit = "tabl.", phases = listOf(Phase(today.minusDays(5), mapOf("morning" to 1.0), Defaults.allDow)))
+        val s = a.copy(meds = a.meds + b.withStockLeft(a, 5.0, today) + Med("c", "Lek C", phases = listOf(Phase(today.minusDays(5), mapOf("morning" to 1.0), Defaults.allDow))))
+        val rows = s.stockOverview(today)
+        assertEquals(listOf("b", "a"), rows.map { it.med.id })          // C nie ma zapasu; B (5 tabl., 1 dziennie) kończy się przed A (60 tabl., 3 dziennie)
+        assertEquals(5, rows[0].forecast.daysLeft); assertEquals(20, rows[1].forecast.daysLeft)
+        // zakończony lek nie jest na liście
+        val ended = s.copy(meds = s.meds.map { if (it.id == "b") it.copy(end = today.minusDays(1)) else it })
+        assertEquals(listOf("a"), ended.stockOverview(today).map { it.med.id })
+    }
 }

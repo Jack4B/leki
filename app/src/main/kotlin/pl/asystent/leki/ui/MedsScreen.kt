@@ -75,6 +75,7 @@ import pl.asystent.leki.core.shortDate
 import pl.asystent.leki.core.skipDose
 import pl.asystent.leki.core.lowStock
 import pl.asystent.leki.core.stockForecast
+import pl.asystent.leki.core.stockOverview
 import pl.asystent.leki.core.stockText
 import pl.asystent.leki.core.toggleDose
 import java.time.LocalDate
@@ -254,6 +255,13 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             }
         }
 
+        if (s.stockOverview(today).isNotEmpty()) item {
+            Column(Modifier.padding(top = 24.dp)) {
+                Overline("Zapas leków")
+                StockOverviewCard(s, today)
+                Hint("Zapas zmniejsza się, gdy odhaczasz dawki. Poprawisz go w edycji leku (Ustawienia → Leki).", Modifier.padding(top = 6.dp))
+            }
+        }
         item {
             var note by remember(selStr) { mutableStateOf(rec.note) }
             Column(Modifier.padding(top = 24.dp)) {

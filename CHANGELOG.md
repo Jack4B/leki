@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.8.1-preview
+
+- **Podgląd stanu zapasów leków.** Wpisana liczba tabletek nie była nigdzie widoczna poza linią przy dawce. Teraz jest karta **„Zapas leków”** na dole ekranu Leki oraz **„Stan zapasów”** na górze Ustawienia → Leki (dotknięcie wiersza otwiera edycję leku, żeby poprawić liczbę po przeliczeniu opakowań). Każdy wiersz pokazuje, ile zostało, na ile dni starczy według planu i do kiedy, z paskiem (skala do 30 dni; pomarańczowy poniżej progu ostrzeżenia). Lista jest posortowana od leku, któremu zabraknie najszybciej, i nie zawiera leków zakończonych. Linia „Zapas” jest też przy każdym leku na liście w Ustawieniach.
+- 1 nowy test (kolejność i zakończone leki).
+
 ## 0.8.0-preview
 
 - **Dodawanie leku ze zdjęcia opakowania** (Ustawienia → Leki → „Ze zdjęcia”, także w pustej liście leków): aparat albo galeria, rozpoznawanie tekstu na telefonie (ML Kit, nic nie jest wysyłane). Z tekstu odczytywane są **nazwa** (największy napis na opakowaniu, z alternatywami do wyboru), **moc** (np. 10 mg, 5 mg/ml), **substancja czynna**, **jednostka dawki** (tabl., kaps., ml, sasz., plaster…) i **liczba sztuk w opakowaniu**, która od razu ustawia zapas leku. Wynik otwiera się w edytorze leku jako propozycja z ostrzeżeniem „sprawdź”; dawkowanie ustawia użytkownik. Aplikacja nie ma bazy leków (działa bez internetu), więc nie podpowiada dawkowania ani interakcji, tylko odczytuje to, co jest wydrukowane na opakowaniu.

@@ -76,6 +76,14 @@ fun AppState.lowStock(today: LocalDate, warnDays: Int = settings.stockWarnDays):
     return meds.mapNotNull { m -> stockForecast(m, today)?.takeIf { it.daysLeft != null && it.daysLeft <= warnDays }?.let { m to it } }
 }
 
+data class StockRow(val med: Med, val forecast: StockForecast)
+
+/** Stan zapasów wszystkich leków, którym śledzimy zapas (bez zakończonych): najpierw te, którym zabraknie najszybciej; bez prognozy na końcu. */
+fun AppState.stockOverview(today: LocalDate): List<StockRow> =
+    meds.filter { it.end == null || it.end >= today }
+        .mapNotNull { m -> stockForecast(m, today)?.let { StockRow(m, it) } }
+        .sortedWith(compareBy<StockRow> { it.forecast.daysLeft ?: Int.MAX_VALUE }.thenBy { it.med.name.lowercase() })
+
 const val REMINDER_BACKUP = 3
 const val REMINDER_STOCK = 4
 

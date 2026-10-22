@@ -64,6 +64,9 @@ import pl.asystent.leki.core.phaseAt
 import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
 import pl.asystent.leki.core.rangeText
+import pl.asystent.leki.core.stockForecast
+import pl.asystent.leki.core.stockOverview
+import pl.asystent.leki.core.stockText
 import pl.asystent.leki.core.reminders
 import pl.asystent.leki.core.saveEvent
 import pl.asystent.leki.core.saveMarker
@@ -168,6 +171,10 @@ fun SettingsScreen(
             }
             when (page) {
                 Page.Meds -> item {
+                    if (s.stockOverview(today).isNotEmpty()) {
+                        Overline("Stan zapasów")
+                        StockOverviewCard(s, today, Modifier.padding(bottom = 18.dp)) { medEdit = it to null }
+                    }
                     if (active.isEmpty()) EmptyBox("Brak aktywnych leków.", action = {
                         LekiButton("Dodaj lek", { medEdit = null to null }, primary = true, icon = Ph.Plus)
                         Spacer(Modifier.height(8.dp))
@@ -297,6 +304,7 @@ private fun MedRow(s: AppState, m: Med, today: LocalDate, onClick: () -> Unit) {
     if (m.phases.first().from > today) sub = "od ${plDate(m.phases.first().from)}: "
     sub += s.phaseText(m, p)
     m.end?.let { sub += ". " + (if (it < today) "Zakończony " else "Do ") + plDate(it) }
+    s.stockForecast(m, today)?.let { sub += ". Zapas: " + stockText(it, m.unit) }
     SettingRow(m.name, sub, onClick = onClick)
 }
 
