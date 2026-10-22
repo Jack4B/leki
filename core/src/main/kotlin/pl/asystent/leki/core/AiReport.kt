@@ -193,7 +193,7 @@ object AiReport {
             val rows = s.markers.mapNotNull { m ->
                 val all = s.labsOf(m.id, per.to)
                 if (all.isEmpty()) return@mapNotNull null
-                val f = labFlag(all.last().value, m)
+                val f = labFlag(all.last(), m)
                 listOf(m.name, m.unit, rangeText(m).ifEmpty { "brak" }, all.takeLast(8).joinToString("; ") { plDate(it.date) + ": " + lnum(it.value) }, f.ifEmpty { "w zakresie" })
             }
             if (rows.isNotEmpty()) {

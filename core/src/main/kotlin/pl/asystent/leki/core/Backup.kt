@@ -167,7 +167,7 @@ object Backup {
             val o = x as? JsonObject ?: return@mapNotNull null
             val id = o["id"].str()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             val name = o["name"].str()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-            Marker(id, name, o["unit"].strOr(), jsFloatOrNull(o["lo"]), jsFloatOrNull(o["hi"]), (o["grp"].str()?.takeIf { it.isNotEmpty() } ?: Defaults.groupOf[id] ?: "").trim())
+            Marker(id, name, o["unit"].strOr(), jsFloatOrNull(o["lo"]), jsFloatOrNull(o["hi"]), (o["grp"].str()?.takeIf { it.isNotEmpty() } ?: Defaults.groupOf[id] ?: "").trim(), o["pin"].bool(false))
         }.ifEmpty { Defaults.markers() }
         val markerIds = markers.map { it.id }.toSet()
 
@@ -177,7 +177,7 @@ object Backup {
             val date = o["date"].date() ?: return@mapNotNull null
             val marker = o["marker"].str()?.takeIf { it in markerIds } ?: return@mapNotNull null
             val value = o["value"].number()?.takeIf { it.isFinite() } ?: return@mapNotNull null
-            Lab(id, date, marker, value, o["note"].strOr())
+            Lab(id, date, marker, value, o["note"].strOr(), jsFloatOrNull(o["lo"]), jsFloatOrNull(o["hi"]))
         }.toMutableList()
 
         val events = d["events"].arr().orEmpty().mapNotNull { x ->
@@ -329,11 +329,12 @@ object Backup {
                     if (m.lo != null) put("lo", numberOrInt(m.lo)) else put("lo", JsonNull)
                     if (m.hi != null) put("hi", numberOrInt(m.hi)) else put("hi", JsonNull)
                     put("grp", m.grp)
+                    if (m.pin) put("pin", true)
                 })
             }
         }
         putJsonArray("labs") {
-            s.labs.forEach { l -> add(buildJsonObject { put("id", l.id); put("date", l.date.toString()); put("marker", l.marker); put("value", numberOrInt(l.value)); put("note", l.note) }) }
+            s.labs.forEach { l -> add(buildJsonObject { put("id", l.id); put("date", l.date.toString()); put("marker", l.marker); put("value", numberOrInt(l.value)); put("note", l.note); if (l.lo != null) put("lo", numberOrInt(l.lo)); if (l.hi != null) put("hi", numberOrInt(l.hi)) }) }
         }
         putJsonObject("days") {
             s.days.toSortedMap().forEach { (date, r) ->

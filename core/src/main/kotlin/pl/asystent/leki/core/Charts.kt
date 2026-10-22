@@ -58,12 +58,14 @@ data class LabPoint(val x: Float, val y: Float, val value: Double, val out: Bool
 data class LabChartGeo(
     val width: Int, val height: Int, val plotLeft: Float, val plotRight: Float,
     val band: Pair<Float, Float>?, val limitLines: List<Float>, val yTicks: List<Tick>, val xLabels: List<XLabel>, val points: List<LabPoint>,
+    /** Wyniki sprzed roku przesunięte o rok („nałóż rok temu”): rysowane jaśniejszą linią pod tegorocznymi. */
+    val ghost: List<LabPoint> = emptyList(),
 )
 
-fun labChart(list: List<Lab>, m: Marker): LabChartGeo? {
+fun labChart(list: List<Lab>, m: Marker, ghost: List<Lab> = emptyList()): LabChartGeo? {
     if (list.isEmpty()) return null
     val W = 360; val H = 190; val pl = 42f; val pr = 14f; val pt = 14f; val pb = 26f
-    val vals = list.map { it.value }.toMutableList()
+    val vals = (list + ghost).map { it.value }.toMutableList()
     m.lo?.let { vals.add(it) }; m.hi?.let { vals.add(it) }
     val mn = vals.min(); val mx = vals.max()
     val pad = ((mx - mn) * 0.18).takeIf { it != 0.0 } ?: (abs(mx) * 0.1).takeIf { it != 0.0 } ?: 1.0
@@ -97,9 +99,10 @@ fun labChart(list: List<Lab>, m: Marker): LabChartGeo? {
     }
     val pts = list.map { l ->
         val px = x(l.date)
-        LabPoint(px, y(l.value), l.value, labFlag(l.value, m).isNotEmpty(), if (list.size <= 10) lnum(l.value) else null)
+        LabPoint(px, y(l.value), l.value, labFlag(l, m).isNotEmpty(), if (list.size <= 10) lnum(l.value) else null)
     }
-    return LabChartGeo(W, H, pl, W - pr, band, lines, ticks, xl, pts)
+    val gp = ghost.sortedBy { it.date }.map { l -> LabPoint(x(l.date), y(l.value), l.value, false, null) }
+    return LabChartGeo(W, H, pl, W - pr, band, lines, ticks, xl, pts, gp)
 }
 
 // ---------- SVG (raport do wydruku) ----------

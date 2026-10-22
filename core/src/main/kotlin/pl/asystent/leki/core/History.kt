@@ -2,8 +2,8 @@ package pl.asystent.leki.core
 
 import java.time.LocalDate
 
-/** Sposób grupowania długich list (pomiary ciśnienia, zapisy EKG): po dniach, tygodniach (od poniedziałku) albo miesiącach. */
-enum class HistoryView { Days, Weeks, Months }
+/** Sposób grupowania długich list (pomiary ciśnienia, zapisy EKG, badania): po dniach, tygodniach (od poniedziałku), miesiącach albo latach. */
+enum class HistoryView { Days, Weeks, Months, Years }
 
 /** Okres z pozycjami, od najnowszego. [key] to początek okresu (nadaje się na klucz listy). */
 data class Group<T>(val key: String, val start: LocalDate, val end: LocalDate, val items: List<T>)
@@ -13,11 +13,13 @@ fun <T> groupByPeriod(items: List<T>, view: HistoryView, dateOf: (T) -> LocalDat
         HistoryView.Days -> d
         HistoryView.Weeks -> d.minusDays((d.dayOfWeek.value - 1).toLong())
         HistoryView.Months -> d.withDayOfMonth(1)
+        HistoryView.Years -> d.withDayOfYear(1)
     }
     fun end(s: LocalDate): LocalDate = when (view) {
         HistoryView.Days -> s
         HistoryView.Weeks -> s.plusDays(6)
         HistoryView.Months -> s.plusMonths(1).minusDays(1)
+        HistoryView.Years -> s.plusYears(1).minusDays(1)
     }
     return items.groupBy { start(dateOf(it)) }.toSortedMap(reverseOrder()).map { (s, l) -> Group(s.toString(), s, end(s), l) }
 }
@@ -25,6 +27,7 @@ fun <T> groupByPeriod(items: List<T>, view: HistoryView, dateOf: (T) -> LocalDat
 fun periodLabel(start: LocalDate, end: LocalDate, view: HistoryView): String = when (view) {
     HistoryView.Days -> longDay(start)
     HistoryView.Months -> Pl.monthsNom[start.monthValue - 1].replaceFirstChar { it.uppercase() } + " " + start.year
+    HistoryView.Years -> start.year.toString()
     HistoryView.Weeks ->
         if (start.month == end.month && start.year == end.year) "${start.dayOfMonth}–${end.dayOfMonth} ${Pl.months[end.monthValue - 1]} ${end.year}"
         else "${start.dayOfMonth} ${Pl.monthsShort[start.monthValue - 1]}${if (start.year != end.year) " ${start.year}" else ""} – ${end.dayOfMonth} ${Pl.monthsShort[end.monthValue - 1]} ${end.year}"
@@ -65,7 +68,7 @@ fun ecgGroupSummary(items: List<Ecg>): Pair<String, Boolean> {
 fun labGroupSummary(items: List<Lab>, markers: List<Marker>): Pair<String, Boolean> {
     if (items.isEmpty()) return "brak wyników" to false
     val byId = markers.associateBy { it.id }
-    val out = items.count { l -> byId[l.marker]?.let { labFlag(l.value, it).isNotEmpty() } == true }
+    val out = items.count { l -> byId[l.marker]?.let { labFlag(l, it).isNotEmpty() } == true }
     val parts = ArrayList<String>()
     parts.add("${items.size} ${plN(items.size, "wynik", "wyniki", "wyników")}")
     val ids = items.map { it.marker }.distinct()

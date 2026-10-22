@@ -36,8 +36,8 @@ import java.time.LocalDate
 
 /** Domyślnie tyle ostatnich dni na liście „Dni” jest rozwiniętych; starsze trafiają do zwiniętych kart tygodniowych (rzadkie badania mają dłuższe okno). */
 private const val RECENT_DAYS = 7
-private val VIEW_LABELS = listOf("Dni", "Tygodnie", "Miesiące")
-private val VIEWS = listOf(HistoryView.Days, HistoryView.Weeks, HistoryView.Months)
+private val VIEW_LABELS = listOf("Dni", "Tygodnie", "Miesiące", "Lata")
+private val VIEWS = listOf(HistoryView.Days, HistoryView.Weeks, HistoryView.Months, HistoryView.Years)
 
 /** Stan widoku historii (zakładka z listą pomiarów albo zapisów EKG): sposób grupowania, filtr i ręcznie zmienione karty. Przeżywa obrót ekranu. */
 class HistoryState(view: Int = 0, flagOnly: Boolean = false, toggled: List<String> = emptyList()) {
@@ -97,7 +97,7 @@ private fun PeriodCard(label: String, summary: String, warn: Boolean, expanded: 
 /**
  * Długa lista pozycji (pomiary ciśnienia, zapisy EKG), od najnowszej, podzielona na okresy.
  * Widok „Dni”: ostatnie 7 dni rozwinięte dzień po dniu, starsze w zwiniętych kartach tygodniowych;
- * „Tygodnie” i „Miesiące”: same karty okresów z podsumowaniem (najnowszy tydzień rozwinięty).
+ * „Tygodnie”, „Miesiące” i „Lata”: same karty okresów z podsumowaniem (najnowszy tydzień rozwinięty).
  * [rows] rysuje pozycje jednego dnia (z kreskami między nimi), [summary] daje podsumowanie okresu i znacznik, czy są w nim pozycje do uwagi.
  */
 fun <T> LazyListScope.historyList(
@@ -145,5 +145,6 @@ fun <T> LazyListScope.historyList(
         }
         HistoryView.Weeks -> periods(items, HistoryView.Weeks, openFirst = true)
         HistoryView.Months -> periods(items, HistoryView.Months, openFirst = false)
+        HistoryView.Years -> periods(items, HistoryView.Years, openFirst = false)
     }
 }

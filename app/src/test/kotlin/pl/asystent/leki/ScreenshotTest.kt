@@ -104,7 +104,9 @@ class ScreenshotTest {
     @Test fun waskiBadania() = narrow("waski-badania") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0)) }
     @Test fun waskiRaport() = narrow("waski-raport") { ReportScreen(state, store, listState = LazyListState(0, 0), initialMode = 0) }
     @Test fun waskiUstawienia() = narrow("waski-ustawienia") { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = LazyListState(0, 0)) }
-    @Test fun waskiEkg() = narrow("waski-ekg") { LabsScreen(ecgState, store, onImport = {}, listState = LazyListState(0, 0), initialMode = 2) }
+    @Test fun waskiBadaniaMapa() = narrow("waski-badania-mapa") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0), initialMode = 1) }
+    @Test fun waskiBadaniaPorownanie() = narrow("waski-badania-porownanie") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0), ui = remember { pl.asystent.leki.ui.LabsUi(compare = true) }) }
+    @Test fun waskiEkg() = narrow("waski-ekg") { LabsScreen(ecgState, store, onImport = {}, listState = LazyListState(0, 0), initialMode = 3) }
     @Test fun waskiBlokada() = narrow("waski-blokada") { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = LazyListState(0, 0), initialPage = "Security") }
 
     /** Ekran na liście: kolejne "plasterki" przewinięcia (w pikselach). */
@@ -161,7 +163,9 @@ class ScreenshotTest {
         }
         state.copy(ecgs = listOf(Ecg("e1", LocalDate.of(2026, 10, 13), LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm zatokowy", fs = fs, cmv = EcgAnalysis.toRecord(mv, fs.toDouble(), fs))))
     }
-    @Test fun badaniaEkg() = slices("badania-ekg", 1) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 2) }
+    @Test fun badaniaMapa() = slices("badania-mapa", 1) { LabsScreen(state, store, onImport = {}, listState = it, initialMode = 1) }
+    @Test fun badaniaPorownanie() = slices("badania-porownanie", 1) { LabsScreen(state, store, onImport = {}, listState = it, ui = remember { pl.asystent.leki.ui.LabsUi(compare = true) }) }
+    @Test fun badaniaEkg() = slices("badania-ekg", 1) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 3) }
     @Test fun ekgPowiekszenie() = shot("ekg-powiekszenie") {
         val e = ecgState.ecgs.single()
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) { EcgZoomView(e, EcgAnalysis.analyze(e)) }

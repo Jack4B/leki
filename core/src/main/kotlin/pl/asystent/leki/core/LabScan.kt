@@ -30,6 +30,9 @@ data class Candidate(
     val include: Boolean,
     /** Nazwy nie rozpoznano; parametr zgadnięto po jednostce i zakresie odniesienia, więc trzeba to sprawdzić. */
     val guessed: Boolean = false,
+    /** Zakres odniesienia odczytany z wiersza wyniku; trafia do zapisanego wyniku. */
+    val lo: Double? = null,
+    val hi: Double? = null,
 )
 
 enum class WarningKind { Unit, Duplicate, Jump, Qualifier, Guess }
@@ -316,11 +319,11 @@ object LabScan {
                 ?: (if (k == null) s.markers.firstOrNull { levenshteinClose(norm(it.name), n) } else null)
             val existing = byName
             val c: Candidate = if (existing != null) {
-                Candidate(i, r.raw, r.name, existing.id, null, r.value, r.qualifier, r.unit, true, guessed)
+                Candidate(i, r.raw, r.name, existing.id, null, r.value, r.qualifier, r.unit, true, guessed, r.lo, r.hi)
             } else {
                 val id = k ?: ("m" + norm(r.name).replace(' ', '_').take(24).ifEmpty { newId() })
                 val display = k?.let { knownName(it) } ?: r.name.trim().replaceFirstChar { ch -> ch.uppercase() }
-                Candidate(i, r.raw, r.name, id, Marker(id, display, r.unit, r.lo, r.hi, Defaults.groupOf[id] ?: ""), r.value, r.qualifier, r.unit, true, guessed)
+                Candidate(i, r.raw, r.name, id, Marker(id, display, r.unit, r.lo, r.hi, Defaults.groupOf[id] ?: ""), r.value, r.qualifier, r.unit, true, guessed, r.lo, r.hi)
             }
             // ten sam parametr dwa razy w jednym skanie: drugi wynik domyślnie pomijamy
             val dup = !used.add(c.markerId)
@@ -376,7 +379,10 @@ object LabScan {
         for (c in items) {
             if (st.marker(c.markerId) == null) st = st.saveMarker(c.proposed ?: Marker(c.markerId, c.rawName, c.unit))
             val existing = st.labs.firstOrNull { it.marker == c.markerId && it.date == date }
-            st = st.saveLab(Lab(existing?.id ?: newId(), date, c.markerId, c.value, "ze skanu"))
+            // własny zakres zapisujemy tylko wtedy, gdy różni się od zakresu parametru (nowy parametr dostaje go już od skanu)
+            val m = st.marker(c.markerId)
+            val own = (c.lo != null || c.hi != null) && m != null && (c.lo != m.lo || c.hi != m.hi)
+            st = st.saveLab(Lab(existing?.id ?: newId(), date, c.markerId, c.value, "ze skanu", if (own) c.lo else null, if (own) c.hi else null))
         }
         return st
     }

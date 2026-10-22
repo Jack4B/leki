@@ -110,6 +110,11 @@ fun LabChartView(g: LabChartGeo, description: String, modifier: Modifier = Modif
             text(it.label, (g.plotLeft - 6) * k, (it.pos + 3.5f) * k, 10f * k, ink3, Paint.Align.RIGHT)
         }
         g.xLabels.forEach { text(it.label, it.x * k, (g.height - 8) * k, 10f * k, ink3, anchor(it.anchor)) }
+        if (g.ghost.isNotEmpty()) {
+            // rok wcześniej: jaśniejsza przerywana linia i puste kółka
+            if (g.ghost.size > 1) drawPath(Path().apply { moveTo(g.ghost[0].x * k, g.ghost[0].y * k); g.ghost.drop(1).forEach { lineTo(it.x * k, it.y * k) } }, ink3.copy(alpha = .8f), style = Stroke(width = 1.5f * k, pathEffect = dash))
+            g.ghost.forEach { drawCircle(ink3, 3.5f * k, Offset(it.x * k, it.y * k), style = Stroke(width = 1.4f * k)) }
+        }
         if (g.points.size > 1) {
             val path = Path().apply { moveTo(g.points[0].x * k, g.points[0].y * k); g.points.drop(1).forEach { lineTo(it.x * k, it.y * k) } }
             drawPath(path, accent, style = Stroke(width = 2f * k))

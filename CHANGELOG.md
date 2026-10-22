@@ -1,5 +1,19 @@
 # Zmiany
 
+## 0.9.9-preview
+
+Przebudowa Badań pod obserwowanie wyników w czasie, także przez wiele lat. Część rzeczy pojawia się dopiero wraz z przyrostem danych (tendencje od trzech wyników, porównanie z rokiem wcześniej po roku badań, okno czasu po ponad roku).
+
+- **Cztery widoki zamiast trzech:** **Przegląd | Mapa | Daty | EKG**.
+- **Przegląd:** przy każdym parametrze **poprzedni wynik, zmiana (▲/▼, liczba i procent)** i **tendencja** słowami („rośnie od 4 badań”, „maleje”, „stabilnie”; od trzech wyników). Pogrubiona jest zmiana istotna (co najmniej 10% zakresu odniesienia, a bez zakresu 10% poprzedniej wartości). Filtry: **Poza zakresem**, **Zmienione od poprzedniego**, **Przypięte**. **Przypięte parametry** mają osobną kartę na górze (przypinasz w szczegółach parametru albo w jego edycji). Gdy wyniki obejmują ponad rok, jest wybór okresu miniwykresów: Rok, 3 lata, Wszystko.
+- **Mapa wyników:** parametry w wierszach, **wszystkie dni badań w kolumnach** (przewijane w bok, nazwy parametrów zostają po lewej, otwiera się na najnowszych). Pole jest zielone w zakresie, pomarańczowe poza zakresem (▲ powyżej, ▼ poniżej), bez koloru bez zakresu, kreska: nie badano. Filtr „Tylko poza zakresem”. Dzięki temu po latach całą historię widać na jednym ekranie.
+- **Porównaj dni:** gotowe skróty **„Ostatnie i poprzednie”, „Ostatnie i sprzed roku”, „Ostatnie 4”** (sprzed roku, gdy jest badanie w oknie ±75 dni) obok ręcznego wyboru do 4 dni; pod nazwą parametru jest zmiana między pierwszym a ostatnim z wybranych dni, a filtr **„Tylko zmienione”** zostawia istotne zmiany.
+- **Szczegóły parametru:** wykres z oknem **Rok | 3 lata | Wszystko** (gdy wyniki obejmują ponad rok), **„Nałóż rok temu”** (szara przerywana linia z wynikami sprzed roku przesuniętymi o rok, gdy da się je nałożyć), zdanie o **tendencji** i o **wyniku sprzed roku** z różnicą, przypinanie.
+- **Historia podzielona także na lata:** przełącznik okresów (Ciśnienie, EKG, Daty, historia parametru) ma czwarty widok **Lata**; w historii parametru karta okresu pokazuje liczbę wyników, zakres wartości i liczbę poza zakresem.
+- **Zakres odniesienia przy wyniku:** wynik może mieć własny zakres z danego badania (pole „Zakres z tego badania” w edycji wyniku; skan zapisuje go, gdy różni się od zakresu parametru). Ocena „poza zakresem” liczy się według zakresu wyniku, a bez niego według zakresu parametru, więc stare wyniki nie są oceniane według dzisiejszych norm. Starsze kopie wczytują się bez zmian (pola opcjonalne), a nowe pola trafiają do kopii zapasowej tylko wtedy, gdy są ustawione (`pin`, `lo`, `hi` wyniku).
+- `core`: `LabTrends.kt` (tendencja, zmiana, wynik sprzed roku, podsumowania lat, okna czasu, skróty porównania, filtry), `labsModel(..., filter)`, rozszerzony `labCompare` o zmianę; 8 nowych testów, w tym kopia zapasowa z nowymi polami i wczytanie starej kopii.
+- Nie zrobiono (zostaje w planach): tabela trendów w raporcie dla lekarza, własne zestawy parametrów inne niż grupy.
+
 ## 0.9.8-preview
 
 - **Wybór daty w Badania → Parametry.** Lista „Wyniki z dnia” (domyślnie „Najnowsze”: każdy parametr z ostatniej daty) pozwala wybrać dzień badań. Wtedy każdy parametr pokazuje **ostatni wynik z tego dnia lub wcześniejszy** (stan na dzień; wykres i zmiana kończą się na tym dniu), a przełącznik **„Tylko wyniki z tego dnia”** zostawia tylko parametry zbadane dokładnie wtedy. Parametry bez wyniku do tego dnia trafiają do „Parametry bez wyników”.

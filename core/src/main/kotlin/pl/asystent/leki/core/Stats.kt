@@ -1,6 +1,7 @@
 package pl.asystent.leki.core
 
 import java.time.LocalDate
+import kotlin.math.abs
 
 // ---------- Ciśnienie ----------
 
@@ -46,6 +47,12 @@ fun labFlag(v: Double, m: Marker): String = when {
     else -> ""
 }
 
+/** Ocena wyniku: gdy ma własny zakres odniesienia (z badania), liczy się on, w przeciwnym razie zakres parametru. */
+fun labFlag(l: Lab, m: Marker): String = labFlag(l.value, if (l.lo != null || l.hi != null) m.copy(lo = l.lo, hi = l.hi) else m)
+
+/** Zakres odniesienia obowiązujący dla wyniku (własny albo parametru) w postaci tekstu. */
+fun rangeText(l: Lab, m: Marker): String = rangeText(if (l.lo != null || l.hi != null) m.copy(lo = l.lo, hi = l.hi) else m)
+
 fun rangeText(m: Marker): String = when {
     m.lo != null && m.hi != null -> lnum(m.lo) + "-" + lnum(m.hi)
     m.lo != null -> "od " + lnum(m.lo)
@@ -69,6 +76,8 @@ enum class LabSort { Groups, Alpha, Recent }
 data class LabsModel(
     val out: List<LabRow>, val groups: List<LabGroup>, val none: List<Marker>, val order: List<String>, val withResults: List<LabRow>,
     val flat: List<LabRow> = emptyList(), val sort: LabSort = LabSort.Groups,
+    /** Przypięte parametry (w widoku Grupami osobna karta na górze; nie powtarzają się w grupach). */
+    val pinned: List<LabRow> = emptyList(),
 )
 
 private val plCollator: java.text.Collator get() = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl"))
@@ -81,7 +90,7 @@ private val labGroupOrder = Comparator<String> { a, b ->
 }
 
 /** Wiersz porównania dni: parametr i jego wyniki w kolejnych wybranych dniach (null, gdy tego dnia nie badano). */
-data class LabCompareRow(val marker: Marker, val group: String, val labs: List<Lab?>)
+data class LabCompareRow(val marker: Marker, val group: String, val labs: List<Lab?>, val delta: Double? = null, val pct: Double? = null, val significant: Boolean = false)
 
 /**
  * Porównanie wyników z kilku dni: dla każdego parametru, który ma wynik w którymś z [dates], wynik z danego dnia (a przy kilku tego dnia
@@ -91,7 +100,13 @@ fun AppState.labCompare(dates: List<LocalDate>): List<LabCompareRow> {
     val col = plCollator
     return markers.mapNotNull { m ->
         val cells = dates.map { d -> labs.filter { it.marker == m.id && it.date == d }.lastOrNull() }
-        if (cells.all { it == null }) null else LabCompareRow(m, m.grp.ifEmpty { "Inne" }, cells)
+        if (cells.all { it == null }) return@mapNotNull null
+        val present = cells.filterNotNull()
+        val first = present.first(); val last = present.last()
+        // zmiana między pierwszym a ostatnim z porównywanych dni, w którym parametr badano
+        val delta = if (present.size >= 2) last.value - first.value else null
+        val pct = if (delta != null && first.value != 0.0) delta / abs(first.value) else null
+        LabCompareRow(m, m.grp.ifEmpty { "Inne" }, cells, delta, pct, delta != null && labSignificant(m, delta, first.value))
     }.sortedWith(compareBy<LabCompareRow, String>(labGroupOrder) { it.group }.thenComparator { a, b -> col.compare(a.marker.name, b.marker.name) })
 }
 
@@ -103,25 +118,27 @@ fun AppState.labDays(): List<Pair<LocalDate, Int>> = labs.groupingBy { it.date }
  * Z [asOf] to stan na ten dzień: ostatni wynik z tego dnia lub wcześniejszy (wykres i zmiana też liczą się do tego dnia);
  * z [exact] tylko parametry, które mają wynik dokładnie z tego dnia.
  */
-fun AppState.labsModel(sort: LabSort = LabSort.Groups, asOf: LocalDate? = null, exact: Boolean = false): LabsModel {
+fun AppState.labsModel(sort: LabSort = LabSort.Groups, asOf: LocalDate? = null, exact: Boolean = false, filter: LabFilter = LabFilter()): LabsModel {
     val rows = markers.map { LabRow(it, labsOf(it.id, asOf)) }
     val with = rows.filter { it.last != null && !(exact && asOf != null && it.last!!.date != asOf) }
     val none = rows.filter { it !in with }.map { it.marker }
-    val out = with.filter { labFlag(it.last!!.value, it.marker).isNotEmpty() }.sortedByDescending { it.last!!.date }
-    val rest = with.filter { labFlag(it.last!!.value, it.marker).isEmpty() }
+    val shown = with.filter { filter.matches(it) }
+    val col = plCollator
+    val byName = Comparator<LabRow> { a, b -> col.compare(a.marker.name, b.marker.name) }
+    val pinned = shown.filter { it.marker.pin }.sortedWith(byName)
+    val out = shown.filter { !it.marker.pin && labFlag(it.last!!, it.marker).isNotEmpty() }.sortedByDescending { it.last!!.date }
+    val rest = shown.filter { !it.marker.pin && labFlag(it.last!!, it.marker).isEmpty() }
     val map = LinkedHashMap<String, MutableList<LabRow>>()
     rest.forEach { map.getOrPut(it.marker.grp.ifEmpty { "Inne" }) { ArrayList() }.add(it) }
     val names = map.keys.sortedWith(labGroupOrder)
-    val col = plCollator
-    val byName = Comparator<LabRow> { a, b -> col.compare(a.marker.name, b.marker.name) }
     val groups = names.map { LabGroup(it, map[it]!!.sortedWith(byName)) }
     val flat = when (sort) {
         LabSort.Groups -> emptyList()
-        LabSort.Alpha -> with.sortedWith(byName)
-        LabSort.Recent -> with.sortedWith(compareByDescending<LabRow> { it.last!!.date }.then(byName))
+        LabSort.Alpha -> shown.sortedWith(compareByDescending<LabRow> { it.marker.pin }.then(byName))
+        LabSort.Recent -> shown.sortedWith(compareByDescending<LabRow> { it.marker.pin }.thenByDescending { it.last!!.date }.then(byName))
     }
-    val order = if (sort == LabSort.Groups) out.map { it.marker.id } + groups.flatMap { g -> g.items.map { it.marker.id } } else flat.map { it.marker.id }
-    return LabsModel(out, groups, none, order, with, flat, sort)
+    val order = if (sort == LabSort.Groups) pinned.map { it.marker.id } + out.map { it.marker.id } + groups.flatMap { g -> g.items.map { it.marker.id } } else flat.map { it.marker.id }
+    return LabsModel(out, groups, none, order, with, flat, sort, pinned)
 }
 
 // ---------- Zgodność z planem ----------

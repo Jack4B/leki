@@ -40,9 +40,12 @@ data class Marker(
     val lo: Double? = null,
     val hi: Double? = null,
     val grp: String = "",
+    /** Przypięty parametr jest na górze listy Badania → Przegląd. */
+    val pin: Boolean = false,
 )
 
-data class Lab(val id: String, val date: LocalDate, val marker: String, val value: Double, val note: String = "")
+/** [lo] i [hi] to opcjonalny zakres odniesienia podany przy tym wyniku (laboratoria i wiek zmieniają normy); gdy ich nie ma, obowiązuje zakres parametru. */
+data class Lab(val id: String, val date: LocalDate, val marker: String, val value: Double, val note: String = "", val lo: Double? = null, val hi: Double? = null)
 
 data class Skipped(val reason: String, val note: String = "")
 

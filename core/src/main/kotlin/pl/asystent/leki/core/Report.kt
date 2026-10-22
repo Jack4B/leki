@@ -263,7 +263,7 @@ code{font-family:var(--mono);font-size:12px}
             labChart(list, m)?.let { h.append(labChartSvg(it, m.name)) }
             h.append("<div class=\"tbl\"><table><thead><tr><th>Data</th><th>Wynik</th><th>Ocena</th><th>Uwagi</th></tr></thead><tbody>")
             list.forEach { l ->
-                val f = labFlag(l.value, m)
+                val f = labFlag(l, m)
                 h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td class=\"num\"><b>${lnum(l.value)}</b></td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td><td>${esc(l.note)}</td></tr>")
             }
             h.append("</tbody></table></div>")
@@ -274,7 +274,7 @@ code{font-family:var(--mono);font-size:12px}
             singles.sortWith { a, b -> if (a.second.date != b.second.date) b.second.date.compareTo(a.second.date) else coll.compare(a.first.name, b.first.name) }
             h.append("<div class=\"rp-lab\">Pojedyncze wyniki</div><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Parametr</th><th>Wynik</th><th>Zakres</th><th>Ocena</th></tr></thead><tbody>")
             singles.forEach { (m, l) ->
-                val f = labFlag(l.value, m)
+                val f = labFlag(l, m)
                 h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td>${esc(m.name)}</td><td class=\"num\"><b>${lnum(l.value)}</b> ${esc(m.unit)}</td><td class=\"num\">${esc(rangeText(m).ifEmpty { "-" })}</td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td></tr>")
             }
             h.append("</tbody></table></div>")

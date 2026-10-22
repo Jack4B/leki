@@ -10,7 +10,7 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 
 - **Leki:** plan dnia z porami (śniadanie, obiad…), odhaczanie dawek z godziną, pomijanie dawek z powodem, zmiany dawkowania w czasie z zachowaniem historii, zamiana leku na inny, stoper po dawce, licznik wody, notatka dnia.
 - **Ciśnienie:** pomiary z tętnem i porą, **przewijany wykres w czasie** (7, 30, 90 dni, rok lub wszystko), średnie, oznaczenia progów ustawianych przez użytkownika, historia podzielona na dni, tygodnie i miesiące (tak samo lista EKG). Szczegóły niżej.
-- **Badania:** dziennik wyników z zakresami odniesienia, wykresy, widok według parametrów (grupami, alfabetycznie albo od ostatnio badanych, stan na wybrany dzień oraz **porównanie wyników z kilku dni** w tabeli) i dat (dzielony na dni, tygodnie i miesiące), kontrole z polem na wynik, import wyników z pliku JSON, **dodawanie wyników ze zdjęcia lub PDF (OCR)** oraz **analiza EKG z zegarka** (wydruk PDF).
+- **Badania:** dziennik wyników z zakresami odniesienia (parametru albo własnym z danego badania), wykresy, przegląd z poprzednim wynikiem, zmianą i tendencją, **mapa wyników** (wszystkie dni badań w jednej tabeli), porównanie dni, widok według parametrów (grupami, alfabetycznie albo od ostatnio badanych, stan na wybrany dzień oraz **porównanie wyników z kilku dni** w tabeli) i dat (dzielony na dni, tygodnie i miesiące), kontrole z polem na wynik, import wyników z pliku JSON, **dodawanie wyników ze zdjęcia lub PDF (OCR)** oraz **analiza EKG z zegarka** (wydruk PDF).
 - **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida. Do raportu można dołączyć **wklejoną odpowiedź AI** jako uzupełnienie.
 - **Raport dla AI:** gotowy tekst (Markdown) z poleceniem i danymi z aplikacji, do wklejenia w dowolny model AI. Szczegóły niżej.
 - **Przypomnienia o dawkach:** powiadomienia o porach z planu, także przy zamkniętej aplikacji i po restarcie telefonu.
@@ -83,13 +83,25 @@ Zapis wektorowy (punkt 9) nie pogarsza tego istotnie: błąd średniokwadratowy 
 
 ## Długie listy: dni, tygodnie, miesiące
 
-Lista **Zapisane pomiary** (Ciśnienie), lista zapisów **EKG** (Badania → EKG), widok **Według dat** w Badaniach oraz historia jednego parametru (powyżej 12 wyników) nie rosną w nieskończoność. Przełącznik nad listą ma trzy widoki:
+Lista **Zapisane pomiary** (Ciśnienie), lista zapisów **EKG** (Badania → EKG), widok **Daty** w Badaniach oraz historia jednego parametru (powyżej 12 wyników) nie rosną w nieskończoność. Przełącznik nad listą ma trzy widoki:
 
+- **Lata:** karty lat (zwinięte), przydatne przy wieloletniej historii.
 - **Dni:** ostatnie 7 dni rozwinięte dzień po dniu, starsze pozycje w zwiniętych kartach tygodniowych.
 - **Tygodnie** (od poniedziałku): same karty tygodni, najnowszy rozwinięty.
 - **Miesiące:** same karty miesięcy, wszystkie zwinięte.
 
 Karta okresu pokazuje podsumowanie (liczba pozycji, średnie ciśnienie i tętno albo zakres tętna z EKG, liczba pozycji do uwagi); dotknięcie rozwija ją i pokazuje pozycje pogrupowane dniami, z przyciskiem „Usuń”. Przycisk **Tylko podwyższone** (ciśnienie), **Tylko z oznaczeniami** (EKG) albo **Tylko poza zakresem** (badania) zostawia na liście pozycje na progu lub powyżej, albo z oznaczeniami do omówienia z lekarzem. Lista pokazuje wszystkie pomiary niezależnie od zakresu wykresu. Logika grupowania i podsumowań jest w `core/.../History.kt`.
+
+## Badania w czasie: przegląd, mapa, porównanie
+
+Badania mają cztery widoki: **Przegląd | Mapa | Daty | EKG**. Zostały zaprojektowane tak, żeby po latach badań łatwo było zobaczyć, co się zmieniło; część elementów pojawia się dopiero wtedy, gdy jest dość danych.
+
+- **Przegląd:** parametry z ostatnim wynikiem, **poprzednim wynikiem**, zmianą (liczba i procent) oraz **tendencją** (od trzech wyników: „rośnie od 4 badań”, „maleje od 3 badań”, „stabilnie”, „bez wyraźnej tendencji”). Zmiana jest istotna (pogrubiona), gdy wynosi co najmniej 10% zakresu odniesienia (bez zakresu: 10% poprzedniej wartości); tendencja liczy kolejne kroki większe niż 4% zakresu w tę samą stronę. To opis liczb, nie ocena zdrowotna. Sortowanie: Grupami (w grupie alfabetycznie), A–Z, Najnowsze. Filtry: Poza zakresem, Zmienione od poprzedniego, Przypięte. Lista **„Wyniki z dnia”** pokazuje stan na wybrany dzień (ostatni wynik z tego dnia lub wcześniejszy), a „Tylko wyniki z tego dnia” tylko parametry zbadane wtedy. Gdy badania obejmują ponad rok, miniwykresy mają okno: Rok, 3 lata, Wszystko.
+- **Mapa:** parametry w wierszach, dni badań w kolumnach (od najstarszego, przewijane w bok); kolor pola to ocena względem zakresu. Dotknięcie otwiera historię parametru.
+- **Porównaj dni** (w Przeglądzie): skróty „Ostatnie i poprzednie”, „Ostatnie i sprzed roku”, „Ostatnie 4” albo do 4 wybranych dni; tabela ze zmianą pod nazwą parametru i filtrem „Tylko zmienione”.
+- **Parametr (szczegóły):** wykres z oknem Rok | 3 lata | Wszystko, „Nałóż rok temu” (ten sam okres z poprzedniego roku jaśniejszą linią), zdanie o tendencji i o wyniku sprzed roku, przypinanie (★/☆), historia (do 12 wyników lista, dłuższa dzielona na dni, tygodnie, miesiące i lata).
+- **Zakres odniesienia przy wyniku:** laboratoria i wiek zmieniają normy, dlatego wynik może mieć własny zakres (edycja wyniku → „Zakres z tego badania”; skan zapisuje go, gdy różni się od zakresu parametru). Taki wynik jest oceniany według własnego zakresu, pozostałe według zakresu parametru.
+- **Daty:** wyniki według dni badań, dzielone na dni, tygodnie, miesiące i lata; w widoku „Dni” rozwinięte jest ostatnie 90 dni.
 
 ## Wykres ciśnienia w czasie
 
@@ -243,6 +255,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Eksport CSV** (otwarcie w arkuszu: polskie znaki, przecinki dziesiętne).
 - [ ] **Wykres ciśnienia:** czerwone punkty powyżej progu; trend EKG po przewijaniu.
 - [ ] **Wąski ekran i duża czcionka** (Ustawienia systemu → Wyświetlanie → rozmiar czcionki): czy etykiety przełączników i przycisków nie są ucięte ani łamane w środku słowa.
+- [ ] **Badania (przebudowa 0.9.9):** Przegląd (poprzedni wynik, zmiana, tendencja po 3 wynikach, filtry, przypinanie), Mapa (przewijanie w bok, kolory, dotknięcie otwiera parametr), skróty porównania, „Nałóż rok temu” i okno Rok | 3 lata | Wszystko po roku danych, własny zakres w edycji wyniku, widok Lata na listach.
 - [ ] **Badania → Parametry:** wybór dnia („Wyniki z dnia”, „Tylko wyniki z tego dnia”), tabela „Porównaj dni” (2–4 dni, wąski ekran), przełącznik Grupami | A–Z | Najnowsze, alfabetyczna kolejność w grupach (polskie znaki), strzałki w szczegółach parametru.
 - [ ] **Listy podzielone na okresy** (Ciśnienie, EKG, Badania → Według dat i historia parametru): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
 
