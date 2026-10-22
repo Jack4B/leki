@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.6.0-preview
+
+- **EKG z zegarka.** W zakładce Badania nowa karta „EKG”: wczytujesz PDF wyeksportowany z aplikacji zegarka lub opaski (jedno odprowadzenie, zwykle 30 s). Aplikacja na telefonie odtwarza przebieg z obrazu (czerwona linia na siatce, 25 mm/s i 10 mm/mV), odczytuje z nagłówka datę, godzinę, tętno i ocenę rytmu zegarka (OCR, bez imienia, płci, wieku, wzrostu i wagi), a potem liczy tętno, odstępy między uderzeniami (RR) i ich zmienność.
+- **Wskazuje kandydatów do omówienia z lekarzem:** tętno poniżej 50 lub powyżej 100/min, rytm wyraźnie nieregularny (możliwe migotanie przedsionków albo częste pobudzenia dodatkowe), przedwczesne uderzenia z dłuższą przerwą po nich, przerwy w rytmie. Zakłócenia ruchowe są rozpoznawane i pomijane w analizie (zaznaczone na przebiegu). Aplikacja nie mierzy odstępu QT ani odcinka ST i nie rozpoznaje niedokrwienia; każdy wynik ma tę adnotację i wskazówkę, kiedy nie czekać na analizę.
+- Przebieg (125 próbek/s, setne części mV) i dane zapisu są w kopii zapasowej, w tym zaszyfrowanej (nowe pole `ecgs`, starsze kopie wczytują się bez zmian). Wskaźniki liczy się na żądanie, więc ulepszenia algorytmu działają także na starych zapisach.
+- **Raport dla lekarza:** sekcja „EKG z zegarka” (pigułka „EKG z zegarka” w zakładce Raport) z wskaźnikami, wynikiem oceny zegarka i przebiegiem w układzie jak na wydruku, z oznaczonymi uderzeniami.
+- Algorytm napisany od zera w module `core` (bez bibliotek zewnętrznych, bez sieci), sprawdzony na jednym prawdziwym wydruku z zegarka (tętno z odtworzonego przebiegu zgodne z podanym przez zegarek, zakłócenia ruchowe pomijane) oraz na zmyślonych sygnałach w 15 nowych testach (rytm regularny, nieregularny, przedwczesne uderzenie, bradykardia, tachykardia, pauza, artefakt, krótki zapis, odtworzenie z obrazu pionowego i poziomego, kopia zapasowa, raport, ucieczka znaków HTML). Prawdziwy wydruk nie jest częścią repozytorium.
+
 ## 0.5.2-preview
 
 Przegląd kodu aplikacji i poprawki znalezionych problemów.

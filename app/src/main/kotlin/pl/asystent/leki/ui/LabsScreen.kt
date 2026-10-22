@@ -48,15 +48,18 @@ import pl.asystent.leki.core.shortDate
 import java.time.LocalDate
 
 @Composable
-fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), initialMode: Int = 0) {
     val toast = LocalToast.current
     var openId by rememberSaveable { mutableStateOf("") }
-    var mode by rememberSaveable { mutableStateOf(0) }
+    var mode by rememberSaveable { mutableStateOf(initialMode) }
     var labEdit by remember { mutableStateOf<Pair<Lab?, String>?>(null) } // (wynik do edycji lub null, id parametru)
     var markerEdit by remember { mutableStateOf<Marker?>(null) }
     var markerNew by remember { mutableStateOf(false) }
     var showNone by rememberSaveable { mutableStateOf(false) }
     var scan by remember { mutableStateOf(false) }
+    var ecgDraft by remember { mutableStateOf<pl.asystent.leki.core.Ecg?>(null) }
+    var ecgOpenId by rememberSaveable { mutableStateOf("") }
+    val ecgImport = rememberEcgImporter { ecgDraft = it }
 
     val model = s.labsModel()
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
@@ -71,10 +74,11 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                     LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.4f), primary = true, icon = Ph.Scan)
                     LekiButton("Dodaj ręcznie", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, Modifier.weight(1f), tonal = true, icon = Ph.Plus)
                 }
-                SegRow(listOf("Parametry", "Według dat"), mode, { mode = it })
+                SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
-            if (mode == 1) labsByDate(s) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
-            item {
+            if (mode == 2) ecgSection(s, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it })
+            else if (mode == 1) labsByDate(s) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
+            if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
                 }
@@ -141,6 +145,8 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     }
 
     if (scan) ScanDialog(s, store, onClose = { scan = false })
+    ecgDraft?.let { EcgEditor(it, true, store) { ecgDraft = null } }
+    s.ecg(ecgOpenId)?.let { EcgEditor(it, false, store) { ecgOpenId = "" } }
     labEdit?.let { (lab, markerId) ->
         LabEditor(s, lab, markerId, onSave = { store.update { st -> st.saveLab(it) }; labEdit = null; toast("Zapisano wynik") },
             onDelete = { id -> store.update { it.deleteLab(id) }; labEdit = null; toast("Usunięto wynik") }, onDismiss = { labEdit = null })

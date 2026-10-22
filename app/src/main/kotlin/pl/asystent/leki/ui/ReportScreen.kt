@@ -113,6 +113,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
+                        ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
                     }
                     if (rp.analysis) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))

@@ -74,10 +74,12 @@ data class ReportParts(
     val events: Boolean = true,
     /** Czy dołączyć do raportu wklejoną analizę AI. */
     val analysis: Boolean = true,
+    /** Czy dołączyć zapisy EKG z zegarka z wybranego okresu. */
+    val ecg: Boolean = true,
     /** Id wybranej analizy; puste = najnowsza. */
     val analysisId: String = "",
 ) {
-    val any get() = bp || labs || meds || plan || events || analysis
+    val any get() = bp || labs || meds || plan || events || analysis || ecg
 }
 
 /**
@@ -130,6 +132,7 @@ data class AppState(
     val days: Map<LocalDate, DayRec> = emptyMap(),
     val bp: List<Bp> = emptyList(),
     val analyses: List<Analysis> = emptyList(),
+    val ecgs: List<Ecg> = emptyList(),
     /** Koniec odliczania po dawce, czas w milisekundach od 1970 (0 = brak). */
     val timerEnd: Long = 0,
     val timerMed: String = "",
@@ -141,6 +144,7 @@ data class AppState(
     fun marker(id: String): Marker? = markers.firstOrNull { it.id == id }
     fun event(id: String): Event? = events.firstOrNull { it.id == id }
     fun sortedSlots(): List<Slot> = slots.sortedBy { it.time }
+    fun ecg(id: String): Ecg? = ecgs.firstOrNull { it.id == id }
     fun analysis(id: String): Analysis? = analyses.firstOrNull { it.id == id }
     /** Analiza do raportu: wybrana, a gdy nie ma wyboru, najnowsza. */
     fun reportAnalysis(): Analysis? = analysis(settings.rp.analysisId) ?: analyses.maxByOrNull { it.date }

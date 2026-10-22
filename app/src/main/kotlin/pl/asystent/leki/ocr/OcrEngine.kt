@@ -67,6 +67,27 @@ object ScanImages {
 
     class PdfException(message: String) : Exception(message)
 
+    /** Renderuje pierwszą stronę PDF w podanej rozdzielczości (dpi względem rozmiaru strony w punktach), z białym tłem. */
+    suspend fun renderFirstPdfPage(ctx: Context, uri: Uri, dpi: Int): Bitmap {
+        val pfd = withContext(Dispatchers.IO) { runCatching { ctx.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() } ?: throw PdfException("Nie można otworzyć pliku PDF.")
+        return pfd.use {
+            val renderer = try { PdfRenderer(it) } catch (e: Exception) { throw PdfException("Nie można odczytać PDF (plik może być uszkodzony lub zabezpieczony hasłem).") }
+            renderer.use { r ->
+                if (r.pageCount < 1) throw PdfException("Plik PDF nie ma stron.")
+                withContext(Dispatchers.IO) {
+                    r.openPage(0).use { page ->
+                        val w = (page.width * dpi / 72f).toInt().coerceIn(200, 3000)
+                        val h = (page.height * dpi / 72f).toInt().coerceIn(200, 4200)
+                        val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                        Canvas(b).drawColor(Color.WHITE)
+                        page.render(b, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        b
+                    }
+                }
+            }
+        }
+    }
+
     /** Renderuje kolejne strony PDF do obrazów (po jednej naraz) i przekazuje je do [onPage]. Zwraca liczbę stron w pliku. */
     suspend fun forEachPdfPage(ctx: Context, uri: Uri, maxPages: Int, onPage: suspend (index: Int, total: Int, bmp: Bitmap) -> Unit): Int {
         val pfd = withContext(Dispatchers.IO) { runCatching { ctx.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() } ?: throw PdfException("Nie można otworzyć pliku PDF.")

@@ -26,6 +26,8 @@ import org.junit.Test
 import pl.asystent.leki.core.Analysis
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Bp
+import pl.asystent.leki.core.Ecg
+import pl.asystent.leki.core.EcgAnalysis
 import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.ThemeMode
@@ -33,6 +35,8 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CtlShape
+import pl.asystent.leki.ui.EcgFindings
+import pl.asystent.leki.ui.EcgWaveView
 import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiTheme
 import pl.asystent.leki.ui.LocalToast
@@ -112,6 +116,29 @@ class ScreenshotTest {
     }
     @Test fun komunikatJasny() = shot("komunikat-jasny", ThemeMode.Light) {
         Column(Modifier.padding(16.dp)) { Snackbar(containerColor = pal.ink, contentColor = pal.bg, shape = CtlShape) { Text("Wczytano kopię zapasową") } }
+    }
+
+    /** Zmyślony zapis EKG (syntetyczny, ok. 72/min, jedno przedwczesne uderzenie i krótki artefakt) do sprawdzenia widoku. */
+    private val ecgState: AppState = run {
+        val fs = 125; val n = fs * 30
+        val beats = ArrayList<Double>(); var t = 0.5; var k = 0
+        while (t < 29.5) { beats.add(t); t += if (k == 12) 0.5 else if (k == 13) 1.1 else 0.83; k++ }
+        fun g(x: Double, c: Double, a: Double, sg: Double) = a * Math.exp(-((x - c) * (x - c)) / (2 * sg * sg))
+        val mv = DoubleArray(n) { i ->
+            val x = i / fs.toDouble()
+            var v = 0.15 * Math.sin(2 * Math.PI * 0.3 * x)
+            for (b in beats) if (Math.abs(x - b) < 0.6) v += g(x, b - 0.16, 0.15, 0.025) + g(x, b - 0.025, -0.15, 0.010) + g(x, b, 1.2, 0.012) + g(x, b + 0.027, -0.25, 0.010) + g(x, b + 0.28, 0.3, 0.045)
+            if (x in 20.0..20.25) v -= 2.6 * Math.sin((x - 20.0) / 0.25 * Math.PI)
+            v
+        }
+        state.copy(ecgs = listOf(Ecg("e1", LocalDate.of(2026, 10, 13), LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm zatokowy", fs = fs, cmv = EcgAnalysis.toRecord(mv, fs.toDouble(), fs))))
+    }
+    @Test fun badaniaEkg() = slices("badania-ekg", 1) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 2) }
+    @Test fun ekgSzczegoly() = shot("ekg-szczegoly") {
+        val e = ecgState.ecgs.single(); val r = EcgAnalysis.analyze(e)
+        Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+            EcgWaveView(e, r); EcgFindings(r)
+        }
     }
 
     @Test fun badania() = slices("badania", 1) { LabsScreen(state, store, onImport = {}, listState = it) }

@@ -42,8 +42,8 @@ class BackupTest {
         val legacy = Json.parseToJsonElement(Fixtures.text("export.json")) as kotlinx.serialization.json.JsonObject
         val keysNew = (o["data"] as kotlinx.serialization.json.JsonObject).keys
         val keysOld = (legacy["data"] as kotlinx.serialization.json.JsonObject).keys
-        // nowe pole od wersji 0.5: analizy wklejone przez użytkownika; stare kopie go nie mają i wczytują się z pustą listą
-        assertEquals(keysOld + "analyses", keysNew)
+        // nowe pola od wersji 0.5: analizy wklejone przez użytkownika i zapisy EKG; stare kopie go nie mają i wczytują się z pustą listą
+        assertEquals(keysOld + setOf("analyses", "ecgs"), keysNew)
     }
 
     @Test fun decryptsLegacyEncryptedBackup() {

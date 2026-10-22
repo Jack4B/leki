@@ -219,3 +219,10 @@ fun AppState.saveAnalysis(a: Analysis): AppState =
 
 fun AppState.deleteAnalysis(id: String): AppState =
     copy(analyses = analyses.filter { it.id != id }, settings = if (settings.rp.analysisId == id) settings.copy(rp = settings.rp.copy(analysisId = "")) else settings)
+
+// ---------- EKG z zegarka ----------
+
+fun AppState.saveEcg(e: Ecg): AppState =
+    if (ecgs.any { it.id == e.id }) copy(ecgs = ecgs.map { if (it.id == e.id) e else it }) else copy(ecgs = ecgs + e)
+
+fun AppState.deleteEcg(id: String): AppState = copy(ecgs = ecgs.filter { it.id != id })

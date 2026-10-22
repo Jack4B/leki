@@ -104,7 +104,7 @@ object Backup {
         val rp = ReportParts(
             bp = rpIn["bp"].bool(rpD.bp), labs = rpIn["labs"].bool(rpD.labs), labsPeriod = rpIn["labsPeriod"].bool(rpD.labsPeriod),
             meds = rpIn["meds"].bool(rpD.meds), plan = rpIn["plan"].bool(rpD.plan), events = rpIn["events"].bool(rpD.events),
-            analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "",
+            analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "", ecg = rpIn["ecg"].bool(rpD.ecg),
         )
         val aD = AiParts()
         val ai = AiParts(
@@ -220,6 +220,17 @@ object Backup {
             Analysis(id, date, o["title"].strOr("Analiza"), text, o["excluded"].arr().orEmpty().mapNotNull { it.str() })
         }
 
+        val ecgs = d["ecgs"].arr().orEmpty().mapNotNull { x ->
+            val o = x as? JsonObject ?: return@mapNotNull null
+            val id = o["id"].str()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val date = o["date"].date() ?: return@mapNotNull null
+            val time = o["time"].time() ?: return@mapNotNull null
+            val fs = o["fs"].number()?.let { Math.round(it).toInt() }?.takeIf { it in 50..1000 } ?: return@mapNotNull null
+            val cmv = o["cmv"].arr().orEmpty().take(200_000).mapNotNull { v -> v.number()?.let { Math.round(it).toInt().coerceIn(-1000, 1000) } }
+            if (cmv.size < fs) return@mapNotNull null
+            Ecg(id, date, time, o["source"].strOr("zegarek"), intOr(o["watchHr"], 0, 0, 300), o["watchNote"].strOr().take(200), fs, cmv, o["note"].strOr().take(500))
+        }
+
         // Wyniki wpisane przy kontrolach (pole wyniku) trafiają do dziennika badań
         for (e in events) {
             if (e.marker.isEmpty()) continue
@@ -234,7 +245,7 @@ object Backup {
             lastBackup = d["lastBackup"].date(),
             settings = settings,
             rules = d["rules"].str() ?: "",
-            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses,
+            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses, ecgs = ecgs,
             timerEnd = d["timerEnd"].number()?.toLong() ?: 0L,
             timerMed = d["timerMed"].strOr(), timerNote = d["timerNote"].strOr(),
         )
@@ -260,7 +271,7 @@ object Backup {
             putJsonObject("rp") {
                 put("bp", c.rp.bp); put("labs", c.rp.labs); put("labsPeriod", c.rp.labsPeriod)
                 put("meds", c.rp.meds); put("plan", c.rp.plan); put("events", c.rp.events)
-                put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId)
+                put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId); put("ecg", c.rp.ecg)
             }
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
@@ -335,6 +346,15 @@ object Backup {
                 add(buildJsonObject {
                     put("id", a.id); put("date", a.date.toString()); put("title", a.title); put("text", a.text)
                     putJsonArray("excluded") { a.excluded.forEach { add(JsonPrimitive(it)) } }
+                })
+            }
+        }
+        putJsonArray("ecgs") {
+            s.ecgs.forEach { e ->
+                add(buildJsonObject {
+                    put("id", e.id); put("date", e.date.toString()); put("time", e.time.hhmm()); put("source", e.source)
+                    put("watchHr", e.watchHr); put("watchNote", e.watchNote); put("fs", e.fs); put("note", e.note)
+                    putJsonArray("cmv") { e.cmv.forEach { add(JsonPrimitive(it)) } }
                 })
             }
         }
