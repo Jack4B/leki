@@ -27,11 +27,25 @@ android {
         buildConfig = true
     }
 
+    // CI podaje jawnie plik klucza (-PlekiKeystore=...), żeby podpis był stały i nie zależał od domyślnego miejsca klucza debug.
+    // Bez tego parametru (build lokalny) używany jest zwykły klucz debug.
+    val lekiKeystore: String? = providers.gradleProperty("lekiKeystore").orNull
+    signingConfigs {
+        if (lekiKeystore != null) {
+            create("leki") {
+                storeFile = file(lekiKeystore)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Wersja preview: bez minifikacji (mniejsze ryzyko błędów w czasie działania), podpis kluczem debug.
+            // Wersja preview: bez minifikacji (mniejsze ryzyko błędów w czasie działania).
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (lekiKeystore != null) signingConfigs.getByName("leki") else signingConfigs.getByName("debug")
         }
     }
 

@@ -39,15 +39,21 @@ jobs:
             echo "::warning::Brak sekretu DEBUG_KEYSTORE_BASE64: APK podpisany nowym, tymczasowym kluczem (aktualizacja na wierzch i Obtainium nie zadziałają)."
           fi
       - name: Testy logiki i zbudowanie APK
-        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} -PlekiKeystore="$HOME/.android/debug.keystore" --no-daemon
       - name: Nazwij plik według wersji
         run: |
           VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           cp app/build/outputs/apk/release/app-release.apk "asystent-lekow-${VERSION}.apk"
           sha256sum "asystent-lekow-${VERSION}.apk" | tee "asystent-lekow-${VERSION}.apk.sha256"
           # odcisk certyfikatu podpisu: ten sam w każdej wersji = aktualizacje na wierzch i Obtainium działają
-          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          FP=$("$APKSIGNER" verify --print-certs "asystent-lekow-${VERSION}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER=$(ls "$SDK"/build-tools/*/apksigner | sort -V | tail -1)
+          FP=$("$APKSIGNER" verify --print-certs "asystent-lekow-${VERSION}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr 'A-F' 'a-f')
+          KS=$(keytool -list -keystore ~/.android/debug.keystore -storepass android | sed -n 's/^Certificate fingerprint (SHA-256): //p' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "Klucz w pliku: ${KS}"; echo "Podpis APK:    ${FP}"
+          [ -n "$FP" ] || { echo "::error::Nie udało się odczytać podpisu APK"; exit 1; }
+          [ "$FP" = "$KS" ] || { echo "::error::Podpis APK nie pochodzi z klucza w ~/.android/debug.keystore"; exit 1; }
           echo "klucz=$(cat key-source.txt)" > asystent-lekow-podpis.txt
           echo "sha256=${FP}" >> asystent-lekow-podpis.txt
           cat asystent-lekow-podpis.txt

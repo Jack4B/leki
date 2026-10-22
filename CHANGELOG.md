@@ -3,6 +3,7 @@
 ## 0.5.1-preview
 
 - **Obtainium:** każda kompilacja ma teraz własne wydanie w Releases z unikalnym tagiem `v<wersja>-b<numer>` (wcześniej jedno wydanie było kasowane i tworzone od nowa pod tym samym tagiem, więc Obtainium nie widział zmiany). Zostaje 5 ostatnich wydań kompilacji, starsze są usuwane. Instrukcja dodania aplikacji w README.
+- **Podpis jawnie plikiem klucza:** build podaje do Gradle ścieżkę klucza (`-PlekiKeystore`), zamiast polegać na domyślnym kluczu debug, i po zbudowaniu sprawdza, że podpis APK zgadza się z kluczem z pliku (inaczej przerywa build). Wcześniej APK mógł dostać inny podpis niż klucz z sekretu.
 - **Stały klucz podpisu:** workflow używa klucza z sekretu `DEBUG_KEYSTORE_BASE64`, żeby aktualizacje wchodziły na wierzch bez odinstalowywania. Opis wydania pokazuje odcisk certyfikatu (SHA-256) albo ostrzega, gdy APK jest podpisany kluczem tymczasowym. Pierwsze przejście na stały klucz wymaga jednorazowej reinstalacji (kopia zapasowa danych przed odinstalowaniem).
 
 ## 0.5.0-preview
