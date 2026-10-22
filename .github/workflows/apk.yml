@@ -49,7 +49,9 @@ jobs:
           set -euo pipefail
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           APKSIGNER=$(ls "$SDK"/build-tools/*/apksigner | sort -V | tail -1)
-          FP=$("$APKSIGNER" verify --print-certs "asystent-lekow-${VERSION}.apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr 'A-F' 'a-f')
+          OUT=$("$APKSIGNER" verify -v --print-certs "asystent-lekow-${VERSION}.apk" 2>&1 || true)
+          echo "$OUT" | head -20
+          FP=$(echo "$OUT" | grep -i 'certificate SHA-256 digest' | head -1 | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f' || true)
           KS=$(keytool -list -keystore ~/.android/debug.keystore -storepass android | sed -n 's/^Certificate fingerprint (SHA-256): //p' | tr -d ':' | tr 'A-F' 'a-f')
           echo "Klucz w pliku: ${KS}"; echo "Podpis APK:    ${FP}"
           [ -n "$FP" ] || { echo "::error::Nie udało się odczytać podpisu APK"; exit 1; }
