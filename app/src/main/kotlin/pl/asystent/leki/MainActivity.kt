@@ -159,6 +159,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             var tab by rememberSaveable { mutableIntStateOf(0) }
             LaunchedEffect(requestedTab) { requestedTab?.let { tab = it; onTabHandled() } }
             var newMed by remember { mutableStateOf(false) }
+            var showMeds by remember { mutableStateOf(false) }
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
             BackHandler(enabled = tab != 0) { tab = 0 }
@@ -205,13 +206,13 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             ) { padding ->
                 // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true })
+                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true }, showMeds = { tab = 4; showMeds = true })
                     when (tab) {
                         0 -> MedsScreen(s, store, nav, onGoData = { tab = 4 }, recoveredFrom = store.recoveredFrom)
                         1 -> BpScreen(s, store)
                         2 -> LabsScreen(s, store, onImport = importer)
                         3 -> ReportScreen(s, store)
-                        else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false })
+                        else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false })
                     }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
                         modifier = Modifier.align(Alignment.BottomCenter))

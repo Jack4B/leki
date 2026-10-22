@@ -76,6 +76,21 @@ fun AppState.lowStock(today: LocalDate, warnDays: Int = settings.stockWarnDays):
     return meds.mapNotNull { m -> stockForecast(m, today)?.takeIf { it.daysLeft != null && it.daysLeft <= warnDays }?.let { m to it } }
 }
 
+/** Poziom zapasu do kolorowania paska: zielony (wystarczy), pomarańczowy (poniżej progu ostrzeżenia), czerwony (krytycznie mało). */
+enum class StockLevel { Ok, Low, Critical }
+
+/** Próg „krytycznie”: połowa progu ostrzeżenia, ale nie więcej niż 3 dni i nie mniej niż 1 dzień. Przy wyłączonym ostrzeganiu ([warnDays] = 0) pasek jest zawsze zielony. */
+fun stockLevel(f: StockForecast, warnDays: Int): StockLevel {
+    val days = f.daysLeft ?: return StockLevel.Ok
+    if (warnDays <= 0) return StockLevel.Ok
+    val critical = (warnDays / 2).coerceIn(1, 3)
+    return when {
+        days <= critical -> StockLevel.Critical
+        days <= warnDays -> StockLevel.Low
+        else -> StockLevel.Ok
+    }
+}
+
 data class StockRow(val med: Med, val forecast: StockForecast)
 
 /** Stan zapasów wszystkich leków, którym śledzimy zapas (bez zakończonych): najpierw te, którym zabraknie najszybciej; bez prognozy na końcu. */

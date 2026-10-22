@@ -222,4 +222,19 @@ class HousekeepingTest {
         val ended = s.copy(meds = s.meds.map { if (it.id == "b") it.copy(end = today.minusDays(1)) else it })
         assertEquals(listOf("a"), ended.stockOverview(today).map { it.med.id })
     }
+
+    @Test fun stockLevelColoursByThreshold() {
+        fun f(days: Int?) = StockForecast(10.0, days, null)
+        assertEquals(StockLevel.Ok, stockLevel(f(30), 7))
+        assertEquals(StockLevel.Ok, stockLevel(f(8), 7))
+        assertEquals(StockLevel.Low, stockLevel(f(7), 7))
+        assertEquals(StockLevel.Low, stockLevel(f(4), 7))
+        assertEquals(StockLevel.Critical, stockLevel(f(3), 7))
+        assertEquals(StockLevel.Critical, stockLevel(f(0), 7))
+        // małe progi: krytyczne co najmniej od 1 dnia, nie więcej niż 3 dni
+        assertEquals(StockLevel.Critical, stockLevel(f(1), 2)); assertEquals(StockLevel.Low, stockLevel(f(2), 2))
+        assertEquals(StockLevel.Critical, stockLevel(f(3), 30)); assertEquals(StockLevel.Low, stockLevel(f(20), 30))
+        // wyłączone ostrzeganie i brak prognozy: zielony
+        assertEquals(StockLevel.Ok, stockLevel(f(0), 0)); assertEquals(StockLevel.Ok, stockLevel(f(null), 7))
+    }
 }

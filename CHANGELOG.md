@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.8.2-preview
+
+- **Jedna lista leków ze stanem zapasu (bez dublowania).** Ustawienia → Leki to teraz jedna lista: nazwa, dawkowanie, a gdy zapas jest śledzony, linia „Zapas: zostało N, starczy do …” z paskiem. Dotknięcie leku otwiera edycję, gdzie uzupełniasz zapas. Usunięto osobną kartę „Stan zapasów”.
+- **Kolory paska zapasu:** zielony (wystarczy), **pomarańczowy** (poniżej progu ostrzeżenia z Ustawień → Przypomnienia), **czerwony** (krytycznie mało: połowa progu, najwyżej 3 dni, co najmniej 1 dzień; przy wyłączonym ostrzeganiu pasek zawsze zielony). Ten sam kolor ma linia z opisem zapasu.
+- **Ekran Leki bez długiej karty na dole:** zamiast niej odnośnik „Sprawdź zapasy leków ›” (otwiera Ustawienia → Leki). Gdy coś się kończy, na górze ekranu Leki jest ostrzeżenie z odnośnikiem „Sprawdź zapasy i uzupełnij ›”.
+- 1 nowy test (poziomy kolorów paska).
+
 ## 0.8.1-preview
 
 - **Podgląd stanu zapasów leków.** Wpisana liczba tabletek nie była nigdzie widoczna poza linią przy dawce. Teraz jest karta **„Zapas leków”** na dole ekranu Leki oraz **„Stan zapasów”** na górze Ustawienia → Leki (dotknięcie wiersza otwiera edycję leku, żeby poprawić liczbę po przeliczeniu opakowań). Każdy wiersz pokazuje, ile zostało, na ile dni starczy według planu i do kiedy, z paskiem (skala do 30 dni; pomarańczowy poniżej progu ostrzeżenia). Lista jest posortowana od leku, któremu zabraknie najszybciej, i nie zawiera leków zakończonych. Linia „Zapas” jest też przy każdym leku na liście w Ustawieniach.

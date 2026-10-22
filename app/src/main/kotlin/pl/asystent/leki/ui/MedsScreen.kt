@@ -121,7 +121,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
                 "Kończy się zapas leków",
                 body = low.joinToString("\n") { (m, f) -> m.name + ": " + stockText(f, m.unit) } + "\nPora na receptę lub zakup.",
                 modifier = Modifier.padding(top = 8.dp),
-            )
+            ) { LinkButton("Sprawdź zapasy i uzupełnij ›", nav.showMeds) }
         }
         item {
             val stripState = rememberLazyListState()
@@ -256,11 +256,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
         }
 
         if (s.stockOverview(today).isNotEmpty()) item {
-            Column(Modifier.padding(top = 24.dp)) {
-                Overline("Zapas leków")
-                StockOverviewCard(s, today)
-                Hint("Zapas zmniejsza się, gdy odhaczasz dawki. Poprawisz go w edycji leku (Ustawienia → Leki).", Modifier.padding(top = 6.dp))
-            }
+            LinkButton("Sprawdź zapasy leków ›", nav.showMeds, Modifier.padding(top = 16.dp))
         }
         item {
             var note by remember(selStr) { mutableStateOf(rec.note) }

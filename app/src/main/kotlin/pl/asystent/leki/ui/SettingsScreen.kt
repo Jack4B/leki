@@ -65,8 +65,8 @@ import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
 import pl.asystent.leki.core.rangeText
 import pl.asystent.leki.core.stockForecast
-import pl.asystent.leki.core.stockOverview
-import pl.asystent.leki.core.stockText
+import pl.asystent.leki.core.StockLevel
+import pl.asystent.leki.core.stockLevel
 import pl.asystent.leki.core.reminders
 import pl.asystent.leki.core.saveEvent
 import pl.asystent.leki.core.saveMarker
@@ -87,6 +87,7 @@ private enum class Page(val title: String) {
 fun SettingsScreen(
     s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
+    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
@@ -109,6 +110,7 @@ fun SettingsScreen(
     val saveJson = rememberJsonSaver(s, store)
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
+    LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
     LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
 
     val active = s.meds.filter { m -> m.end.let { e -> e == null || e >= today } }
@@ -171,16 +173,13 @@ fun SettingsScreen(
             }
             when (page) {
                 Page.Meds -> item {
-                    if (s.stockOverview(today).isNotEmpty()) {
-                        Overline("Stan zapasów")
-                        StockOverviewCard(s, today, Modifier.padding(bottom = 18.dp)) { medEdit = it to null }
-                    }
                     if (active.isEmpty()) EmptyBox("Brak aktywnych leków.", action = {
                         LekiButton("Dodaj lek", { medEdit = null to null }, primary = true, icon = Ph.Plus)
                         Spacer(Modifier.height(8.dp))
                         LekiButton("Dodaj lek ze zdjęcia opakowania", { medScan = true }, tonal = true, icon = Ph.Camera)
                     })
                     else LekiCard { active.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
+                    if (active.any { it.stock != null }) Hint("Pasek zapasu: zielony to wystarczy, pomarańczowy to kończy się (próg w Ustawieniach → Przypomnienia), czerwony to krytycznie mało. Dotknij leku, żeby uzupełnić zapas.", Modifier.padding(top = 8.dp))
                     if (ended.isNotEmpty()) {
                         LinkButton((if (showEnded) "▾ " else "▸ ") + "Zakończone (${ended.size})", { showEnded = !showEnded }, Modifier.padding(top = 8.dp))
                         if (showEnded) LekiCard { ended.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
@@ -304,8 +303,21 @@ private fun MedRow(s: AppState, m: Med, today: LocalDate, onClick: () -> Unit) {
     if (m.phases.first().from > today) sub = "od ${plDate(m.phases.first().from)}: "
     sub += s.phaseText(m, p)
     m.end?.let { sub += ". " + (if (it < today) "Zakończony " else "Do ") + plDate(it) }
-    s.stockForecast(m, today)?.let { sub += ". Zapas: " + stockText(it, m.unit) }
-    SettingRow(m.name, sub, onClick = onClick)
+    // jedna lista: nazwa, dawkowanie, a gdy zapas jest śledzony, jego stan z paskiem; dotknięcie otwiera edycję (tam uzupełnisz zapas)
+    val finished = m.end?.let { it < today } == true
+    val f = if (!finished) s.stockForecast(m, today) else null
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(m.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Text(sub, style = TextStyle(fontSize = 12.5.sp, color = pal.ink3), modifier = Modifier.padding(top = 2.dp))
+            if (f != null) {
+                val level = stockLevel(f, s.settings.stockWarnDays)
+                Text("Zapas: " + stockLine(f, m.unit), style = TextStyle(fontSize = 12.5.sp, fontWeight = if (level == StockLevel.Ok) FontWeight.Normal else FontWeight.SemiBold, color = if (level == StockLevel.Ok) pal.ink2 else stockColor(level)), modifier = Modifier.padding(top = 4.dp))
+                StockBar(f, s.settings.stockWarnDays, Modifier.padding(top = 6.dp))
+            }
+        }
+        PhIcon(Ph.CaretRight, size = 16.dp)
+    }
 }
 
 @Composable
