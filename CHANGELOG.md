@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.8.0-preview
+
+- **Dodawanie leku ze zdjęcia opakowania** (Ustawienia → Leki → „Ze zdjęcia”, także w pustej liście leków): aparat albo galeria, rozpoznawanie tekstu na telefonie (ML Kit, nic nie jest wysyłane). Z tekstu odczytywane są **nazwa** (największy napis na opakowaniu, z alternatywami do wyboru), **moc** (np. 10 mg, 5 mg/ml), **substancja czynna**, **jednostka dawki** (tabl., kaps., ml, sasz., plaster…) i **liczba sztuk w opakowaniu**, która od razu ustawia zapas leku. Wynik otwiera się w edytorze leku jako propozycja z ostrzeżeniem „sprawdź”; dawkowanie ustawia użytkownik. Aplikacja nie ma bazy leków (działa bez internetu), więc nie podpowiada dawkowania ani interakcji, tylko odczytuje to, co jest wydrukowane na opakowaniu.
+- Logika (`MedScan` w module `core`): wybór nazwy po wysokości napisu z odrzucaniem napisów pomocniczych (tabletki, producent, data ważności, numery), normalizacja WIELKICH LITER, obsługa płynów, kapsułek i plastrów, odczyt substancji także z następnej linii i z ulotkowego „Substancją czynną leku jest…”. 6 nowych testów na zmyślonych tekstach opakowań.
+
 ## 0.7.3-preview
 
 - Trend tętna EKG: brakował pierwszego podpisu daty (północ dnia pierwszego zapisu wypadała przed osią). Naprawione.

@@ -45,6 +45,7 @@ import pl.asystent.leki.core.parseNum
 import pl.asystent.leki.core.phaseAt
 import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
+import pl.asystent.leki.core.MedDraft
 import pl.asystent.leki.core.saveMed
 import pl.asystent.leki.core.stockLeft
 import pl.asystent.leki.core.shortDate
@@ -53,7 +54,7 @@ import java.time.LocalDate
 /** Edytor leku: nowy, edycja istniejącego albo zamiana na inny lek ([replaces]). Zmiana dawkowania dodaje nową fazę od wybranego dnia, a historia zostaje. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onClose: () -> Unit, onReplace: (String) -> Unit) {
+fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onClose: () -> Unit, onReplace: (String) -> Unit, prefill: MedDraft? = null) {
     val today = LocalDate.now()
     val toast = LocalToast.current
     val m = medId?.let { s.med(it) }
@@ -65,14 +66,16 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
             else -> Triple(today, emptyMap(), Defaults.allDow)
         }
     }
-    var name by remember(medId, replaces) { mutableStateOf(m?.name ?: "") }
-    var substance by remember(medId, replaces) { mutableStateOf(m?.substance ?: "") }
+    // prefill: propozycja ze zdjęcia opakowania (tylko dla nowego leku); użytkownik sprawdza i poprawia wszystko przed zapisem
+    val pre = if (m == null && oldMed == null) prefill else null
+    var name by remember(medId, replaces) { mutableStateOf(m?.name ?: pre?.fullName() ?: "") }
+    var substance by remember(medId, replaces) { mutableStateOf(m?.substance ?: pre?.substance ?: "") }
     var note by remember(medId, replaces) { mutableStateOf(m?.note ?: "") }
-    var unit by remember(medId, replaces) { mutableStateOf(m?.unit ?: oldMed?.unit ?: "tabl.") }
+    var unit by remember(medId, replaces) { mutableStateOf(m?.unit ?: oldMed?.unit ?: pre?.unit ?: "tabl.") }
     var timer by remember(medId, replaces) { mutableStateOf((m?.timerMin ?: 0).toString()) }
     var mmol by remember(medId, replaces) { mutableStateOf(if ((m?.mmol ?: 0.0) > 0) num(m!!.mmol) else "") }
     val stockInit = remember(medId, replaces) { m?.let { s.stockLeft(it, today) }?.let { num(it) } ?: "" }
-    var stock by remember(medId, replaces) { mutableStateOf(stockInit) }
+    var stock by remember(medId, replaces) { mutableStateOf(if (stockInit.isEmpty()) pre?.count?.let { num(it) } ?: "" else stockInit) }
     var end by remember(medId, replaces) { mutableStateOf(m?.end) }
     var from by remember(medId, replaces) { mutableStateOf(init.first) }
     val doses = remember(medId, replaces) { mutableStateMapOf<String, Double>().also { it.putAll(init.second) } }
@@ -114,6 +117,15 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
                         }
                         LekiButton("Zamień na inny lek", { onReplace(m.id) }, Modifier.fillMaxWidth())
                     }
+                }
+            }
+        }
+        if (pre != null) {
+            Notice("Dane odczytane ze zdjęcia opakowania. Sprawdź nazwę, moc i liczbę sztuk, a potem ustaw dawkowanie według zaleceń lekarza.")
+            if (pre.names.size > 1) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Inne napisy z opakowania (dotknij, żeby użyć jako nazwy)", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pre.names.forEach { n -> val full = pre.fullName(n); ToggleChip(n, name == full) { name = full; err = "" } }
                 }
             }
         }

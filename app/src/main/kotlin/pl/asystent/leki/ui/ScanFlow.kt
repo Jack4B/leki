@@ -194,7 +194,7 @@ internal fun PickBody(onCamera: () -> Unit, onGallery: () -> Unit, onPdf: () -> 
 }
 
 @Composable
-private fun SourceCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+internal fun SourceCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(CardShape).border(1.dp, pal.line, CardShape).background(pal.surface).clickable(role = Role.Button, onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),

@@ -51,6 +51,7 @@ import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.Event
 import pl.asystent.leki.core.Marker
 import pl.asystent.leki.core.Med
+import pl.asystent.leki.core.MedDraft
 import pl.asystent.leki.core.Settings as AppSettings
 import pl.asystent.leki.core.Slot
 import pl.asystent.leki.core.ThemeMode
@@ -90,6 +91,8 @@ fun SettingsScreen(
     var pageName by rememberSaveable { mutableStateOf(initialPage) }
     val page = Page.values().firstOrNull { it.name == pageName } ?: Page.Home
     var medEdit by remember { mutableStateOf<Pair<String?, String?>?>(null) } // (id leku, id leku zastępowanego)
+    var medScan by remember { mutableStateOf(false) }
+    var medDraft by remember { mutableStateOf<MedDraft?>(null) }
     var slotEdit by remember { mutableStateOf<Slot?>(null) }
     var slotNew by remember { mutableStateOf(false) }
     var eventEdit by remember { mutableStateOf<Event?>(null) }
@@ -152,7 +155,10 @@ fun SettingsScreen(
                     IconAction(Ph.ArrowLeft, "Wróć", { pageName = Page.Home.name }, tonal = false)
                     Text(page.title, style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f).padding(start = 4.dp))
                     when (page) {
-                        Page.Meds -> LekiButton("Dodaj lek", { medEdit = null to null }, small = true, tonal = true, icon = Ph.Plus)
+                        Page.Meds -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LekiButton("Ze zdjęcia", { medScan = true }, small = true, tonal = true, icon = Ph.Camera)
+                            LekiButton("Dodaj lek", { medEdit = null to null }, small = true, tonal = true, icon = Ph.Plus)
+                        }
                         Page.Slots -> LekiButton("Dodaj", { slotNew = true }, small = true, tonal = true, icon = Ph.Plus)
                         Page.Events -> LekiButton("Dodaj", { eventNew = true }, small = true, tonal = true, icon = Ph.Plus)
                         Page.Markers -> LekiButton("Dodaj", { markerNew = true }, small = true, tonal = true, icon = Ph.Plus)
@@ -162,7 +168,11 @@ fun SettingsScreen(
             }
             when (page) {
                 Page.Meds -> item {
-                    if (active.isEmpty()) EmptyBox("Brak aktywnych leków.", action = { LekiButton("Dodaj lek", { medEdit = null to null }, primary = true, icon = Ph.Plus) })
+                    if (active.isEmpty()) EmptyBox("Brak aktywnych leków.", action = {
+                        LekiButton("Dodaj lek", { medEdit = null to null }, primary = true, icon = Ph.Plus)
+                        Spacer(Modifier.height(8.dp))
+                        LekiButton("Dodaj lek ze zdjęcia opakowania", { medScan = true }, tonal = true, icon = Ph.Camera)
+                    })
                     else LekiCard { active.forEachIndexed { i, m -> if (i > 0) Divider(); MedRow(s, m, today) { medEdit = m.id to null } } }
                     if (ended.isNotEmpty()) {
                         LinkButton((if (showEnded) "▾ " else "▸ ") + "Zakończone (${ended.size})", { showEnded = !showEnded }, Modifier.padding(top = 8.dp))
@@ -248,7 +258,8 @@ fun SettingsScreen(
         }
     }
 
-    medEdit?.let { (id, rep) -> MedEditor(s, store, id, rep, onClose = { medEdit = null }, onReplace = { medEdit = null to it }) }
+    if (medScan) MedScanDialog(onDraft = { medScan = false; medDraft = it; medEdit = null to null }, onClose = { medScan = false })
+    medEdit?.let { (id, rep) -> MedEditor(s, store, id, rep, onClose = { medEdit = null; medDraft = null }, onReplace = { medEdit = null to it }, prefill = medDraft) }
     if (slotEdit != null || slotNew) SlotEditor(s, slotEdit, onSave = { store.update { st -> st.saveSlot(it) }; slotEdit = null; slotNew = false; toast("Zapisano porę dnia") },
         onDelete = { id ->
             val r = s.deleteSlot(id)
