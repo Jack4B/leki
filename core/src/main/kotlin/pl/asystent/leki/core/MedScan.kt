@@ -15,6 +15,8 @@ data class MedDraft(
     val unit: String,
     /** Liczba sztuk w opakowaniu, gdy podano (np. 30 tabletek). */
     val count: Double?,
+    /** Cały rozpoznany tekst, wiersz po wierszu (od góry): do pokazania użytkownikowi, żeby mógł wskazać właściwą nazwę, gdy odczyt się pomylił. */
+    val lines: List<String> = emptyList(),
 ) {
     val name: String get() = names.firstOrNull().orEmpty()
     /** Nazwa z mocą, np. „Testowit 10 mg”, bez dublowania mocy, gdy nazwa już ją zawiera. */
@@ -50,14 +52,24 @@ object MedScan {
         return t
     }
 
+    /** Nazwa handlowa w tym samym wierszu co moc („Nazwa® 20 mg”) jest na opakowaniach typowa, więc moc i przecinki wycinamy przed oceną napisu. */
+    private fun withoutStrength(t: String): String = strengthRx.replace(t, " ").replace(Regex("""\s+"""), " ").trim().trim(',', ';', ' ')
+
     private fun looksLikeName(t: String): Boolean {
-        val s = t.trim()
+        val s = withoutStrength(t)
         if (s.length !in 3..40) return false
         val letters = s.count { it.isLetter() }
         if (letters < 3 || letters < 0.6 * s.length) return false
-        if (':' in s) return false
+        if (':' in s || ',' in s) return false
+        if (s.none { it in "aeiouyąęóAEIOUYĄĘÓ" }) return false
         return !notName.containsMatchIn(Normalizer.normalize(s, Normalizer.Form.NFC))
     }
+
+    /** Napis o prawdziwych proporcjach tekstu (szerokość proporcjonalna do liczby znaków i wysokości); wąskie, wysokie ramki to śmieci z OCR (krawędzie, kropki brajla, ręka). */
+    private fun plausibleBox(l: OcrLine, shown: String): Boolean = (l.right - l.left) >= 0.22 * l.height * shown.length
+
+    /** Nazwa substancji czynnej wydrukowana pod nazwą handlową (bez etykiety „Substancja czynna”): sól albo rzeczownik w dopełniaczu, np. „…u chlorowodorek”. */
+    private val innRx = Regex("""(?i)chlorowodorek|siarczan|fumaran|maleinian|winian|bursztynian|mesylan|\bsodu\b|\bpotasu\b|\bwapnia\b|\bmagnezu\b|\b\p{L}{8,}u\b""")
 
     /** Odczyt z linii OCR (z położeniem i wysokością napisów, bo nazwa leku to zwykle największy napis na opakowaniu). Null, gdy nic sensownego nie znaleziono. */
     fun parse(lines: List<OcrLine>): MedDraft? {
@@ -65,12 +77,15 @@ object MedScan {
         if (usable.isEmpty()) return null
         val text = usable.sortedBy { it.top }.joinToString("\n") { it.text.trim() }
 
-        val names = usable.filter { looksLikeName(it.text) }
-            .sortedWith(compareByDescending<OcrLine> { it.height }.thenBy { it.top })
-            .map { tidyName(it.text) }
+        // kandydaci na nazwę: wiersze z nazwą handlową (znak ® albo ™ to mocny sygnał) i największe napisy; napisy o nieprawdopodobnych proporcjach odpadają
+        val ranked = usable.filter { l -> looksLikeName(l.text) && plausibleBox(l, withoutStrength(l.text)) }
+            .sortedWith(compareByDescending<OcrLine> { if ('®' in it.text || '™' in it.text) 1 else 0 }.thenByDescending { it.height }.thenBy { it.top })
+            .map { tidyName(withoutStrength(it.text)) }
             .filter { it.length >= 3 }
             .distinctBy { it.lowercase() }
-            .take(4)
+        // wiersz z nazwą substancji (np. „… chlorowodorek”) to substancja, a nie nazwa leku
+        val innLine = ranked.drop(1).firstOrNull { innRx.containsMatchIn(it) }
+        val names = ranked.filter { it != innLine }.take(4)
 
         val strength = strengthRx.find(text)?.value?.replace(Regex("""\s+"""), " ")?.replace(" / ", "/")?.trim().orEmpty()
 
@@ -102,7 +117,10 @@ object MedScan {
             if (substance.isNotEmpty()) break
         }
 
+        // gdy rozpoznano tylko jeden napis i wygląda na nazwę substancji (lek generyczny), służy też jako nazwa
+        if (substance.isEmpty()) substance = innLine ?: names.singleOrNull()?.takeIf { innRx.containsMatchIn(it) }.orEmpty()
         if (names.isEmpty() && strength.isEmpty() && substance.isEmpty() && count == null) return null
-        return MedDraft(names, strength, substance, unit, count)
+        val shown = usable.sortedBy { it.top }.map { it.text.trim().replace(Regex("""\s+"""), " ") }.filter { it.length >= 2 }.distinct().take(30)
+        return MedDraft(names, strength, substance, unit, count, shown)
     }
 }

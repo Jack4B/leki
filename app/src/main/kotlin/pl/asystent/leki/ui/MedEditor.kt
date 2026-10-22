@@ -76,6 +76,7 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     var mmol by remember(medId, replaces) { mutableStateOf(if ((m?.mmol ?: 0.0) > 0) num(m!!.mmol) else "") }
     val stockInit = remember(medId, replaces) { m?.let { s.stockLeft(it, today) }?.let { num(it) } ?: "" }
     var stock by remember(medId, replaces) { mutableStateOf(if (stockInit.isEmpty()) pre?.count?.let { num(it) } ?: "" else stockInit) }
+    var showRaw by remember { mutableStateOf(false) }
     var end by remember(medId, replaces) { mutableStateOf(m?.end) }
     var from by remember(medId, replaces) { mutableStateOf(init.first) }
     val doses = remember(medId, replaces) { mutableStateMapOf<String, Double>().also { it.putAll(init.second) } }
@@ -126,6 +127,15 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
                 Text("Inne napisy z opakowania (dotknij, żeby użyć jako nazwy)", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     pre.names.forEach { n -> val full = pre.fullName(n); ToggleChip(n, name == full) { name = full; err = "" } }
+                }
+            }
+        }
+        if (pre != null && pre.lines.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            LinkButton((if (showRaw) "▾ " else "▸ ") + "Pokaż cały rozpoznany tekst (${pre.lines.size})", { showRaw = !showRaw })
+            if (showRaw) {
+                Hint("Dotknij napisu, żeby użyć go jako nazwy. Tak wygląda tekst odczytany z opakowania, od góry.")
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pre.lines.forEach { l -> ToggleChip(l, name == l) { name = l; err = "" } }
                 }
             }
         }

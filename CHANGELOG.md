@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.8.5-preview
+
+Poprawki odczytu leku ze zdjęcia po teście na prawdziwym opakowaniu (nazwa handlowa w jednym wierszu z mocą, pod nią nazwa substancji; odczyt wybrał nazwę substancji albo szum z OCR).
+
+- **Nazwa handlowa w wierszu z mocą** („Nazwa® 20 mg”): moc jest wycinana przed oceną napisu, więc wiersz nie odpada jako „zawierający mg”. Wiersze ze znakiem ® lub ™ są na pierwszym miejscu, potem największe napisy.
+- **Substancja czynna pod nazwą handlową** (bez etykiety „Substancja czynna”): wiersz wyglądający na nazwę substancji (sól, np. „…chlorowodorek”, albo rzeczownik w dopełniaczu) trafia do pola Substancja, a nie jest proponowany jako nazwa leku.
+- **Śmieci z OCR** (wąskie, wysokie ramki, napisy bez samogłosek, wiersze z przecinkiem) nie są już proponowane jako nazwa.
+- **„Pokaż cały rozpoznany tekst”** w edytorze: wszystkie odczytane wiersze od góry jako przyciski, dotknięcie użyje wiersza jako nazwy (gdy odczyt się pomyli, można wskazać właściwy napis zamiast przepisywać). Dzięki temu widać też, co dokładnie rozpoznał OCR.
+- 3 nowe testy na zmyślonych tekstach opakowań (zmyślone nazwy; prawdziwych nazw leków w repozytorium nie ma).
+
 ## 0.8.4-preview
 
 - Dokumentacja: w README (sekcja Plany) lista kontrolna do testów na telefonie, rzeczy do zrobienia po testach, pomysły do decyzji i rozstrzygnięcia (HeartKit). Bez zmian w aplikacji.

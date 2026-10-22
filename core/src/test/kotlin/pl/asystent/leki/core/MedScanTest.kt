@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 /** Teksty opakowań są zmyślone (nazwy fikcyjne). */
 class MedScanTest {
-    private fun line(t: String, top: Int, h: Int) = OcrLine(t, 20, top, 20 + t.length * 12, top + h)
+    private fun line(t: String, top: Int, h: Int) = OcrLine(t, 20, top, 20 + (t.length * h * 0.4).toInt(), top + h)   // proporcje jak w prawdziwym druku
 
     @Test fun readsNameStrengthSubstanceAndCountFromABoxFront() {
         val d = assertNotNull(MedScan.parse(listOf(
@@ -68,5 +68,40 @@ class MedScanTest {
         assertEquals("Testovit B12", MedScan.tidyName("TESTOVIT B12"))
         // moc nie jest dublowana, gdy nazwa już ją zawiera
         assertEquals("Probamed 10 mg", MedDraft(listOf("Probamed 10 mg"), "10 mg", "", "tabl.", null).fullName())
+    }
+
+    @Test fun brandInTheSameLineAsStrengthAndSubstanceBelowIt() {
+        // przód typowego opakowania: „Nazwa® 20 mg”, pod spodem moc z formą, nazwa substancji, liczba sztuk (nazwy zmyślone)
+        val d = assertNotNull(MedScan.parse(listOf(
+            line("Testokinet® 20 mg", 40, 70),
+            line("20 mg, tabletki", 130, 36),
+            line("Probamidu chlorowodorek", 180, 40),
+            line("30 tabletek", 400, 24),
+            line("Należy zapoznać się z treścią ulotki przed zastosowaniem leku.", 440, 18),
+            line("Do stosowania doustnego", 470, 18),
+        )))
+        assertEquals("Testokinet", d.name)
+        assertEquals("20 mg", d.strength)
+        assertEquals("Testokinet 20 mg", d.fullName())
+        assertEquals("Probamidu chlorowodorek", d.substance)
+        assertEquals(30.0, d.count); assertEquals("tabl.", d.unit)
+        assertTrue(d.names.none { it.contains("chlorowodorek") }, d.names.toString())
+    }
+
+    @Test fun junkBoxesAndTrademarkSignal() {
+        // wąska, wysoka ramka (śmieć z OCR) nie jest nazwą, nawet jeśli jest największa
+        val junk = OcrLine("Axt", 300, 100, 340, 400)
+        val d = assertNotNull(MedScan.parse(listOf(junk, line("Zdrowex®", 40, 50), line("Zdrowex Plus", 120, 80), line("10 mg", 220, 30))))
+        assertEquals("Zdrowex", d.name)            // ® wygrywa z większym napisem
+        assertTrue(d.names.none { it == "Axt" }, d.names.toString())
+        assertTrue(d.names.contains("Zdrowex Plus"))
+    }
+
+    @Test fun keepsTheWholeRecognisedTextForTheUserToPickFrom() {
+        val d = assertNotNull(MedScan.parse(listOf(line("Zdrowex®", 40, 50), line("10 mg", 100, 30), line("30 tabletek", 150, 24), line("x", 190, 10))))
+        assertEquals(listOf("Zdrowex®", "10 mg", "30 tabletek"), d.lines)   // od góry, bez jednoznakowych śmieci
+        // pojedynczy napis wyglądający na substancję (lek generyczny) jest i nazwą, i substancją
+        val generic = assertNotNull(MedScan.parse(listOf(line("Probamidu chlorowodorek", 40, 60), line("10 mg", 120, 30))))
+        assertEquals("Probamidu chlorowodorek", generic.name); assertEquals("Probamidu chlorowodorek", generic.substance)
     }
 }

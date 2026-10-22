@@ -254,7 +254,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później. Rozmiar APK to kilkadziesiąt MB, głównie przez model i biblioteki rozpoznawania tekstu; działa tylko na telefonach arm64 i armeabi-v7a.
 - Interfejs tylko po polsku.
-- Odczyt leku ze zdjęcia zależy od jakości zdjęcia i wyglądu opakowania (nazwa musi być największym napisem; ozdobne czcionki, odbicia i tekst na zakrzywionej powierzchni pogarszają odczyt). Aplikacja zawsze pokazuje wynik do sprawdzenia i nie zgaduje dawkowania.
+- Odczyt leku ze zdjęcia zależy od jakości zdjęcia i wyglądu opakowania (nazwa musi być największym napisem; ozdobne czcionki, odbicia i tekst na zakrzywionej powierzchni pogarszają odczyt). Aplikacja zawsze pokazuje wynik do sprawdzenia i nie zgaduje dawkowania; gdy odczyt się pomyli, „Pokaż cały rozpoznany tekst” pozwala wskazać właściwy napis jako nazwę.
 - Zapas leków zakłada, że wpisana liczba jest aktualna i że odhaczasz każdą wziętą dawkę; dawki wzięte, ale nieodhaczone, zawyżają prognozę. Prognoza liczy według planu (zmiany dawkowania w przyszłości są uwzględnione, doraźne zmiany nie).
 - Blokada aplikacji: wybór pliku lub zdjęcia wyników zamyka aplikację na chwilę, więc przy opóźnieniu „zaraz” trzeba ją odblokować po powrocie. Opcja „blokuj zrzuty ekranu” uniemożliwia też Twoje własne zrzuty (np. do zgłaszania błędów).
 - Powiadomienia o kopii i zapasie wymagają zgody na powiadomienia; planowane są na dzień, w którym stają się aktualne (zapas: godz. 9:00, kopia: 10:00), a po wyświetleniu powtarzają się codziennie, dopóki sprawa nie zostanie załatwiona.
