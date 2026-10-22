@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
     implementation(platform(libs.compose.bom))
     testImplementation(libs.junit)
     implementation(libs.compose.ui)

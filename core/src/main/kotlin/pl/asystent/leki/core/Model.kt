@@ -19,6 +19,9 @@ data class Med(
     val mmol: Double = 0.0,
     val end: LocalDate? = null,
     val phases: List<Phase>,
+    /** Zapas: stan z początku dnia [stockDate] w jednostkach leku (patrz Stock.kt); null = zapasu nie śledzimy. */
+    val stock: Double? = null,
+    val stockDate: LocalDate? = null,
 )
 
 data class Event(
@@ -118,6 +121,10 @@ data class Settings(
     val reportNote: String = "",
     val remindOn: Boolean = false,
     val remindLead: Int = 0,
+    /** Ostrzeżenie o kończącym się zapasie leku, gdy starczy na tyle dni lub mniej (0 = wyłączone). */
+    val stockWarnDays: Int = 7,
+    /** Przypomnienie o kopii zapasowej, gdy ostatnia jest starsza niż tyle dni (0 = wyłączone). */
+    val backupRemindDays: Int = 30,
 )
 
 data class AppState(

@@ -9,7 +9,7 @@ object Licenses {
 
     val included = listOf(
         Notice("Phosphor Icons", "MIT", "ikony interfejsu (wektory w pliku PhIcons.kt)", "Copyright (c) 2023 Phosphor Icons", "https://github.com/phosphor-icons/core"),
-        Notice("Jetpack Compose, Material 3 i pozostałe biblioteki AndroidX", "Apache-2.0", "interfejs, cykl życia, odczyt orientacji zdjęć", "Copyright The Android Open Source Project", "https://developer.android.com/jetpack"),
+        Notice("Jetpack Compose, Material 3 i pozostałe biblioteki AndroidX", "Apache-2.0", "interfejs, cykl życia, odczyt orientacji zdjęć, okno odblokowania biometrycznego (AndroidX Biometric)", "Copyright The Android Open Source Project", "https://developer.android.com/jetpack"),
         Notice("Kotlin, kotlinx.serialization i kotlinx.coroutines", "Apache-2.0", "język oraz biblioteki programu (format kopii zapasowej, współbieżność)", "Copyright JetBrains s.r.o. and contributors", "https://kotlinlang.org"),
         Notice("ML Kit Text Recognition (model łaciński dołączony do aplikacji)", "Warunki Google ML Kit (to nie jest licencja open source)", "rozpoznawanie tekstu ze zdjęć i PDF na urządzeniu", "Google LLC", "https://developers.google.com/ml-kit/terms"),
     )

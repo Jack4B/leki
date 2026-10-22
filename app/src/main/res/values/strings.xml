@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">Asystent leków</string>
     <string name="channel_reminders">Przypomnienia o lekach</string>
+    <string name="widget_desc">Szybkie dodanie pomiaru ciśnienia</string>
+    <string name="shortcut_add_bp">Dodaj pomiar ciśnienia</string>
+    <string name="shortcut_add_bp_long">Dodaj pomiar ciśnienia krwi</string>
 </resources>

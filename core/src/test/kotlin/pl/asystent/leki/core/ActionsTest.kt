@@ -125,7 +125,7 @@ class ActionsTest {
 
     @Test fun remindersSkipTakenAndPast() {
         val zone = java.time.ZoneId.of("Europe/Warsaw")
-        var s = base().copy(settings = Settings(remindOn = true, remindLead = 10))
+        var s = base().copy(settings = Settings(remindOn = true, remindLead = 10, backupRemindDays = 0, stockWarnDays = 0))
         val nowMs = LocalDateTime.of(2026, 10, 21, 7, 0).atZone(zone).toInstant().toEpochMilli()
         val all = s.reminders(zone, nowMs, today)
         assertEquals(28, all.size) // 14 dni x (śniadanie, kolacja)

@@ -46,6 +46,7 @@ import pl.asystent.leki.core.phaseAt
 import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
 import pl.asystent.leki.core.saveMed
+import pl.asystent.leki.core.stockLeft
 import pl.asystent.leki.core.shortDate
 import java.time.LocalDate
 
@@ -70,6 +71,8 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     var unit by remember(medId, replaces) { mutableStateOf(m?.unit ?: oldMed?.unit ?: "tabl.") }
     var timer by remember(medId, replaces) { mutableStateOf((m?.timerMin ?: 0).toString()) }
     var mmol by remember(medId, replaces) { mutableStateOf(if ((m?.mmol ?: 0.0) > 0) num(m!!.mmol) else "") }
+    val stockInit = remember(medId, replaces) { m?.let { s.stockLeft(it, today) }?.let { num(it) } ?: "" }
+    var stock by remember(medId, replaces) { mutableStateOf(stockInit) }
     var end by remember(medId, replaces) { mutableStateOf(m?.end) }
     var from by remember(medId, replaces) { mutableStateOf(init.first) }
     val doses = remember(medId, replaces) { mutableStateMapOf<String, Double>().also { it.putAll(init.second) } }
@@ -80,6 +83,7 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     fun edit(endOverride: LocalDate?, useEnd: Boolean) = MedEdit(
         id = medId, name = name, substance = substance, note = note, unit = unit, timerMin = timer.toIntOrNull() ?: 0, mmol = parseNum(mmol) ?: 0.0,
         end = if (useEnd) endOverride else end, from = from, doses = doses.toMap(), dow = dow.toList(), replaces = replaces,
+        stockLeft = parseNum(stock)?.takeIf { it >= 0 }, stockEdited = stock.trim() != stockInit, today = today,
     )
 
     fun save(endOverride: LocalDate? = null, useEnd: Boolean = false, message: String? = null) {
@@ -173,6 +177,10 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
         Column {
             LekiField("Potas w jednej tabletce, mmol (opcjonalnie)", mmol, { mmol = it }, keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 10")
             Hint("Jeśli podasz, dzień pokaże sumę potasu z leków.", Modifier.padding(top = 6.dp))
+        }
+        Column {
+            LekiField("Ile zostało w opakowaniu, $unit (opcjonalnie)", stock, { stock = it }, keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 28")
+            Hint("Aplikacja odlicza dawki, które odhaczasz, i ostrzeże, gdy zapasu zostanie na kilka dni (próg w Ustawieniach → Przypomnienia). Puste pole wyłącza śledzenie.", Modifier.padding(top = 6.dp))
         }
         Column {
             DateField("Ostatni dzień przyjmowania (opcjonalnie)", end, { end = it; err = "" }, placeholder = "bez końca")

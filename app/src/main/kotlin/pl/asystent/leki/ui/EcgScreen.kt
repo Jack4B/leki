@@ -70,6 +70,10 @@ import pl.asystent.leki.core.EcgViewport
 import pl.asystent.leki.core.EcgReport
 import pl.asystent.leki.core.EcgVector
 import pl.asystent.leki.core.EcgSeverity
+import pl.asystent.leki.core.EcgTrend
+import pl.asystent.leki.core.EcgTrendPoint
+import pl.asystent.leki.core.minutes
+import pl.asystent.leki.core.shortDate
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.deleteEcg
 import pl.asystent.leki.core.hhmm
@@ -91,6 +95,18 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
         Column(Modifier.padding(top = 14.dp)) {
             BodyText("Zapisy EKG z zegarka lub opaski (jedno odprowadzenie). Wczytaj wydruk PDF z aplikacji zegarka: aplikacja odtworzy przebieg, policzy tętno i odstępy między uderzeniami oraz wskaże ewentualne nieregularności do omówienia z lekarzem.")
             LekiButton("Dodaj EKG z pliku PDF", onAdd, Modifier.fillMaxWidth().padding(top = 12.dp), primary = true, icon = Ph.Heartbeat)
+        }
+    }
+    val trend = s.ecgs.size.let { if (it >= 2) EcgTrend.points(s.ecgs) else emptyList() }
+    if (trend.count { it.hr != null } >= 2) item {
+        Column(Modifier.padding(top = 16.dp)) {
+            Overline("Trend tętna z zapisów EKG")
+            LekiCard {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EcgTrendChart(trend)
+                    Hint(EcgTrend.summary(trend) + " Czerwone punkty: zapisy z oznaczeniami do omówienia z lekarzem.")
+                }
+            }
         }
     }
     item { EcgMethods() }
@@ -515,4 +531,45 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
     if (zoom) FullScreenDialog("Przebieg EKG", { zoom = false }) { EcgZoomView(initial, result) }
     if (confirmDelete) ConfirmDialog("Usunąć EKG?", "Zapis zniknie z aplikacji, raportów i przyszłych kopii zapasowych.", "Usuń",
         onConfirm = { store.update { it.deleteEcg(initial.id) }; toast("Usunięto EKG"); onClose() }, onDismiss = { confirmDelete = false }, danger = true)
+}
+
+
+/** Tętno z kolejnych zapisów EKG w czasie (mediana z przebiegu, a gdy jej nie ma, tętno z zegarka). Punkty zapisów z oznaczeniami do omówienia są wyróżnione. */
+@Composable
+fun EcgTrendChart(points: List<EcgTrendPoint>, modifier: Modifier = Modifier) {
+    val pts = points.filter { it.hr != null }
+    if (pts.size < 2) return
+    val grid = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val warn = pal.warn; val surface = pal.surface
+    val values = pts.map { it.hr ?: 0.0 }
+    val lo = Math.floor((values.min() - 5) / 10) * 10
+    val hi = Math.max(Math.ceil((values.max() + 5) / 10) * 10, lo + 30)
+    fun t(p: EcgTrendPoint) = p.date.toEpochDay() + p.time.minutes / 1440.0
+    val t0 = t(pts.first()); val t1 = t(pts.last())
+    Canvas(modifier.fillMaxWidth().height(150.dp).semantics { contentDescription = "Wykres tętna z zapisów EKG: " + EcgTrend.summary(points) }) {
+        val k = density
+        val padL = 34f * k; val padR = 10f * k; val top = 8f * k; val bottom = 22f * k
+        val w = size.width - padL - padR; val h = size.height - top - bottom
+        fun x(p: EcgTrendPoint) = padL + (if (t1 > t0) ((t(p) - t0) / (t1 - t0)).toFloat() else 0.5f) * w
+        fun y(v: Double) = top + ((hi - v) / (hi - lo)).toFloat() * h
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
+        var g = lo
+        while (g <= hi) {
+            drawLine(grid, Offset(padL, y(g)), Offset(padL + w, y(g)), strokeWidth = 1f)
+            paint.textAlign = android.graphics.Paint.Align.RIGHT
+            drawContext.canvas.nativeCanvas.drawText(g.toInt().toString(), padL - 5f * k, y(g) + 3.5f * k, paint)
+            g += 10.0
+        }
+        val path = Path()
+        pts.forEachIndexed { i, p -> val px = x(p); val py = y(p.hr ?: lo); if (i == 0) path.moveTo(px, py) else path.lineTo(px, py) }
+        drawPath(path, accent, style = Stroke(width = 2f * k))
+        pts.forEach { p ->
+            val c = Offset(x(p), y(p.hr ?: lo))
+            drawCircle(if (p.attention > 0) warn else accent, 5f * k, c)
+            drawCircle(surface, 5f * k, c, style = Stroke(width = 1.5f * k))
+        }
+        paint.textAlign = android.graphics.Paint.Align.LEFT
+        drawContext.canvas.nativeCanvas.drawText(shortDate(pts.first().date), padL, size.height - 5f * k, paint)
+        paint.textAlign = android.graphics.Paint.Align.RIGHT
+        drawContext.canvas.nativeCanvas.drawText(shortDate(pts.last().date), padL + w, size.height - 5f * k, paint)
+    }
 }

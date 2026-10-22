@@ -133,6 +133,8 @@ private fun reminderId(d: LocalDate, slotIndex: Int): Int = (Math.floorMod(d.toE
 /** Przypomnienia na 14 dni: jedno na porę, w której zostały nieodhaczone dawki. Id 1 to stoper po dawce. */
 fun AppState.reminders(zone: java.time.ZoneId, nowMillis: Long, today: LocalDate): List<Reminder> {
     val out = ArrayList<Reminder>()
+    out.addAll(housekeepingReminders(zone, nowMillis, today))
+    if (!settings.remindOn) return out
     val slots = sortedSlots()
     for (i in 0 until 14) {
         val d = today.plusDays(i.toLong())

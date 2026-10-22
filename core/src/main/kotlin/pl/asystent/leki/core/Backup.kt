@@ -125,6 +125,8 @@ object Backup {
             reportNote = st["reportNote"].str() ?: "",
             remindOn = rmIn["on"].bool(false),
             remindLead = intOr(rmIn["lead"], 0, 0, 120),
+            stockWarnDays = intOr(rmIn["stock"], D.stockWarnDays, 0, 60),
+            backupRemindDays = intOr(rmIn["backup"], D.backupRemindDays, 0, 365),
         )
 
         val slots = d["slots"].arr().orEmpty().mapNotNull { x ->
@@ -156,7 +158,8 @@ object Backup {
                 unit = o["unit"].strOr("tabl.").ifEmpty { "tabl." },
                 timerMin = intOr(o["timerMin"], 0, 0, 600), mmol = numOr(o["mmol"], 0.0, 0.0, 1000.0),
                 end = o["end"].date(), phases = phases,
-            )
+                stock = o["stock"].number()?.takeIf { it in 0.0..100000.0 }, stockDate = o["stockDate"].date(),
+            ).let { if (it.stock == null || it.stockDate == null) it.copy(stock = null, stockDate = null) else it }
         }
 
         val markers = d["markers"].arr().orEmpty().mapNotNull { x ->
@@ -290,7 +293,7 @@ object Backup {
             put("lateMin", c.lateMin); put("waterGoal", c.waterGoal); put("glassMl", c.glassMl)
             put("hiSys", c.hiSys); put("hiDia", c.hiDia); put("loSys", c.loSys); put("loDia", c.loDia)
             put("theme", c.theme.id); put("reportNote", c.reportNote)
-            putJsonObject("remind") { put("on", c.remindOn); put("lead", c.remindLead) }
+            putJsonObject("remind") { put("on", c.remindOn); put("lead", c.remindLead); put("stock", c.stockWarnDays); put("backup", c.backupRemindDays) }
         }
         put("rules", s.rules)
         putJsonArray("slots") { s.slots.forEach { add(buildJsonObject { put("id", it.id); put("name", it.name); put("time", it.time.hhmm()) }) } }
@@ -300,6 +303,7 @@ object Backup {
                     put("id", m.id); put("name", m.name); put("substance", m.substance); put("note", m.note); put("unit", m.unit)
                     put("timerMin", m.timerMin); put("mmol", numberOrInt(m.mmol))
                     if (m.end != null) put("end", m.end.toString()) else put("end", JsonNull)
+                    if (m.stock != null && m.stockDate != null) { put("stock", numberOrInt(m.stock)); put("stockDate", m.stockDate.toString()) }
                     putJsonArray("phases") {
                         m.phases.forEach { p ->
                             add(buildJsonObject {

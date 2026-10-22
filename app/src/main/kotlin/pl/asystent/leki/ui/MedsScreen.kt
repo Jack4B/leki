@@ -73,6 +73,9 @@ import pl.asystent.leki.core.setEventResult
 import pl.asystent.leki.core.setWater
 import pl.asystent.leki.core.shortDate
 import pl.asystent.leki.core.skipDose
+import pl.asystent.leki.core.lowStock
+import pl.asystent.leki.core.stockForecast
+import pl.asystent.leki.core.stockText
 import pl.asystent.leki.core.toggleDose
 import java.time.LocalDate
 import java.time.LocalTime
@@ -108,6 +111,14 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             AlertBox(
                 "Plik danych był uszkodzony",
                 body = "Aplikacja wystartowała pusta, a uszkodzony plik zachowano jako $recoveredFrom w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach.",
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        val low = s.lowStock(today)
+        if (low.isNotEmpty()) item {
+            AlertBox(
+                "Kończy się zapas leków",
+                body = low.joinToString("\n") { (m, f) -> m.name + ": " + stockText(f, m.unit) } + "\nPora na receptę lub zakup.",
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
@@ -317,6 +328,11 @@ private fun DoseRow(
                 style = TextStyle(fontSize = 15.sp),
             )
             if (x.med.substance.isNotEmpty()) Text(x.med.substance, style = TextStyle(fontSize = 13.sp, color = pal.ink2))
+            s.stockForecast(x.med, today)?.let { f ->
+                val dl = f.daysLeft
+                val lowNow = dl != null && s.settings.stockWarnDays > 0 && dl <= s.settings.stockWarnDays
+                Text("Zapas: " + stockText(f, x.med.unit), style = TextStyle(fontSize = 12.5.sp, fontWeight = if (lowNow) FontWeight.SemiBold else FontWeight.Normal, color = if (lowNow) pal.warn else pal.ink3), modifier = Modifier.padding(top = 2.dp))
+            }
             x.med.end?.let { end ->
                 Text("Dzień ${daysBetween(x.med.phases.first().from, sel) + 1} z ${daysBetween(x.med.phases.first().from, end) + 1}", style = TextStyle(fontSize = 13.sp, fontFamily = Mono, color = pal.ink2))
             }

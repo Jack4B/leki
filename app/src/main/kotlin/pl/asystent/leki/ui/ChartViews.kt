@@ -46,7 +46,7 @@ private fun anchor(a: Anchor) = when (a) { Anchor.Start -> Paint.Align.LEFT; Anc
 /** Wykres ciśnienia w czasie: oś pionowa stała po lewej, wykres przewijany w poziomie (domyślnie na końcu, czyli przy najnowszych dniach). */
 @Composable
 fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier) {
-    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val surface = pal.surface; val warn = pal.warn
+    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val surface = pal.surface; val warn = pal.warn; val danger = pal.danger
     val scroll = rememberScrollState()
     LaunchedEffect(g) {
         withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { it > 0 } }?.let { scroll.scrollTo(it) }
@@ -76,8 +76,10 @@ fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier)
                     poly(g.readings.map { xy(it.x, it.dia) }, ink3); poly(g.readings.map { xy(it.x, it.sys) }, accent)
                     g.readings.forEach {
                         drawCircle(surface, 4f * k, xy(it.x, it.dia)); drawCircle(ink3, 4f * k, xy(it.x, it.dia), style = Stroke(width = 2f * k))
-                        drawCircle(accent, 4f * k, xy(it.x, it.sys)); drawCircle(surface, 4f * k, xy(it.x, it.sys), style = Stroke(width = 1.5f * k))
-                        drawCircle(accent, 3.2f * k, xy(it.x, it.sys))
+                        // pomiar na progu lub powyżej niego (ustawianym w Ustawieniach) jest czerwony i większy
+                        val c = if (it.high) danger else accent
+                        drawCircle(c, (if (it.high) 5.2f else 4f) * k, xy(it.x, it.sys)); drawCircle(surface, (if (it.high) 5.2f else 4f) * k, xy(it.x, it.sys), style = Stroke(width = 1.5f * k))
+                        drawCircle(c, (if (it.high) 4.2f else 3.2f) * k, xy(it.x, it.sys))
                     }
                 } else {
                     val bw = (g.dayWidth * 0.55f).coerceIn(1.2f, 6f) * k
@@ -86,7 +88,7 @@ fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier)
                         drawLine(accent.copy(alpha = .35f), xy(it.x, it.sysMin), xy(it.x, it.sysMax), strokeWidth = bw)
                     }
                     poly(g.days.map { xy(it.x, it.dia) }, ink3); poly(g.days.map { xy(it.x, it.sys) }, accent)
-                    if (g.dayWidth >= 7f) g.days.forEach { drawCircle(accent, 1.8f * k, xy(it.x, it.sys)); drawCircle(ink3, 1.8f * k, xy(it.x, it.dia)) }
+                    if (g.dayWidth >= 7f) g.days.forEach { drawCircle(if (it.high) danger else accent, (if (it.high) 2.6f else 1.8f) * k, xy(it.x, it.sys)); drawCircle(ink3, 1.8f * k, xy(it.x, it.dia)) }
                 }
             }
         }

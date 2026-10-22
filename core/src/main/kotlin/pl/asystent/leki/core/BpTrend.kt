@@ -40,8 +40,9 @@ fun bpPeriods(list: List<Bp>, monthly: Boolean, c: Settings): List<BpPeriodRow> 
     }
 }
 
-data class TrendDay(val x: Float, val sys: Float, val dia: Float, val sysMin: Float, val sysMax: Float, val diaMin: Float, val diaMax: Float, val n: Int)
-data class ReadingPt(val x: Float, val sys: Float, val dia: Float)
+data class TrendDay(val x: Float, val sys: Float, val dia: Float, val sysMin: Float, val sysMax: Float, val diaMin: Float, val diaMax: Float, val n: Int, val high: Boolean = false)
+/** [high]: pomiar (albo średnia dnia) na progu podwyższonego ciśnienia lub powyżej (skurczowe >= hiSys albo rozkurczowe >= hiDia). */
+data class ReadingPt(val x: Float, val sys: Float, val dia: Float, val high: Boolean = false)
 data class TrendMark(val x: Float, val line: Boolean, val label: String?)
 
 /**
@@ -109,9 +110,9 @@ object Trend {
             }
         }
         val agg = bpDaily(inRange).map { a ->
-            TrendDay(x(a.date, null), y(a.sys), y(a.dia), y(a.sysMin.toDouble()), y(a.sysMax.toDouble()), y(a.diaMin.toDouble()), y(a.diaMax.toDouble()), a.n)
+            TrendDay(x(a.date, null), y(a.sys), y(a.dia), y(a.sysMin.toDouble()), y(a.sysMax.toDouble()), y(a.diaMin.toDouble()), y(a.diaMax.toDouble()), a.n, a.sys >= hiSys || a.dia >= hiDia)
         }
-        val readings = if (detailed) inRange.map { ReadingPt(x(it.date, it.time), y(it.sys.toDouble()), y(it.dia.toDouble())) } else emptyList()
+        val readings = if (detailed) inRange.map { ReadingPt(x(it.date, it.time), y(it.sys.toDouble()), y(it.dia.toDouble()), it.sys >= hiSys || it.dia >= hiDia) } else emptyList()
         return TrendGeo(width, height, PAD_L, TOP, height - BOTTOM, ticks, refs, marks, agg, readings, detailed, dw)
     }
 

@@ -39,7 +39,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import pl.asystent.leki.BuildConfig
 import pl.asystent.leki.Platform
+import pl.asystent.leki.LocalLock
 import pl.asystent.leki.Store
+import pl.asystent.leki.core.AppLock
+import pl.asystent.leki.core.Csv
+import pl.asystent.leki.core.REMINDER_BACKUP
+import pl.asystent.leki.core.REMINDER_STOCK
 import pl.asystent.leki.core.Licenses
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Backup
@@ -71,7 +76,7 @@ import java.time.ZoneId
 
 private enum class Page(val title: String) {
     Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"), Markers("Parametry badań"),
-    General("Ogólne"), Reminders("Przypomnienia o lekach"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
+    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
 }
 
 @Composable
@@ -132,7 +137,9 @@ fun SettingsScreen(
                 LekiCard {
                     NavRow(Ph.Sliders, "Ogólne", "Imię, woda, progi, motyw") { pageName = Page.General.name }
                     Divider()
-                    NavRow(Ph.Bell, "Przypomnienia o lekach", if (c.remindOn) "Włączone" else "Wyłączone") { pageName = Page.Reminders.name }
+                    NavRow(Ph.Bell, "Przypomnienia", (if (c.remindOn) "Dawki włączone" else "Dawki wyłączone") + ", zapas leków, kopia") { pageName = Page.Reminders.name }
+                    Divider()
+                    NavRow(Ph.LockKey, "Blokada aplikacji", if (LocalLock.current?.enabled == true) "Włączona" else "Wyłączona") { pageName = Page.Security.name }
                     Divider()
                     NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
                     Divider()
@@ -183,6 +190,7 @@ fun SettingsScreen(
                 }
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
+                Page.Security -> item { SecuritySection() }
                 Page.Data -> item {
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -200,6 +208,8 @@ fun SettingsScreen(
                             LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
                         }
                     }
+                    Spacer(Modifier.height(18.dp))
+                    CsvSection(s)
                     Spacer(Modifier.height(18.dp))
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -357,7 +367,7 @@ private fun ReminderSection(s: AppState, store: Store) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else enable()
     }
-    val planned = if (c.remindOn) s.reminders(ZoneId.systemDefault(), System.currentTimeMillis(), LocalDate.now()).size else 0
+    val planned = if (c.remindOn) s.reminders(ZoneId.systemDefault(), System.currentTimeMillis(), LocalDate.now()).count { it.id != REMINDER_BACKUP && it.id != REMINDER_STOCK } else 0
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BodyText("Powiadomienie o porach dawek z Twojego planu, także przy zamkniętej aplikacji. Pomija pory, które są już odhaczone.")
@@ -376,6 +386,22 @@ private fun ReminderSection(s: AppState, store: Store) {
             if (c.remindOn && Build.VERSION.SDK_INT >= 31 && tick >= 0 && !Reminders.canScheduleExact(ctx)) LekiButton("Zezwól na dokładne alarmy", {
                 runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }, Modifier.fillMaxWidth(), tonal = true)
+        }
+    }
+    Spacer(Modifier.height(18.dp))
+    Overline("Zapas leków i kopia zapasowa")
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            BodyText("Te powiadomienia działają niezależnie od przypomnień o dawkach (wystarczy zgoda na powiadomienia). Zapas leków aplikacja liczy, gdy wpiszesz w edycji leku, ile zostało w opakowaniu.")
+            IntField("Ostrzegaj o kończącym się leku, gdy starczy na tyle dni lub mniej (0 = wyłączone)", c.stockWarnDays, { v -> store.update { it.copy(settings = it.settings.copy(stockWarnDays = v)) } }, 0..60)
+            IntField("Przypominaj o kopii zapasowej, gdy ostatnia jest starsza niż tyle dni (0 = wyłączone)", c.backupRemindDays, { v -> store.update { it.copy(settings = it.settings.copy(backupRemindDays = v)) } }, 0..365)
+            if (!Reminders.canNotify(ctx)) {
+                Hint("Powiadomienia są wyłączone w ustawieniach telefonu, więc te przypomnienia się nie pokażą.")
+                LekiButton("Zezwól na powiadomienia", {
+                    if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else runCatching { ctx.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }, Modifier.fillMaxWidth(), tonal = true)
+            }
         }
     }
 }
@@ -442,4 +468,55 @@ private fun EventEditor(s: AppState, e: Event?, onSave: (Event) -> Unit, onDelet
         if (e != null) LinkButton("Usuń kontrolę", { confirm = true }, danger = true)
     }
     if (confirm && e != null) ConfirmDialog("Usunąć kontrolę?", "Zniknie przypomnienie. Wpisane wcześniej wyniki zostają w danych dnia.", "Usuń", onConfirm = { onDelete(e.id) }, onDismiss = { confirm = false }, danger = true)
+}
+
+
+/** Eksport do arkusza (CSV: średnik, przecinek dziesiętny, UTF-8 z BOM): ciśnienie, wyniki badań, dawki i podsumowanie EKG. */
+@Composable
+private fun CsvSection(s: AppState) {
+    val ctx = LocalContext.current
+    val toast = LocalToast.current
+    fun share(name: String, csv: String) {
+        runCatching { Platform.shareFile(ctx, name, csv, "text/csv", "Eksport CSV") }.onFailure { toast("Nie udało się przygotować pliku.") }
+    }
+    val today = LocalDate.now()
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Eksport do arkusza (CSV)", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Hint("Plik otworzysz w Excelu, LibreOffice lub Arkuszach Google. Zawiera dane zdrowotne: wysyłaj go tylko tam, gdzie chcesz.")
+            LekiButton("Ciśnienie (${s.bp.size})", { share("cisnienie-$today.csv", Csv.bp(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.bp.isNotEmpty())
+            LekiButton("Wyniki badań (${s.labs.size})", { share("wyniki-badan-$today.csv", Csv.labs(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.labs.isNotEmpty())
+            LekiButton("Dawki leków (ostatnie 90 dni)", { share("dawki-$today.csv", Csv.doses(s, today.minusDays(89), today, today)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.meds.isNotEmpty())
+            LekiButton("EKG, podsumowanie (${s.ecgs.size})", { share("ekg-$today.csv", Csv.ecg(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.ecgs.isNotEmpty())
+        }
+    }
+}
+
+/** Blokada aplikacji (odcisk palca, twarz albo blokada ekranu telefonu). */
+@Composable
+private fun SecuritySection() {
+    val lock = LocalLock.current
+    val toast = LocalToast.current
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (lock == null) { BodyText("Blokada jest niedostępna na tym ekranie."); return@Column }
+            BodyText("Blokada chroni dane zdrowotne przed osobą, która ma odblokowany Twój telefon. Odblokowujesz odciskiem palca, twarzą albo blokadą ekranu telefonu (PIN, wzór, hasło). Aplikacja nie widzi ani nie przechowuje Twojego PIN-u ani odcisku.")
+            if (!lock.enabled) {
+                LekiButton("Włącz blokadę aplikacji", {
+                    if (!lock.available()) toast("Najpierw ustaw blokadę ekranu albo odcisk palca w ustawieniach telefonu.")
+                    else lock.enable { ok -> toast(if (ok) "Blokada włączona." else "Nie włączono blokady.") }
+                }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
+            } else {
+                Text("Blokada jest włączona.", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
+                Column {
+                    Text("Zablokuj po wyjściu z aplikacji na dłużej niż", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    SegRow(AppLock.GRACE_LABELS, lock.graceIndex, { lock.setGrace(it) })
+                    Hint("Wybranie pliku (kopia, wyniki, EKG) czy zrobienie zdjęcia wyników zamyka aplikację na chwilę: przy „Zaraz” trzeba będzie ją odblokować po powrocie.", Modifier.padding(top = 6.dp))
+                }
+                CheckRow("Ukryj w ostatnich aplikacjach i blokuj zrzuty ekranu", lock.secureWindow, { lock.setSecure(it) }, subtitle = "Zrzut ekranu nie zadziała, dopóki ta opcja jest włączona.")
+                LekiButton("Wyłącz blokadę", { lock.disable { ok -> if (ok) toast("Blokada wyłączona.") } }, Modifier.fillMaxWidth())
+            }
+            Hint("Ustawienia blokady są tylko na tym telefonie i nie trafiają do kopii zapasowej, żeby kopia wczytana na innym telefonie nie mogła zamknąć Ci dostępu.")
+        }
+    }
 }

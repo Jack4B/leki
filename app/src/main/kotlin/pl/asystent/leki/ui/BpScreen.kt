@@ -134,7 +134,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                             Hint(
                                 (if (long) "Przesuń wykres palcem w bok, aby zobaczyć wcześniejsze dni. " else "") +
                                     (if (geo.detailed) "Każdy punkt to jeden pomiar. " else "Słupek to zakres pomiarów danego dnia (min–max), linia to średnia dnia. ") +
-                                    "Przerywane linie: progi ${s.settings.hiSys}/${s.settings.hiDia}.",
+                                    "Przerywane linie: progi ${s.settings.hiSys}/${s.settings.hiDia}; czerwone punkty to pomiary na progu lub powyżej.",
                                 Modifier.padding(top = 6.dp),
                             )
                         }

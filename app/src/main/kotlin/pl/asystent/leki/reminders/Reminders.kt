@@ -14,6 +14,8 @@ import pl.asystent.leki.MainActivity
 import pl.asystent.leki.R
 import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
+import pl.asystent.leki.core.REMINDER_BACKUP
+import pl.asystent.leki.core.REMINDER_STOCK
 import pl.asystent.leki.core.reminders
 import java.time.LocalDate
 import java.time.ZoneId
@@ -58,10 +60,6 @@ object Reminders {
             val id = idStr.toIntOrNull() ?: return@forEach
             pending(ctx, id, null, null, false)?.let { am.cancel(it); it.cancel() }
         }
-        if (!s.settings.remindOn) {
-            prefs.edit().putStringSet(KEY_IDS, emptySet()).commit()
-            return
-        }
         ensureChannel(ctx)
         val list = s.reminders(ZoneId.systemDefault(), System.currentTimeMillis(), LocalDate.now())
         val exact = canScheduleExact(ctx)
@@ -100,7 +98,7 @@ object Reminders {
             .setSmallIcon(R.drawable.ic_stat_pill)
             .setColor(0xFF0B6B58.toInt())
             .setContentTitle("Asystent leków")
-            .setContentText("Czas na przyjęcie leku")
+            .setContentText(if (id == REMINDER_BACKUP || id == REMINDER_STOCK) "Przypomnienie z aplikacji" else "Czas na przyjęcie leku")
             .build()
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_pill)

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="window_bg">#0C1311</color>
+    <color name="widget_bg">#1B2623</color>
+    <color name="widget_ink">#EAF2EF</color>
+    <color name="widget_ink2">#A9B8B2</color>
+    <color name="widget_accent">#4FC3A8</color>
 </resources>

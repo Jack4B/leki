@@ -1,5 +1,19 @@
 # Zmiany
 
+## 0.7.0-preview
+
+Siedem nowych funkcji.
+
+1. **Blokada aplikacji** (Ustawienia → Blokada aplikacji): odcisk palca, twarz albo blokada ekranu telefonu przez systemowe okno uwierzytelniania (AndroidX Biometric). Włączenie i wyłączenie wymagają potwierdzenia. Opóźnienie: zaraz, 30 s lub 5 min (czas liczony zegarem monotonicznym); opcja ukrycia w ostatnich aplikacjach i blokady zrzutów ekranu. Ustawienia są tylko na tym telefonie, poza kopią zapasową. Ekran blokady zasłania całą aplikację, także edytory i komunikaty, a czytnik ekranu nie czyta tego, co jest pod spodem.
+2. **Zapas leków:** pole „Ile zostało w opakowaniu” w edycji leku, odliczanie odhaczonych dawek, prognoza „starczy na około N dni” (według planu, z dawkami z kolejnych dni), baner na ekranie Leki, linia „Zapas” przy leku. Nowe pola leku w kopii (`stock`, `stockDate`; starsze pliki wczytują się bez zmian).
+3. **Powiadomienia o kopii zapasowej i kończącym się zapasie** (niezależne od przypomnień o dawkach), z progami w Ustawieniach → Przypomnienia (zapas: 7 dni, kopia: 30 dni, 0 = wyłączone). Planowane na dzień, w którym stają się aktualne, potem codziennie do załatwienia sprawy. Neutralna treść na zablokowanym ekranie. Nowe ustawienia w kopii (`remind.stock`, `remind.backup`).
+4. **Trend tętna z zapisów EKG:** wykres nad listą zapisów (od dwóch zapisów), z wyróżnionymi punktami zapisów z oznaczeniami do omówienia.
+5. **Eksport CSV** (Ustawienia → Kopie zapasowe i dane): ciśnienie, wyniki badań, dawki z ostatnich 90 dni, podsumowanie EKG. Średnik, przecinek dziesiętny, UTF-8 z BOM, CRLF, ochrona przed formułami arkusza.
+6. **Skrót na ikonie i widżet „dodaj pomiar ciśnienia”:** otwierają ekran dodawania pomiaru. Widżet pokazuje tylko czas ostatniego pomiaru (bez wartości) i odświeża się po zapisie danych.
+7. **Wykres ciśnienia: czerwone punkty** dla pomiarów na progu podwyższonego ciśnienia lub powyżej (próg z Ustawień), z podpisem pod wykresem.
+
+Inne: nowa zależność `androidx.biometric` i `androidx.fragment` (Apache-2.0, wpis w licencjach); uprawnienie `USE_BIOMETRIC`; aplikacja nadal bez uprawnienia INTERNET. Nowe zrzuty ekranów w CI (dane, blokada, trend EKG). 12 nowych testów (zapas, przypomnienia systemowe, CSV, trend EKG, zasady blokady, kopia z nowymi polami).
+
 ## 0.6.12-preview
 
 - **Szybkie usuwanie EKG z listy.** Przy każdym zapisie w Badania → EKG jest przycisk „Usuń” (jak przy pomiarach ciśnienia), z pytaniem o potwierdzenie. Nie trzeba wchodzić w zapis. Stuknięcie w sam wiersz nadal otwiera zapis.

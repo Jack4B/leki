@@ -14,6 +14,12 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 - **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida. Do raportu można dołączyć **wklejoną odpowiedź AI** jako uzupełnienie.
 - **Raport dla AI:** gotowy tekst (Markdown) z poleceniem i danymi z aplikacji, do wklejenia w dowolny model AI. Szczegóły niżej.
 - **Przypomnienia o dawkach:** powiadomienia o porach z planu, także przy zamkniętej aplikacji i po restarcie telefonu.
+- **Zapas leków:** w edycji leku wpisujesz, ile zostało w opakowaniu; aplikacja odlicza odhaczone dawki, pokazuje przy leku „zostało N, starczy na około M dni”, ostrzega bannerem i powiadomieniem, gdy zapasu starczy na kilka dni (próg w Ustawieniach → Przypomnienia, domyślnie 7). Liczba w edycji oznacza stan „teraz”: dawki odhaczone dziś są już w niej uwzględnione.
+- **Przypomnienie o kopii zapasowej:** powiadomienie, gdy ostatnia kopia jest starsza niż 30 dni (próg do zmiany lub wyłączenia). Działa niezależnie od przypomnień o dawkach.
+- **Blokada aplikacji:** odcisk palca, twarz albo blokada ekranu telefonu (system pyta o PIN, wzór lub hasło; aplikacja ich nie widzi). Ustawienia → Blokada aplikacji: włączenie wymaga potwierdzenia, można wybrać opóźnienie (zaraz, 30 s, 5 min) i opcjonalnie ukryć aplikację w ostatnich aplikacjach oraz zablokować zrzuty ekranu. Ustawienia blokady są tylko na tym telefonie i **nie trafiają do kopii zapasowej**.
+- **Eksport CSV** do arkusza (Ustawienia → Kopie zapasowe i dane): ciśnienie, wyniki badań, dawki z ostatnich 90 dni, podsumowanie EKG. Format polski: separator średnik, przecinek dziesiętny, UTF-8 z BOM; tekst zaczynający się od `=`, `+`, `-`, `@` dostaje apostrof (ochrona przed wykonaniem jako formuły).
+- **Szybkie dodanie pomiaru ciśnienia:** skrót na ikonie aplikacji (przytrzymaj ikonę) oraz widżet na ekran główny; oba otwierają ekran dodawania pomiaru. Widżet pokazuje tylko, kiedy był ostatni pomiar (bez wartości, bo ekran główny widzą też inni).
+- **Trend tętna z zapisów EKG** nad listą zapisów (od dwóch zapisów) i **czerwone punkty na wykresie ciśnienia** dla pomiarów na progu podwyższonego ciśnienia lub powyżej.
 - **Kopie zapasowe:** plik JSON albo plik zaszyfrowany hasłem (AES-256-GCM, PBKDF2), zapis do pliku lub przez systemowe „Udostępnij”.
 
 Aplikacja tylko zapisuje i porządkuje dane wpisane przez użytkownika. Nie ocenia wyników i nie zastępuje lekarza. Dawkowanie zmieniaj zgodnie z jego zaleceniami.
@@ -184,7 +190,7 @@ core/          logika bez zależności od Androida (Kotlin/JVM): model danych, h
                odczyt wyników z tekstu OCR (LabScan)
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
-               ocr/ (ML Kit, wczytywanie zdjęć i PDF)
+               ocr/ (ML Kit, wczytywanie zdjęć i PDF), Lock.kt (blokada biometryczna), BpWidget.kt (widżet)
 app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM), publikowane w wydaniu „zrzuty-ekranow”
 assets/        źródłowe rysunki ikony (SVG)
 scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Phosphor (gen-icons.js), tylko dev
@@ -199,6 +205,7 @@ Lista składników dołączonych do aplikacji, ich licencje i noty praw autorski
 
 ## Prywatność
 
+- Blokada aplikacji (opcjonalna) zasłania dane po wyjściu z aplikacji, ale **nie szyfruje pliku danych**: chroni przed osobą z odblokowanym telefonem, nie przed analizą urządzenia. Kopie zapasowe szyfruj hasłem.
 - Dane trafiają wyłącznie do pamięci aplikacji. Kopia zapasowa Androida do chmury Google i przenoszenie między telefonami są wyłączone.
 - Aplikacja nie ma uprawnienia INTERNET.
 - Kopię do chmury (Dysk Google, Filen) rób w formie zaszyfrowanej. Hasła nie da się odzyskać.
@@ -213,7 +220,6 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
 - Podgląd zdjęcia obok wyników na ekranie sprawdzania.
 - **Modele HeartKit (TensorFlow Lite): zrezygnowano.** Zostajemy przy własnych, jawnych algorytmach (opisanych wyżej i w aplikacji), bo modele trenowane na EKG z plastra na klatce piersiowej mogłyby dawać gorszy odczyt na odtworzonych zapisach z zegarka i byłyby czarną skrzynką bez możliwości wyjaśnienia wyniku. Nie dodajemy zależności TensorFlow Lite ani plików modeli.
-- Wykres ciśnienia: oznaczanie kolorem pomiarów powyżej progu.
 - Ręczne kadrowanie zdjęcia przed rozpoznaniem.
 
 ## Znane ograniczenia wersji preview
@@ -221,6 +227,9 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później. Rozmiar APK to kilkadziesiąt MB, głównie przez model i biblioteki rozpoznawania tekstu; działa tylko na telefonach arm64 i armeabi-v7a.
 - Interfejs tylko po polsku.
+- Zapas leków zakłada, że wpisana liczba jest aktualna i że odhaczasz każdą wziętą dawkę; dawki wzięte, ale nieodhaczone, zawyżają prognozę. Prognoza liczy według planu (zmiany dawkowania w przyszłości są uwzględnione, doraźne zmiany nie).
+- Blokada aplikacji: wybór pliku lub zdjęcia wyników zamyka aplikację na chwilę, więc przy opóźnieniu „zaraz” trzeba ją odblokować po powrocie. Opcja „blokuj zrzuty ekranu” uniemożliwia też Twoje własne zrzuty (np. do zgłaszania błędów).
+- Powiadomienia o kopii i zapasie wymagają zgody na powiadomienia; planowane są na dzień, w którym stają się aktualne (zapas: godz. 9:00, kopia: 10:00), a po wyświetleniu powtarzają się codziennie, dopóki sprawa nie zostanie załatwiona.
 - Raport dla lekarza liczy zgodność z planem tak jak raport dla AI: dzisiejsze dawki, których pora jeszcze nie minęła, nie są brakiem. Od wersji 0.5.2 różni się to od wyniku poprzednich wersji (JavaScript), więc wzorcowe pliki raportów w testach mają w tych liczbach nowe wartości.
 - Analiza AI w raporcie to tekst wklejony przez użytkownika: aplikacja go nie sprawdza, tylko porządkuje zapis. Wzory LaTeX są upraszczane do zwykłego tekstu (rzadkie konstrukcje mogą zostać w surowej postaci).
 - Rozpoznawanie wyników z obrazu zależy od jakości zdjęcia i układu dokumentu; aplikacja pokazuje wszystko do sprawdzenia przed zapisem, ale nie gwarantuje bezbłędnego odczytu. Wyników zapisanych w układzie innym niż tabela (nazwa, wynik, jednostka w jednym wierszu) może nie rozpoznać.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_bp"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_add_bp"
+        android:shortcutLongLabel="@string/shortcut_add_bp_long">
+        <intent
+            android:action="pl.asystent.leki.ADD_BP"
+            android:targetClass="pl.asystent.leki.MainActivity"
+            android:targetPackage="pl.asystent.leki" />
+    </shortcut>
+</shortcuts>

@@ -1,7 +1,8 @@
 package pl.asystent.leki
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import android.content.Intent
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -72,6 +73,7 @@ import pl.asystent.leki.ui.LocalToast
 import pl.asystent.leki.ui.OverlayLayer
 import pl.asystent.leki.ui.OverlayHost
 import pl.asystent.leki.ui.LocalOverlayHost
+import pl.asystent.leki.ui.LockScreen
 import pl.asystent.leki.ui.MedsScreen
 import pl.asystent.leki.ui.Mono
 import pl.asystent.leki.ui.Nav
@@ -82,13 +84,34 @@ import pl.asystent.leki.ui.SettingsScreen
 import pl.asystent.leki.ui.pal
 import pl.asystent.leki.ui.rememberImporter
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+    private lateinit var lock: LockController
+    /** Zakładka, którą ma otworzyć skrót lub widżet (null = bez prośby). */
+    private var requestedTab by mutableStateOf<Int?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Platform.clearShareCache(this)
         enableEdgeToEdge()
         val store = (application as LekiApp).store
-        setContent { App(store) }
+        lock = LockController(this)
+        if (savedInstanceState == null) handleIntent(intent)
+        setContent { App(store, lock, requestedTab) { requestedTab = null } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(i: Intent?) {
+        if (i?.action == ACTION_ADD_BP) requestedTab = 1
+    }
+
+    override fun onStart() {
+        super.onStart()
+        lock.onStart()
     }
 
     // zapis przy każdym opuszczeniu ekranu, a nie dopiero w onStop: system może zabić proces między onPause a onStop
@@ -99,14 +122,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        lock.onStop()
         (application as LekiApp).store.flush()
+    }
+
+    companion object {
+        /** Skrót na ikonie aplikacji i widżet: otwiera ekran dodawania pomiaru ciśnienia. */
+        const val ACTION_ADD_BP = "pl.asystent.leki.ADD_BP"
     }
 }
 
 private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia")
 
 @Composable
-fun App(store: Store) {
+fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}) {
     val s by store.state.collectAsStateWithLifecycle()
     LekiTheme(s.settings.theme) {
         val view = LocalView.current
@@ -126,8 +155,9 @@ fun App(store: Store) {
         LaunchedEffect(saveFailed) {
             if (saveFailed) toast("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.")
         }
-        CompositionLocalProvider(LocalToast provides toast) {
+        CompositionLocalProvider(LocalToast provides toast, LocalLock provides lock) {
             var tab by rememberSaveable { mutableIntStateOf(0) }
+            LaunchedEffect(requestedTab) { requestedTab?.let { tab = it; onTabHandled() } }
             var newMed by remember { mutableStateOf(false) }
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
@@ -138,7 +168,7 @@ fun App(store: Store) {
             Box(Modifier.fillMaxSize()) {
             Scaffold(
                 // pod pełnoekranowym edytorem czytnik ekranu nie ma czytać zasłoniętej aplikacji
-                modifier = if (overlays.entries.isNotEmpty()) Modifier.clearAndSetSemantics {} else Modifier,
+                modifier = if (overlays.entries.isNotEmpty() || lock?.locked == true) Modifier.clearAndSetSemantics {} else Modifier,
                 containerColor = pal.bg,
                 snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
                 topBar = {
@@ -192,6 +222,8 @@ fun App(store: Store) {
             if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 88.dp)) { data ->
                 Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape)
             }
+            // ekran blokady jest ostatni, więc zasłania wszystko, także edytory i komunikaty
+            if (lock != null && lock.locked) LockScreen(lock)
             }
             }
             if (rules) AlertDialog(

@@ -7,7 +7,7 @@ Ten plik jest zgodny z listą w aplikacji (O aplikacji → Licencje i źródła;
 | Składnik | Licencja | Do czego służy | Prawa autorskie |
 |---|---|---|---|
 | [Phosphor Icons](https://github.com/phosphor-icons/core) | MIT | ikony interfejsu (wektory w `PhIcons.kt`) | Copyright (c) 2023 Phosphor Icons |
-| Jetpack Compose, Material 3, AndroidX | Apache-2.0 | interfejs, cykl życia, odczyt orientacji zdjęć | Copyright The Android Open Source Project |
+| Jetpack Compose, Material 3, AndroidX | Apache-2.0 | interfejs, cykl życia, odczyt orientacji zdjęć, okno odblokowania biometrycznego (AndroidX Biometric) | Copyright The Android Open Source Project |
 | Kotlin, kotlinx.serialization, kotlinx.coroutines | Apache-2.0 | język i biblioteki programu | Copyright JetBrains s.r.o. and contributors |
 | ML Kit Text Recognition (model łaciński dołączony) | [Warunki Google ML Kit](https://developers.google.com/ml-kit/terms), nie jest to licencja open source | rozpoznawanie tekstu ze zdjęć i PDF na urządzeniu | Google LLC |
 

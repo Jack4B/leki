@@ -150,6 +150,8 @@ data class MedEdit(
     val id: String?, val name: String, val substance: String, val note: String, val unit: String,
     val timerMin: Int, val mmol: Double, val end: LocalDate?, val from: LocalDate,
     val doses: Map<String, Double>, val dow: List<Int>, val replaces: String? = null,
+    /** Ile zostało w opakowaniu teraz (null = zapasu nie śledzimy). [stockEdited]: użytkownik zmienił tę liczbę (inaczej zostaje zapisany stan). */
+    val stockLeft: Double? = null, val stockEdited: Boolean = false, val today: LocalDate = LocalDate.now(),
 )
 
 sealed class MedSave {
@@ -171,6 +173,13 @@ fun AppState.saveMed(e: MedEdit): MedSave {
         timerMin = e.timerMin.coerceIn(0, 600), mmol = e.mmol.coerceIn(0.0, 1000.0), end = e.end)
     m = m.upsertPhase(e.from, doses, e.dow.sorted())
     var s = if (existing == null) copy(meds = meds + m) else copy(meds = meds.map { if (it.id == m.id) m else it })
+    // zapas: wpisana liczba oznacza stan „teraz”; bez zmiany liczby zostaje poprzedni zapis, a puste pole wyłącza śledzenie
+    val stockMed = when {
+        e.stockLeft == null -> m.withoutStock()
+        e.stockEdited || m.stock == null -> m.withStockLeft(s, e.stockLeft, e.today)
+        else -> m
+    }
+    if (stockMed != m) { m = stockMed; s = s.copy(meds = s.meds.map { if (it.id == m.id) m else it }) }
     var note = if (existing == null) "Dodano lek $name" else "Zapisano zmiany: $name"
     if (e.replaces != null) {
         val old = s.med(e.replaces)

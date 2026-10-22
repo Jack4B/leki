@@ -147,6 +147,13 @@ class ScreenshotTest {
         val e = ecgState.ecgs.single()
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) { EcgZoomView(e, EcgAnalysis.analyze(e), startEvent = 0) }
     }
+    @Test fun ustawieniaDane() = slices("ustawienia-dane", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Data") }
+    @Test fun ustawieniaBlokada() = slices("ustawienia-blokada", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Security") }
+    @Test fun ekgTrend() = shot("ekg-trend") {
+        val d = LocalDate.of(2026, 10, 1)
+        val pts = listOf(70.0 to 0, 74.0 to 0, 68.0 to 1, 81.0 to 0, 72.0 to 0).mapIndexed { i, (hr, att) -> pl.asystent.leki.core.EcgTrendPoint("e$i", d.plusDays(i * 3L), LocalTime.of(8, 0), hr, att) }
+        Column(Modifier.padding(16.dp)) { pl.asystent.leki.ui.EcgTrendChart(pts) }
+    }
     @Test fun oAplikacji() = slices("o-aplikacji", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "About") }
 
     @Test fun ekgSzczegoly() = shot("ekg-szczegoly") {
