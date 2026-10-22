@@ -200,8 +200,10 @@ fun EcgFindings(r: EcgResult) {
             Stat(r.quality, "jakość zapisu", Modifier.weight(1f), mono = false)
         }
         if (r.sdnnMs != null) Hint("Zmienność odstępów RR: SDNN ${Math.round(r.sdnnMs ?: 0.0)} ms, RMSSD ${Math.round(r.rmssdMs ?: 0.0)} ms. Wykryte uderzenia: ${r.beats.size}.")
-        if (r.nRmssd != null && r.tpr != null && r.sampEn != null) Hint("Losowość odstępów: RMSSD/RR ${"%.2f".format(java.util.Locale.ROOT, r.nRmssd).replace('.', ',')}, punkty zwrotne ${Math.round(r.tpr * 100)}%, entropia ${"%.1f".format(java.util.Locale.ROOT, r.sampEn).replace('.', ',')}.")
-        if (r.qrsWidthMs != null && r.shapeCorr != null) Hint("Kształt uderzeń: zgodność z szablonem ${"%.2f".format(java.util.Locale.ROOT, r.shapeCorr).replace('.', ',')}, szerokość QRS ok. ${Math.round(r.qrsWidthMs)} ms (orientacyjnie, do porównań między uderzeniami).")
+        val nr = r.nRmssd; val tp = r.tpr; val se = r.sampEn
+        if (nr != null && tp != null && se != null) Hint("Losowość odstępów: RMSSD/RR ${"%.2f".format(java.util.Locale.ROOT, nr).replace('.', ',')}, punkty zwrotne ${Math.round(tp * 100)}%, entropia ${"%.1f".format(java.util.Locale.ROOT, se).replace('.', ',')}.")
+        val qw = r.qrsWidthMs; val sc = r.shapeCorr
+        if (qw != null && sc != null) Hint("Kształt uderzeń: zgodność z szablonem ${"%.2f".format(java.util.Locale.ROOT, sc).replace('.', ',')}, szerokość QRS ok. ${Math.round(qw)} ms (orientacyjnie, do porównań między uderzeniami).")
         Column {
             Overline("Co wykryto")
             LekiCard {
