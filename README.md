@@ -205,7 +205,7 @@ core/          logika bez zależności od Androida (Kotlin/JVM): model danych, h
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
                ocr/ (ML Kit, wczytywanie zdjęć i PDF), Lock.kt (blokada biometryczna), BpWidget.kt (widżet)
-app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM), publikowane w wydaniu „zrzuty-ekranow”
+app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM; także próby na wąskim ekranie 320 dp z czcionką 130%), publikowane w wydaniu „zrzuty-ekranow”
 assets/        źródłowe rysunki ikony (SVG)
 scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Phosphor (gen-icons.js), tylko dev
 .github/       workflow budujący APK i publikujący go w Releases
@@ -242,6 +242,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Import EKG** z PDF w poziomie A4 (czy tętno z przebiegu zgadza się z zegarkiem), usuwanie EKG z listy, trend tętna, eksport PDF z numerowanymi zdarzeniami.
 - [ ] **Eksport CSV** (otwarcie w arkuszu: polskie znaki, przecinki dziesiętne).
 - [ ] **Wykres ciśnienia:** czerwone punkty powyżej progu; trend EKG po przewijaniu.
+- [ ] **Wąski ekran i duża czcionka** (Ustawienia systemu → Wyświetlanie → rozmiar czcionki): czy etykiety przełączników i przycisków nie są ucięte ani łamane w środku słowa.
 - [ ] **Listy podzielone na okresy** (Ciśnienie i EKG): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
 
 ### Do zrobienia po testach

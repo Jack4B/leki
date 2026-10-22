@@ -143,8 +143,25 @@ fun LekiButton(
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.size(8.dp)) }
-        Text(text, style = TextStyle(fontSize = if (small) 13.sp else 15.sp, fontWeight = FontWeight.SemiBold, color = fg), textAlign = TextAlign.Center)
+        FitText(text, TextStyle(fontSize = if (small) 13.sp else 15.sp, fontWeight = FontWeight.SemiBold, color = fg), textAlign = TextAlign.Center)
     }
+}
+
+/**
+ * Krótka etykieta (przycisk, segment, pigułka), która ma się zmieścić w jednym wierszu: gdy jest za szeroka, zmniejsza czcionkę (do [minSp]),
+ * a dopiero potem łamie wiersze. Dzięki temu na wąskim ekranie albo przy dużej czcionce systemowej słowo nie rozrywa się w środku („Wszystk-o”).
+ */
+@Composable
+fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, textAlign: TextAlign? = null, minSp: Float = 11f) {
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    var scale by remember(text, style.fontSize, cfg.screenWidthDp, cfg.fontScale) { mutableStateOf(1f) }
+    val floor = (minSp / style.fontSize.value).coerceAtMost(1f)
+    val shrunk = scale <= floor + 0.001f
+    Text(
+        text, modifier, style = style.copy(fontSize = style.fontSize * scale), textAlign = textAlign,
+        maxLines = if (shrunk) 3 else 1, softWrap = shrunk,
+        onTextLayout = { if (!shrunk && it.hasVisualOverflow) scale = (scale - 0.06f).coerceAtLeast(floor) },
+    )
 }
 
 @Composable
@@ -277,18 +294,19 @@ fun SegRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifi
         options.forEachIndexed { i, o ->
             val on = i == selected
             Box(
-                Modifier.weight(1f).heightIn(min = 44.dp).background(if (on) pal.accent else pal.surface)
+                // dłuższe etykiety dostają szerszy segment, żeby nie zmniejszać ich bez potrzeby
+                Modifier.weight(o.length + 4f).heightIn(min = 48.dp).background(if (on) pal.accent else pal.surface)
                     .clickable(role = Role.RadioButton) { onSelect(i) }.padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(o, style = TextStyle(fontSize = 14.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
+                FitText(o, TextStyle(fontSize = 14.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
             }
-            if (i < options.lastIndex) Box(Modifier.width1().height(44.dp).background(pal.line))
+            if (i < options.lastIndex) Box(Modifier.width1().height(48.dp).background(pal.line))
         }
     }
 }
 
-private fun Modifier.width1() = this.then(Modifier.size(width = 1.dp, height = 44.dp))
+private fun Modifier.width1() = this.then(Modifier.size(width = 1.dp, height = 48.dp))
 
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
@@ -296,7 +314,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
             .background(if (selected) pal.accent else pal.surface).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) }
+    ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) }
 }
 
 /** Wiersz z polem wyboru (lista opcji). */

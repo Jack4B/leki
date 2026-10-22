@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.9.3-preview
+
+- **Etykiety mieszczą się w przyciskach i przełącznikach.** Na wąskim telefonie lub przy powiększonej czcionce systemowej słowo „Wszystko” w przełączniku zakresu łamało się w środku („Wszystk-o”). Nowy `FitText` zmniejsza czcionkę etykiety (do 11 sp), żeby mieściła się w jednym wierszu, a dopiero potem ją łamie; używają go przełączniki (`SegRow`), przyciski i pigułki. Segmenty przełącznika mają szerokość proporcjonalną do długości etykiety i wysokość 48 dp (było 44 dp, poniżej zalecanego rozmiaru dotyku).
+- Nowe zrzuty ekranu w CI „waski-*” (320 dp szerokości, czcionka 130%): ciśnienie, historia w miesiącach, leki, badania, EKG, raport, ustawienia, blokada. Służą do wyłapywania takich rozjazdów, zanim trafią na telefon.
+
 ## 0.9.2-preview
 
 - **Długie listy dzielą się na okresy.** Lista „Zapisane pomiary” (Ciśnienie) i lista zapisów EKG (Badania → EKG) mają przełącznik **Dni | Tygodnie | Miesiące**. „Dni”: ostatnie 7 dni rozwinięte dzień po dniu, starsze pomiary w **zwiniętych kartach tygodniowych**. „Tygodnie” i „Miesiące”: same karty okresów (tydzień od poniedziałku), dotknięcie rozwija pozycje, a pozycje są pogrupowane dniami. W Tygodniach rozwinięty jest najnowszy tydzień, w Miesiącach wszystko zwinięte.

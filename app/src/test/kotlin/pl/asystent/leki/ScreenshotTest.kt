@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -86,6 +87,24 @@ class ScreenshotTest {
             }
         }
     }
+
+    /** Próba wytrzymałości: wąski telefon (320 dp) i powiększona czcionka systemowa (130%); etykiety i przyciski mają się mieścić, bez łamania słów w środku. */
+    private fun narrow(name: String, mode: ThemeMode = ThemeMode.Light, content: @Composable () -> Unit) = shot(name, mode) {
+        val d = androidx.compose.ui.platform.LocalDensity.current
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, fontScale = 1.3f)) {
+            Box(Modifier.androidx_width(320.dp)) { content() }
+        }
+    }
+    private fun Modifier.androidx_width(w: androidx.compose.ui.unit.Dp) = this.then(Modifier.width(w))
+
+    @Test fun waskiCisnienie() = narrow("waski-cisnienie") { BpScreen(state, store, listState = LazyListState(1, 0)) }
+    @Test fun waskiCisnienieMiesiace() = narrow("waski-cisnienie-miesiace") { BpScreen(yearState, store, listState = LazyListState(3, 0), initialRange = 365, hist = remember { pl.asystent.leki.ui.HistoryState(view = 2) }) }
+    @Test fun waskiLeki() = narrow("waski-leki") { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = LazyListState(0, 0)) }
+    @Test fun waskiBadania() = narrow("waski-badania") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0)) }
+    @Test fun waskiRaport() = narrow("waski-raport") { ReportScreen(state, store, listState = LazyListState(0, 0), initialMode = 0) }
+    @Test fun waskiUstawienia() = narrow("waski-ustawienia") { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = LazyListState(0, 0)) }
+    @Test fun waskiEkg() = narrow("waski-ekg") { LabsScreen(ecgState, store, onImport = {}, listState = LazyListState(0, 0), initialMode = 2) }
+    @Test fun waskiBlokada() = narrow("waski-blokada") { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = LazyListState(0, 0), initialPage = "Security") }
 
     /** Ekran na liście: kolejne "plasterki" przewinięcia (w pikselach). */
     private fun slices(name: String, n: Int, mode: ThemeMode = ThemeMode.Light, content: @Composable (LazyListState) -> Unit) {
