@@ -34,7 +34,8 @@ object Markdown {
     /** Usuwa znaczniki wzorów w całym tekście: $...$ i $$...$$. */
     fun cleanLatex(md: String): String {
         var s = Regex("""\$\$([^$]+)\$\$""").replace(md) { cleanMath(it.groupValues[1]) }
-        s = Regex("""\$([^$\n]+)\$""").replace(s) { cleanMath(it.groupValues[1]) }
+        // pojedyncze $...$ to wzór tylko wtedy, gdy ma znaki wzoru; "koszt $5 i $10" zostaje bez zmian
+        s = Regex("""\$([^$\n]+)\$""").replace(s) { m -> if (m.groupValues[1].any { it == '\\' || it == '^' || it == '_' || it == '{' }) cleanMath(m.groupValues[1]) else m.value }
         return s
     }
 
@@ -42,7 +43,7 @@ object Markdown {
 
     data class Section(val heading: String, val body: String)
 
-    private val headingRe = Regex("""^(#{1,6})\s+(.*?)\s*#*\s*$""")
+    private val headingRe = Regex("""^(#{1,6})\s+(.*?)(?:\s+#+)?\s*$""")
 
     private fun headingText(raw: String): String = cleanLatex(raw).replace("*", "").replace("`", "").trim()
 
@@ -94,6 +95,8 @@ object Markdown {
     private val sepRe = Regex("""^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$""")
 
     private fun inline(s: String): String {
+        // bardzo długie linie bez formatowania: wyrażenia regularne mają tu kwadratowy czas i zamrażały ekran
+        if (s.length > 3000) return esc(s)
         var t = esc(s)
         t = codeRe.replace(t) { "<code>${it.groupValues[1]}</code>" }
         t = boldRe.replace(t) { "<b>${it.groupValues[1]}</b>" }

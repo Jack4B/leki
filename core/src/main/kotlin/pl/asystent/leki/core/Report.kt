@@ -139,6 +139,7 @@ code{font-family:var(--mono);font-size:12px}
         class Skip(val d: LocalDate, val name: String, val slot: String, val reason: String, val note: String)
         val rows = ArrayList<Row>(); val skips = ArrayList<Skip>()
         var planned = 0; var taken = 0; var fullDays = 0; var schedDays = 0; var hasM = false; var lateTaken = 0
+        val nowMin = now.toLocalTime().minutes
         for (d in dayList(per.from, if (per.to < today) per.to else today)) {
             val ds = s.dayStats(d); val r = s.day(d)
             if (ds.hasMmol) hasM = true
@@ -146,11 +147,14 @@ code{font-family:var(--mono);font-size:12px}
                 val sk = r.skipped[x.key]
                 if (sk != null && x.key !in r.taken) skips.add(Skip(d, x.med.name, x.slot.name, sk.reason, sk.note))
                 val tm = r.times[x.key]
-                if (x.key in r.taken && tm != null && c.lateMin > 0 && tm.minutes > x.slot.time.minutes + c.lateMin) lateTaken++
+                if (x.key in r.taken && tm != null && c.lateMin > 0 && doseOffset(tm.minutes, x.slot.time.minutes) > c.lateMin) lateTaken++
             }
             if (ds.tot == 0 && r.note.isEmpty() && r.water == 0) continue
-            planned += ds.tot; taken += ds.n
-            if (ds.tot > 0) { schedDays++; if (ds.n == ds.tot) fullDays++ }
+            // dzisiejsze dawki, których pora jeszcze nie minęła, nie są brakiem (tak samo liczy raport dla AI)
+            val notDue = if (d == today) ds.items.count { it.slot.time.minutes > nowMin && it.key !in r.taken } else 0
+            val due = ds.tot - notDue
+            planned += due; taken += ds.n
+            if (due > 0) { schedDays++; if (ds.n == due) fullDays++ }
             rows.add(Row(d, ds, r))
         }
         if (P.meds) {

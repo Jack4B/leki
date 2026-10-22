@@ -92,7 +92,8 @@ class Store(private val dir: File, private val onSaved: (AppState) -> Unit = {})
         fun read(dir: File): Pair<AppState, String?> {
             val f = File(dir, FILE_NAME)
             val af = android.util.AtomicFile(f)
-            if (!af.exists()) return AppState() to null
+            // AtomicFile ma kopię zapasową "<plik>.bak" (zostaje po przerwanym zapisie), więc brak głównego pliku nie oznacza jeszcze braku danych
+            if (!f.exists() && !File(dir, "$FILE_NAME.bak").exists()) return AppState() to null
             return try {
                 Backup.parseState(String(af.readFully(), Charsets.UTF_8)) to null
             } catch (e: Exception) {

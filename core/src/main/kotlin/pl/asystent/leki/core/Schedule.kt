@@ -78,10 +78,14 @@ fun Med.upsertPhase(from: LocalDate, doses: Map<String, Double>, dow: List<Int>)
     return copy(phases = next.sortedBy { it.from })
 }
 
-/** Dni od [from] do [to] włącznie (z zabezpieczeniem przed zbyt długą listą). */
-fun dayList(from: LocalDate, to: LocalDate, max: Int = 800): List<LocalDate> {
+/**
+ * Dni od [from] do [to] włącznie. Zabezpieczenie przed absurdalnie długą listą (np. data z uszkodzonego pliku) obcina POCZĄTEK okresu,
+ * a nie koniec: najnowsze dni są zawsze uwzględnione.
+ */
+fun dayList(from: LocalDate, to: LocalDate, max: Int = 4000): List<LocalDate> {
+    val start = if (daysBetween(from, to) + 1 > max) to.minusDays((max - 1).toLong()) else from
     val out = ArrayList<LocalDate>()
-    var d = from
-    while (d <= to && out.size < max) { out.add(d); d = d.plusDays(1) }
+    var d = start
+    while (d <= to) { out.add(d); d = d.plusDays(1) }
     return out
 }

@@ -105,7 +105,7 @@ fun AppState.applyLabsMerge(f: Backup.LabsFile): AppState {
     var s = this
     for (m in f.markers) {
         val cur = s.marker(m.id)
-        s = if (cur != null) s.saveMarker(cur.copy(lo = m.lo, hi = m.hi, unit = cur.unit.ifEmpty { m.unit }, grp = cur.grp.ifEmpty { m.grp }))
+        s = if (cur != null) s.saveMarker(cur.copy(lo = m.lo ?: cur.lo, hi = m.hi ?: cur.hi, unit = cur.unit.ifEmpty { m.unit }, grp = cur.grp.ifEmpty { m.grp }))
         else s.saveMarker(m)
     }
     val add = f.labs.filter { l -> s.marker(l.marker) != null && s.labs.none { it.marker == l.marker && it.date == l.date } }
@@ -115,7 +115,13 @@ fun AppState.applyLabsMerge(f: Backup.LabsFile): AppState {
 // ---------- Kontrole ----------
 
 fun AppState.saveEvent(e: Event): AppState {
-    val s = if (events.any { it.id == e.id }) copy(events = events.map { if (it.id == e.id) e else it }) else copy(events = events + e)
+    val old = event(e.id)
+    var s = if (old != null) copy(events = events.map { if (it.id == e.id) e else it }) else copy(events = events + e)
+    // zmiana daty kontroli: wynik zapisany pod starą datą przechodzi razem z nią
+    if (old != null && old.date != e.date) {
+        val moved = s.day(old.date).results[e.id]
+        if (moved != null) s = s.updateDay(old.date) { it.copy(results = it.results - e.id) }.updateDay(e.date) { it.copy(results = it.results + (e.id to moved)) }
+    }
     // wynik wpisany wcześniej w dniu kontroli ma trafić do dziennika badań
     val res = s.day(e.date).results[e.id].orEmpty()
     var labs2 = s.labs.filter { it.id != "ev:${e.id}" }

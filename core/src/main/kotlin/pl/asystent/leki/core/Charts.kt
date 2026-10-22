@@ -40,7 +40,7 @@ fun bpChart(list: List<Bp>): BpChartGeo? {
     val step = if (hi - lo > 80) 20 else 10
     val ticks = ArrayList<Tick>()
     var v = ceil(lo / step) * step
-    while (v <= hi) { ticks.add(Tick(y(v), v.toInt().toString())); v += step }
+    while (v <= hi && ticks.size < 40) { ticks.add(Tick(y(v), v.toInt().toString())); v += step }
     val every = ceil(nDays / 7.0).toInt()
     val marks = ArrayList<DayMark>()
     for (i in 0 until nDays) {

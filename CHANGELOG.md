@@ -12,6 +12,18 @@ Przegląd kodu aplikacji i poprawki znalezionych problemów.
 - **OCR:** poprawione zmniejszanie dużych zdjęć i stron PDF oraz komunikat zamiast awarii, gdy zdjęcie jest za duże dla pamięci telefonu.
 - Drobne: pola liczbowe w Ustawieniach nie zapisują danych samym otwarciem ekranu; pola wyboru dawek i wyników skanu są dla TalkBack przełącznikami z odczytywanym stanem; wczytanie uszkodzonego pliku pokazuje komunikat zamiast awarii; podgląd i druk raportu zwalniają WebView.
 - CI sprawdza, że zbudowany APK nie ma uprawnienia INTERNET.
+- **Poprawki logiki (przegląd modułu `core`):**
+  - Raport dla lekarza nie liczy już dzisiejszych dawek, których pora jeszcze nie minęła, jako braków (zgodność z planem była zaniżona, np. 54% zamiast 56%; raport dla AI liczył to już poprawnie). Wzorcowe pliki raportów z poprzedniej wersji zostały w tych trzech liczbach świadomie zaktualizowane.
+  - Statystyki i raporty za długie okresy (ponad 800 dni) uwzględniają teraz najnowsze dni; wcześniej po cichu ucinany był koniec okresu.
+  - Dawka przyjęta po północy (pora 23:30, przyjęcie 00:15) liczy się jako +45 minut spóźnienia, a nie -1395.
+  - Zmiana daty kontroli przenosi wpisany wynik razem z kontrolą (wcześniej wynik znikał z dziennika badań).
+  - Wczytanie pliku z wynikami nie kasuje zakresów odniesienia, gdy plik ich nie ma.
+  - Kopie z absurdalnymi wartościami ciśnienia (np. miliardy) są odrzucane przy wczytaniu zamiast zawieszać wykresy; plik z bardzo głębokim zagnieżdżeniem JSON daje komunikat zamiast awarii.
+  - Odszyfrowanie: sprawdzanie liczby iteracji przed zamianą na liczbę całkowitą (ogromna wartość zawijała się do małej), górny limit 2 mln, błędny base64 daje komunikat o błędnym pliku.
+  - Liczby: „5f”, „5d” czy „0x1p3” nie są już przyjmowane jako liczby.
+  - Skan wyników: LDL nie trafia do parametru HDL (dopasowanie nazw „prawie takich samych” działa tylko dla nazw nieznanych), nazwy z kwalifikatorem („nie-HDL”, „zjonizowany”, „w moczu”) nie są mylone z podstawowym badaniem, zapis „< 0,5” z odstępem zachowuje znak „<”.
+  - Analiza AI: tekst typu „koszt $5 i $10” nie jest traktowany jak wzór, nagłówek „## Gen C#” zachowuje znak „#”, a bardzo długie linie nie zamrażają ekranu.
+  - 12 nowych testów regresji.
 - README: procedura wydania aplikacji (Google Play i inne drogi).
 
 ## 0.5.1-preview

@@ -53,6 +53,8 @@ fun esc(s: String?): String = (s ?: "").replace("&", "&amp;").replace("<", "&lt;
 fun parseNum(v: String?): Double? {
     val t = v?.trim().orEmpty()
     if (t.isEmpty()) return null
+    // tylko zwykłe liczby: toDoubleOrNull przyjmuje też "5f", "5d" czy "0x1p3"
+    if (!Regex("""^[+-]?(\d+[.,]?\d*|[.,]\d+)$""").matches(t)) return null
     val n = t.replace(',', '.').toDoubleOrNull() ?: return null
     return if (n.isFinite()) n else null
 }

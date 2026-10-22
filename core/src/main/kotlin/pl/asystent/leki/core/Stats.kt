@@ -92,6 +92,9 @@ data class AdherenceRow(
     val avgOffset get() = if (offsets.isEmpty()) null else Math.round(offsets.sum().toDouble() / offsets.size).toInt()
 }
 
+/** Odchylenie godziny przyjęcia od pory w minutach, w przedziale od -12 do +12 godzin (dawka o 00:15 przy porze 23:30 to +45, a nie -1395). */
+fun doseOffset(takenMinutes: Int, slotMinutes: Int): Int = Math.floorMod(takenMinutes - slotMinutes + 720, 1440) - 720
+
 /** Zgodność z planem w okresie. Dzisiejsze dawki, których pora jeszcze nie minęła, nie liczą się jako brak. */
 fun AppState.adherence(from: LocalDate, to: LocalDate, today: LocalDate, nowMinutes: Int): List<AdherenceRow> {
     class Acc(val med: Med, val slot: Slot) {
@@ -108,7 +111,7 @@ fun AppState.adherence(from: LocalDate, to: LocalDate, today: LocalDate, nowMinu
             if (x.key in r.taken) {
                 a.taken++
                 r.times[x.key]?.let {
-                    val off = it.minutes - x.slot.time.minutes
+                    val off = doseOffset(it.minutes, x.slot.time.minutes)
                     a.offs.add(off)
                     if (settings.lateMin > 0 && off > settings.lateMin) a.late++
                 }

@@ -89,7 +89,8 @@ object LabScan {
 
     /** Odczytuje jeden wiersz tabeli wyników albo zwraca null, jeśli to nie wygląda na wynik badania. */
     fun parseRow(line: String): ScanRow? {
-        val s = normalizeLine(line)
+        // "< 0,5" z odstępem to ten sam znacznik co "<0,5"
+        val s = normalizeLine(line).replace(Regex("""([<>]=?)\s+(?=\d)"""), "$1")
         if (s.length < 4) return null
         if (Regex("""\d{9,}""").containsMatchIn(s.replace(" ", ""))) return null
         val tokens = s.split(Regex("""\s+""")).filter { it.isNotEmpty() }
@@ -251,11 +252,15 @@ object LabScan {
         return false
     }
 
+    private val notSameTest = setOf("nie", "zjonizowany", "zjonizowane", "zjonizowana", "mocz", "moczu", "dobowa", "dobowej")
+
     /** Dopasowuje nazwę z wyniku do znanego parametru; wybiera najdłuższy pasujący alias. Zwraca id lub null. */
     fun knownId(rawName: String): String? {
         val n = norm(rawName)
         if (n.isEmpty()) return null
         val tokens = n.split(' ')
+        // nazwy z kwalifikatorem ("nie HDL", "zjonizowany", "w moczu") to inne badanie niż znany parametr: nie dopasowujemy ich
+        if (tokens.any { it in notSameTest }) return null
         var best: Pair<String, Int>? = null
         for (k in known) for (a in k.aliases) {
             val at = norm(a).split(' ')
@@ -303,8 +308,10 @@ object LabScan {
             var guessed = false
             val n = norm(r.name)
             if (k == null && s.markers.none { norm(it.name) == n }) { k = guessByRange(r.unit, r.lo, r.hi); guessed = k != null }
-            val byName = s.markers.firstOrNull { norm(it.name) == n } ?: s.markers.firstOrNull { levenshteinClose(norm(it.name), n) }
-            val existing = byName ?: k?.let { s.marker(it) }
+            // dopasowanie "prawie takiej samej" nazwy tylko dla nazw, których nie znamy: inaczej LDL trafiałby do HDL (różnica jednej litery)
+            val byName = s.markers.firstOrNull { norm(it.name) == n } ?: k?.let { s.marker(it) }
+                ?: (if (k == null) s.markers.firstOrNull { levenshteinClose(norm(it.name), n) } else null)
+            val existing = byName
             val c: Candidate = if (existing != null) {
                 Candidate(i, r.raw, r.name, existing.id, null, r.value, r.qualifier, r.unit, true, guessed)
             } else {

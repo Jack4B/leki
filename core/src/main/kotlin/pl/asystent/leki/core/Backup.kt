@@ -72,6 +72,9 @@ object Backup {
         Json.parseToJsonElement(text)
     } catch (e: Exception) {
         throw FormatException("json")
+    } catch (e: StackOverflowError) {
+        // plik z bardzo głębokim zagnieżdżeniem nawiasów
+        throw FormatException("json")
     }
 
     fun kindOf(o: JsonElement): String = when (o.obj()["app"].str()) {
@@ -202,7 +205,9 @@ object Backup {
             val dia = o["dia"].number() ?: return@mapNotNull null
             val date = o["date"].date() ?: return@mapNotNull null
             val time = o["time"].time() ?: return@mapNotNull null
-            val pulse = o["pulse"].number()?.takeIf { it != 0.0 }?.let { Math.round(it).toInt() }
+            // wartości spoza rozsądnych granic to błąd pliku (a ogromne liczby psuły wykresy i raporty)
+            if (sys !in 30.0..300.0 || dia !in 20.0..200.0) return@mapNotNull null
+            val pulse = o["pulse"].number()?.takeIf { it != 0.0 && it in 20.0..300.0 }?.let { Math.round(it).toInt() }
             Bp(o["id"].str()?.takeIf { it.isNotEmpty() } ?: newId(), date, time, Math.round(sys).toInt(), Math.round(dia).toInt(), pulse,
                 o["ctx"].strOr("inne").ifEmpty { "inne" }, o["note"].strOr())
         }

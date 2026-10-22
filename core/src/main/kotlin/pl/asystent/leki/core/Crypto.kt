@@ -49,14 +49,18 @@ object BackupCrypto {
     fun decrypt(password: String, envelope: JsonElement): String {
         val o = envelope as? JsonObject ?: throw Backup.FormatException("format")
         fun s(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: throw Backup.FormatException("format")
-        val iter = (o["iter"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.let { Math.round(it).toInt() } ?: throw Backup.FormatException("format")
-        if (iter !in 100_000..5_000_000) throw Backup.FormatException("format")
+        val iterD = (o["iter"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: throw Backup.FormatException("format")
+        // zakres sprawdzamy przed zamianą na Int (inaczej ogromna liczba zawija się do małej) i z rozsądną górną granicą (czas na telefonie)
+        if (iterD !in 100_000.0..2_000_000.0) throw Backup.FormatException("format")
+        val iter = Math.round(iterD).toInt()
         return try {
             val c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.DECRYPT_MODE, key(password, unb64.decode(s("salt")), iter), GCMParameterSpec(128, unb64.decode(s("iv"))))
             String(c.doFinal(unb64.decode(s("ct"))), Charsets.UTF_8)
         } catch (e: java.security.GeneralSecurityException) {
             throw WrongPasswordException()
+        } catch (e: IllegalArgumentException) {
+            throw Backup.FormatException("format") // niepoprawny base64 w pliku
         }
     }
 }
