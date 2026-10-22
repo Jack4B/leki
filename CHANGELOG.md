@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.6.6-preview
+
+- **Lista nieprawidłowości pod wykresem w podglądzie EKG.** Pod powiększanym przebiegiem są teraz karty z opisem każdej wykrytej nieprawidłowości i jej położeniem w czasie: przedwczesne uderzenia (z odstępami RR i opisem kształtu), przerwy w rytmie i zakłócenia pominięte w analizie. **Dotknięcie karty powiększa wykres, przewija go do tego miejsca i zaznacza je** (pas z pionowymi liniami). Ogólne wyniki, które dotyczą całego zapisu (wolne lub szybkie tętno, rytm nieregularny, odstępy jak przy migotaniu), mają osobne karty z przyciskiem „pokaż całość”. Gdy nic nie wykryto, widać o tym informację.
+- Analiza zwraca teraz zdarzenia z czasem (`EcgEvent`), posortowane w kolejności zapisu.
+- 1 nowy test (czasy i opisy zdarzeń, przerwa, zakłócenie, kolejność).
+
 ## 0.6.5-preview
 
 - **Zapis EKG wektorowy: wierny i mały.** Przebieg (250 próbek/s) jest zapisywany jako punkty załamania linii (uproszczenie Ramera, Douglasa i Peuckera, błąd pionowy do 0,02 mV, czyli ok. 2 piksele wydruku w 300 dpi): na zmierzonym wydruku 30 s to ok. 4,5 KB (1657 punktów z 7410) wobec 9,9 KB poprzedniego zapisu z równymi próbkami i 93 KB pierwotnej listy liczb. Pomiar: błąd względem natywnych obrazów z PDF to 0,050 mV, tak samo jak dla równych próbek (0,049 mV), bo o wierności decyduje rastrowa kopia linii w PDF, a nie zapis. Szczyty R zostają zachowane. Przebieg w pamięci jest sprowadzany do punktu stałego zapisu, więc wielokrotne zapisywanie i odczyt nie zmieniają go ani o jedną próbkę. Zapisy w starszych formatach (lista liczb, zapis różnicowy) wczytują się i są przepakowywane.

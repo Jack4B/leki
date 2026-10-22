@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -25,12 +26,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,13 +54,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Ecg
 import pl.asystent.leki.core.EcgAnalysis
 import pl.asystent.leki.core.EcgDigitizer
+import pl.asystent.leki.core.EcgEvent
 import pl.asystent.leki.core.EcgInfo
 import pl.asystent.leki.core.EcgMeta
 import pl.asystent.leki.core.EcgResult
@@ -224,7 +230,10 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
     val sig = remember(e) { e.signalMv() }
     val total = e.durationS.toFloat().coerceAtLeast(2f)
     var visibleSec by rememberSaveable { mutableStateOf(minOf(10f, total)) }
+    var focus by remember { mutableStateOf<EcgEvent?>(null) }
     val scroll = rememberScrollState()
+    // przejście do zdarzenia: powiększenie tak, żeby było widać je z otoczeniem, a potem przewinięcie (robi to LaunchedEffect niżej)
+    fun jump(ev: EcgEvent) { visibleSec = (maxOf(4f, ((ev.endSec ?: ev.tSec) - ev.tSec).toFloat() + 2f)).coerceIn(2f, total); focus = ev }
     val grid = pal.line; val ink = pal.ink; val accent = pal.accent; val warn = pal.warn; val ink3 = pal.ink3
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,6 +243,15 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
         }
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
             val widthDp = (maxWidth.value * total / visibleSec).dp
+            val viewportPx = constraints.maxWidth
+            LaunchedEffect(focus, visibleSec) {
+                val f = focus ?: return@LaunchedEffect
+                val widthPx = viewportPx * total / visibleSec
+                val maxV = (widthPx - viewportPx).toInt().coerceAtLeast(0)
+                withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { Math.abs(it - maxV) <= 3 } }
+                val mid = (f.tSec + (f.endSec ?: f.tSec)) / 2
+                scroll.animateScrollTo(((mid / total) * widthPx - viewportPx / 2).toInt().coerceIn(0, maxV))
+            }
             Box(
                 Modifier.fillMaxWidth().horizontalScroll(scroll).pointerInput(Unit) {
                     // ściśnięcie dwoma palcami zmienia skalę; jeden palec przewija (nie przechwytujemy go)
@@ -265,6 +283,13 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
                     var mv = -1.9f
                     while (mv <= 2.7f) { val y = base - mv * mvPx; val major = Math.abs(mv * 2 - Math.round(mv * 2)) < 0.01f; if (y in 0f..(h - 18f * k)) drawLine(grid.copy(alpha = if (major) .9f else .35f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1f); mv += 0.1f }
                     for (a in r.artifacts) drawRect(warn.copy(alpha = .14f), Offset((a.start * pxSec).toFloat(), 0f), Size(((a.endInclusive - a.start) * pxSec).toFloat(), h - 18f * k))
+                    focus?.let { f ->
+                        // zaznaczone zdarzenie: pas (dla punktowego +-0,3 s) z pionowymi liniami
+                        val fe = f.endSec
+                        val a0 = (if (fe == null) f.tSec - 0.3 else f.tSec).toFloat() * pxSec; val a1 = (fe ?: (f.tSec + 0.3)).toFloat() * pxSec
+                        drawRect(accent.copy(alpha = .16f), Offset(a0, 0f), Size(a1 - a0, h - 18f * k))
+                        drawLine(accent, Offset(a0, 0f), Offset(a0, h - 18f * k), strokeWidth = 2f * k); drawLine(accent, Offset(a1, 0f), Offset(a1, h - 18f * k), strokeWidth = 2f * k)
+                    }
                     val path = Path()
                     for (i in sig.indices) { val x = i.toFloat() / e.fs * pxSec; val y = base - sig[i].coerceIn(-1.9, 2.7).toFloat() * mvPx; if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
                     drawPath(path, ink, style = Stroke(width = 1.8f * k))
@@ -275,6 +300,46 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
             }
         }
         Hint("Przesuwaj wykres palcem, a dwoma palcami powiększaj i zmniejszaj. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
+
+        // lista nieprawidłowości: dotknięcie pozycji pokazuje to miejsce na wykresie
+        val located = setOf("premature", "premature_many", "pause", "artifacts")
+        val general = r.flags.filter { it.code !in located && it.code != "none" }
+        Overline("Nieprawidłowości w zapisie", Modifier.padding(top = 6.dp))
+        if (r.events.isEmpty() && general.isEmpty()) {
+            Hint("Aplikacja nie wykryła nieprawidłowości w czytelnych fragmentach. To nie wyklucza choroby serca.")
+        } else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            r.events.forEach { ev ->
+                val attention = ev.severity == EcgSeverity.Attention
+                val selected = focus == ev
+                Row(
+                    Modifier.fillMaxWidth().clip(CardShape).border(if (selected) 2.dp else 1.dp, if (selected) pal.accent else pal.line, CardShape).background(pal.surface)
+                        .clickable(role = Role.Button) { jump(ev) }.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PhIcon(if (attention) Ph.Warning else Ph.Info, size = 22.dp, tint = if (attention) pal.warn else pal.accent)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(ev.title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (attention) pal.warn else pal.ink))
+                        Text(ev.text, style = TextStyle(fontSize = 13.5.sp, lineHeight = 19.sp, color = pal.ink2))
+                        Text(if (selected) "Pokazane na wykresie" else "Pokaż na wykresie ›", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent), modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+            }
+            general.forEach { f ->
+                val attention = f.severity == EcgSeverity.Attention
+                Row(
+                    Modifier.fillMaxWidth().clip(CardShape).border(1.dp, pal.line, CardShape).background(pal.surface)
+                        .clickable(role = Role.Button) { visibleSec = total; focus = null }.padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PhIcon(if (attention) Ph.Warning else Ph.Info, size = 22.dp, tint = if (attention) pal.warn else pal.accent)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(f.title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (attention) pal.warn else pal.ink))
+                        Text(f.text, style = TextStyle(fontSize = 13.5.sp, lineHeight = 19.sp, color = pal.ink2))
+                        Text("Dotyczy całego zapisu: pokaż całość ›", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent), modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+            }
+        }
     }
 }
 

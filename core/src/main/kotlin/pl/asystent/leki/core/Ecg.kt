@@ -35,6 +35,9 @@ enum class EcgSeverity { Info, Attention }
 
 data class EcgFlag(val code: String, val title: String, val text: String, val severity: EcgSeverity)
 
+/** Zdarzenie w zapisie z położeniem w czasie: do pokazania na wykresie i wylistowania pod nim. [endSec] ma tylko zdarzenie rozciągnięte w czasie (zakłócenie, przerwa). */
+data class EcgEvent(val tSec: Double, val endSec: Double?, val code: String, val title: String, val text: String, val severity: EcgSeverity)
+
 data class EcgBeat(val tSec: Double, val amplitudeMv: Double)
 
 data class EcgResult(
@@ -56,6 +59,8 @@ data class EcgResult(
     val qrsWidthMs: Double? = null, val shapeCorr: Double? = null,
     /** Opis kształtu każdego przedwczesnego uderzenia (równolegle do [prematureAt]). */
     val prematureShapes: List<String> = emptyList(),
+    /** Zdarzenia z położeniem w czasie (przedwczesne uderzenia, przerwy, zakłócenia), posortowane. */
+    val events: List<EcgEvent> = emptyList(),
 ) {
     val validRr: List<Double> get() = rr.filterNotNull()
     val quality: String get() = when {
@@ -283,9 +288,28 @@ object EcgAnalysis {
         if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
         if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
 
+        // zdarzenia z położeniem w czasie
+        val events = ArrayList<EcgEvent>()
+        for ((n, bi) in prematureIdx.withIndex()) {
+            val short = rr.getOrNull(bi - 1); val after = rr.getOrNull(bi)
+            val many = premature.size >= 3
+            events.add(EcgEvent(beats[bi].tSec, null, "premature", "Przedwczesne uderzenie, ${pl1(beats[bi].tSec)} s",
+                "Odstęp " + (short?.let { pl2(it) } ?: "?") + " s zamiast typowego ${pl2(m)} s" + (after?.let { ", po nim przerwa ${pl2(it)} s" } ?: "") + ". " +
+                    shapes.getOrElse(n) { "kształt nieoceniony" }.replaceFirstChar { it.uppercase() } + ". Takie pobudzenia bywają u zdrowych osób, ale mogą też być zakłóceniem; warto zapytać lekarza.",
+                if (many) EcgSeverity.Attention else EcgSeverity.Info))
+        }
+        if (longest > 1.6 * m && longest > 1.8) {
+            val k = rr.indexOfFirst { it == longest }
+            if (k >= 0) events.add(EcgEvent(beats[k].tSec, beats[k + 1].tSec, "pause", "Przerwa w rytmie: ${pl1(longest)} s, od ${pl1(beats[k].tSec)} s",
+                "Odstęp między kolejnymi uderzeniami wynosi ${pl2(longest)} s (typowo ${pl2(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
+        }
+        for (a in artifacts) events.add(EcgEvent(a.start, a.endInclusive, "artifact", "Zakłócenie, ${pl1(a.start)}–${pl1(a.endInclusive)} s",
+            "Ruch lub słaby kontakt elektrody. Ten fragment (${pl1(a.endInclusive - a.start)} s) jest pominięty w analizie, więc uderzenia i odstępy w nim nie są liczone.", EcgSeverity.Info))
+        events.sortBy { it.tSec }
+
         return EcgResult(
             dur, beats, rr, hrMean, hrMed, 60.0 / v.max(), 60.0 / v.min(), sd * 1000, rmssd, pnn, cv, artifactRatio, artifacts, flags, premature,
-            nRmssd, tpr, sampEn, afPattern, qrsWidth, shapeCorr, shapes,
+            nRmssd, tpr, sampEn, afPattern, qrsWidth, shapeCorr, shapes, events,
         )
     }
 

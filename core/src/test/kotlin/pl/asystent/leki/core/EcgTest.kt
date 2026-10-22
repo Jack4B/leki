@@ -395,4 +395,26 @@ class EcgTest {
         val b = EcgDigitizer.digitizeMask(EcgDigitizer.mask(img.px, img.w, img.h), img.w, img.h, 6.0)!!
         assertEquals(a.mv.toList(), b.mv.toList())
     }
+
+    @Test fun eventsHaveTimesAndDescriptions() {
+        val rrs = MutableList(40) { 0.8 }; rrs[12] = 0.5; rrs[13] = 1.1
+        val times = fromRr(rrs)
+        val r = EcgAnalysis.analyze(ecg(times), fs)
+        val pre = r.events.single { it.code == "premature" }
+        assertTrue(abs(pre.tSec - times[13]) < 0.05, "czas ${pre.tSec}")
+        assertTrue(pre.title.contains("Przedwczesne uderzenie") && pre.text.contains("zamiast typowego") && pre.text.contains("po nim przerwa"), pre.text)
+        // pauza
+        val p2 = MutableList(40) { 0.8 }; p2[10] = 2.6
+        val pr = EcgAnalysis.analyze(ecg(fromRr(p2)), fs)
+        val pause = pr.events.single { it.code == "pause" }
+        assertTrue(pause.endSec!! - pause.tSec in 2.4..2.8 && pause.severity == EcgSeverity.Attention)
+        // zakłócenie
+        val noisy = EcgAnalysis.analyze(ecg(regular(0.8)) { t -> if (t in 12.0..12.25) -2.6 * sin((t - 12.0) / 0.25 * PI) else 0.0 }, fs)
+        val art = noisy.events.single { it.code == "artifact" }
+        assertTrue(12.1 in art.tSec..art.endSec!! && art.text.contains("pominięty"))
+        // czysty zapis: brak zdarzeń; zdarzenia są posortowane
+        assertTrue(EcgAnalysis.analyze(ecg(regular(0.8)), fs).events.isEmpty())
+        val both = EcgAnalysis.analyze(ecg(times) { t -> if (t in 3.0..3.25) -2.6 * sin((t - 3.0) / 0.25 * PI) else 0.0 }, fs)
+        assertEquals(both.events.sortedBy { it.tSec }, both.events)
+    }
 }

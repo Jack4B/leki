@@ -141,7 +141,7 @@ class ScreenshotTest {
     @Test fun badaniaEkg() = slices("badania-ekg", 1) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 2) }
     @Test fun ekgPowiekszenie() = shot("ekg-powiekszenie") {
         val e = ecgState.ecgs.single()
-        Column(Modifier.padding(16.dp)) { EcgZoomView(e, EcgAnalysis.analyze(e)) }
+        Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) { EcgZoomView(e, EcgAnalysis.analyze(e)) }
     }
     @Test fun oAplikacji() = slices("o-aplikacji", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "About") }
 
