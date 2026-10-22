@@ -43,6 +43,7 @@ import pl.asystent.leki.ui.LocalOverlayHost
 import pl.asystent.leki.ui.OverlayHost
 import pl.asystent.leki.ui.OverlayLayer
 import pl.asystent.leki.ui.EcgWaveView
+import pl.asystent.leki.ui.HistoryState
 import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiTheme
 import pl.asystent.leki.ui.LocalToast
@@ -98,7 +99,7 @@ class ScreenshotTest {
     private fun Modifier.androidx_width(w: androidx.compose.ui.unit.Dp) = this.then(Modifier.width(w))
 
     @Test fun waskiCisnienie() = narrow("waski-cisnienie") { BpScreen(state, store, listState = LazyListState(1, 0)) }
-    @Test fun waskiCisnienieMiesiace() = narrow("waski-cisnienie-miesiace") { BpScreen(yearState, store, listState = LazyListState(3, 0), initialRange = 365, hist = remember { pl.asystent.leki.ui.HistoryState(view = 2) }) }
+    @Test fun waskiCisnienieMiesiace() = narrow("waski-cisnienie-miesiace") { BpScreen(yearState, store, listState = LazyListState(3, 0), initialRange = 365, hist = remember { HistoryState(view = 2) }) }
     @Test fun waskiLeki() = narrow("waski-leki") { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = LazyListState(0, 0)) }
     @Test fun waskiBadania() = narrow("waski-badania") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0)) }
     @Test fun waskiRaport() = narrow("waski-raport") { ReportScreen(state, store, listState = LazyListState(0, 0), initialMode = 0) }

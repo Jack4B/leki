@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.9.4-preview
+
+- Poprawka testów zrzutów ekranu (brakujący import `HistoryState`), przez co zrzuty nie powstawały od 0.9.2. Bez zmian w aplikacji względem 0.9.3.
+
 ## 0.9.3-preview
 
 - **Etykiety mieszczą się w przyciskach i przełącznikach.** Na wąskim telefonie lub przy powiększonej czcionce systemowej słowo „Wszystko” w przełączniku zakresu łamało się w środku („Wszystk-o”). Nowy `FitText` zmniejsza czcionkę etykiety (do 11 sp), żeby mieściła się w jednym wierszu, a dopiero potem ją łamie; używają go przełączniki (`SegRow`), przyciski i pigułki. Segmenty przełącznika mają szerokość proporcjonalną do długości etykiety i wysokość 48 dp (było 44 dp, poniżej zalecanego rozmiaru dotyku).
