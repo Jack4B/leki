@@ -27,6 +27,7 @@ object AiReport {
     fun build(s: AppState, per: Period, today: LocalDate, now: LocalDateTime, appVersion: String): String {
         val c = s.settings
         val A = c.ai
+        val ecgs = if (A.ecg) s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareBy<Ecg> { it.date }.thenBy { it.time }).takeLast(5) else emptyList()
         val L = ArrayList<String>()
         fun p(x: String = "") { L.add(x) }
         p("# Raport o lekach do analizy przez AI")
@@ -41,7 +42,8 @@ object AiReport {
         p("2. **Interakcje z jedzeniem, napojami i używkami** wynikające z tych leków (np. grejpfrut, nabiał, kawa i herbata, alkohol, produkty bogate w potas lub witaminę K).")
         p("3. **Pory dnia i sposób przyjmowania:** czy pory przyjmowania są dobrane właściwie względem posiłków i względem siebie nawzajem (wchłanianie, odstępy między lekami, leki przyjmowane na czczo lub po posiłku, leki moczopędne i nasenne a pora dnia). Podaj konkretną propozycję zmiany harmonogramu do omówienia z lekarzem.")
         p("4. **Duplikaty i dawki:** powtarzające się substancje czynne (także pod różnymi nazwami handlowymi), dawki poza typowym zakresem, leki wymagające ostrożności w kontekście podanych badań i choroby.")
-        p("5. **Powiązania z wynikami badań i ciśnieniem:** czy wyniki lub pomiary mogą wynikać z leków albo wymagają zmiany ich przyjmowania.")
+        p(if (ecgs.isEmpty()) "5. **Powiązania z wynikami badań i ciśnieniem:** czy wyniki lub pomiary mogą wynikać z leków albo wymagają zmiany ich przyjmowania."
+        else "5. **Powiązania z wynikami badań, ciśnieniem i EKG z zegarka:** czy wyniki, pomiary lub rytm serca mogą wynikać z leków (np. wydłużających odstęp QT, wpływających na rytm albo na stężenie potasu i magnezu) albo wymagają zmiany ich przyjmowania.")
         p("6. **Systematyczność:** co wynika z pominiętych, spóźnionych i nieodhaczonych dawek i jakie mogą być tego skutki.")
         p("7. **Pytania do lekarza lub farmaceuty** do zadania przy najbliższej wizycie.")
         p()
@@ -51,6 +53,7 @@ object AiReport {
         p("- Oddziel sprawy pilne (do pilnej konsultacji) od drobnych uwag. Jeśli nie widzisz problemów, napisz to wprost.")
         p("- To analiza pomocnicza. Nie zalecaj samodzielnego odstawiania leków ani zmiany dawek bez konsultacji z lekarzem.")
         p("- Jeśli brakuje danych potrzebnych do oceny (wiek, waga, funkcja nerek, leki bez recepty, suplementy, godziny posiłków), wypisz, o co zapytać pacjenta.")
+        if (ecgs.isNotEmpty()) p("- EKG z zegarka to jedno odprowadzenie opracowane prostą heurystyką, a nie diagnoza. Nie oceniaj odstępu QT, odcinka ST ani niedokrwienia. Wskaż, kiedy potrzebne jest pełne EKG, zwłaszcza przy lekach wydłużających QT i zaburzeniach elektrolitów, i jakie badania laboratoryjne warto zlecić.")
         p()
         p("## Pacjent")
         p()
@@ -127,6 +130,25 @@ object AiReport {
                 if (list.size > 40) p("Pokazano 40 ostatnich z ${list.size} pomiarów.")
             } else p("Brak pomiarów w tym okresie.")
         }
+        if (ecgs.isNotEmpty()) {
+            p(); p("## EKG z zegarka (jedno odprowadzenie)"); p()
+            p("Metoda obliczeń: ${EcgInfo.SHORT}")
+            ecgs.forEach { e ->
+                val r = EcgAnalysis.analyze(e)
+                p(); p("### ${plDate(e.date)} ${e.time.hhmm()}, ${Math.round(e.durationS)} s"); p()
+                if (e.watchHr > 0) p("- Tętno wg zegarka: ${e.watchHr}/min.")
+                if (e.watchNote.isNotBlank()) p("- Ocena zegarka: ${cell(e.watchNote)}.")
+                if (r.hrMedian != null) {
+                    p("- Tętno z zapisu: mediana ${Math.round(r.hrMedian)}/min, średnia ${Math.round(r.hrMean ?: r.hrMedian)}/min, zakres ${Math.round(r.hrMin ?: 0.0)}–${Math.round(r.hrMax ?: 0.0)}/min.")
+                    p("- Zmienność odstępów RR: SDNN ${Math.round(r.sdnnMs ?: 0.0)} ms, RMSSD ${Math.round(r.rmssdMs ?: 0.0)} ms, pNN50 ${Math.round((r.pnn50 ?: 0.0) * 100)}%. Wykryte uderzenia: ${r.beats.size}.")
+                }
+                p("- Jakość zapisu: ${r.quality}" + (if (r.artifacts.isNotEmpty()) "; zakłócenia pominięte w analizie w sekundach: " + r.artifacts.joinToString(", ") { "%.1f–%.1f".format(java.util.Locale.ROOT, it.start, it.endInclusive) } else "") + ".")
+                r.flags.forEach { p("- Wynik analizy: ${it.title}. ${it.text}") }
+                val rr = r.validRr
+                if (rr.isNotEmpty()) p("- Kolejne wiarygodne odstępy RR (ms): " + rr.take(60).joinToString(", ") { Math.round(it * 1000).toString() } + if (rr.size > 60) " (pierwsze 60 z ${rr.size})" else "")
+                if (e.note.isNotBlank()) p("- Notatka pacjenta: ${cell(e.note)}")
+            }
+        }
         if (A.labs) {
             p(); p("## Wyniki badań (do ${plDate(per.to)})"); p()
             val rows = s.markers.mapNotNull { m ->
@@ -154,6 +176,7 @@ object AiReport {
         p("- Dane pochodzą z samodzielnych wpisów pacjenta i nie były weryfikowane.")
         p("- Aplikacja nie zna leków bez recepty ani suplementów, jeśli pacjent ich nie dopisał.")
         p("- Dawki są podane w jednostkach wybranych przez pacjenta (np. tabl., sasz.), bez przeliczenia na miligramy.")
+        if (ecgs.isNotEmpty()) p("- Surowy przebieg EKG nie jest dołączony; są tylko wskaźniki i odstępy RR. Odstęp QT nie jest dostępny.")
         return L.joinToString("\n").replace(Regex("\n{3,}"), "\n\n") + "\n"
     }
 }

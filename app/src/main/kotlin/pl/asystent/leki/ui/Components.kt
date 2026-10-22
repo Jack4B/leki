@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
@@ -42,8 +43,11 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -52,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -354,24 +359,63 @@ fun ConfirmDialog(title: String, text: String, confirmText: String, onConfirm: (
     )
 }
 
+/**
+ * Miejsce w głównym oknie, w którym rysowane są pełnoekranowe edytory. Osobne okno dialogu na części telefonów (Android 15, nawigacja
+ * gestami) wychodziło poza ekran i chowało przyciski na dole; w głównym oknie marginesy pasków systemowych i klawiatury działają tak samo
+ * jak na zwykłych ekranach.
+ */
+class OverlayHost {
+    class Entry(val key: Any, val content: @Composable () -> Unit)
+    val entries = mutableStateListOf<Entry>()
+
+    fun put(key: Any, content: @Composable () -> Unit) {
+        val i = entries.indexOfFirst { it.key == key }
+        if (i < 0) entries.add(Entry(key, content)) else entries[i] = Entry(key, content)
+    }
+
+    fun remove(key: Any) { entries.removeAll { it.key == key } }
+}
+
+val LocalOverlayHost = staticCompositionLocalOf<OverlayHost?> { null }
+
+/** Rysuje zarejestrowane edytory nad całą aplikacją. */
+@Composable
+fun OverlayLayer(host: OverlayHost) {
+    host.entries.toList().forEach { e -> androidx.compose.runtime.key(e.key) { e.content() } }
+}
+
 /** Edytor na całym ekranie z paskiem tytułu. */
 @Composable
 fun FullScreenDialog(title: String, onClose: () -> Unit, footer: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = pal.bg) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
-                Row(Modifier.fillMaxWidth().height(56.dp).background(pal.bg).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose).semantics { contentDescription = "Zamknij" }, contentAlignment = Alignment.Center) {
-                        PhIcon(Ph.X, size = 22.dp, tint = pal.ink)
-                    }
-                    Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(start = 8.dp))
+    val host = LocalOverlayHost.current
+    if (host == null) {
+        // bez hosta (np. testy renderowania): zwykłe okno dialogu
+        Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            FullScreenBody(title, onClose, footer, content)
+        }
+        return
+    }
+    val key = remember { Any() }
+    SideEffect { host.put(key) { FullScreenBody(title, onClose, footer, content) } }
+    DisposableEffect(key) { onDispose { host.remove(key) } }
+}
+
+@Composable
+fun FullScreenBody(title: String, onClose: () -> Unit, footer: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
+    androidx.activity.compose.BackHandler(onBack = onClose)
+    Surface(Modifier.fillMaxSize().pointerInput(Unit) {}, color = pal.bg) {
+        Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().height(56.dp).background(pal.bg).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose).semantics { contentDescription = "Zamknij" }, contentAlignment = Alignment.Center) {
+                    PhIcon(Ph.X, size = 22.dp, tint = pal.ink)
                 }
+                Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(start = 8.dp))
+            }
+            Divider()
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
+            if (footer != null) {
                 Divider()
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
-                if (footer != null) {
-                    Divider()
-                    Box(Modifier.fillMaxWidth().background(pal.surface).padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
-                }
+                Box(Modifier.fillMaxWidth().background(pal.surface).padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
             }
         }
     }

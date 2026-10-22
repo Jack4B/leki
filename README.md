@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.6.0 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.6.1 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -27,7 +27,7 @@ Tekst składa się z dwóch części:
 1. **Polecenie dla modelu:** analiza interakcji lek–lek, interakcji z jedzeniem i napojami, doboru pór dnia i odstępów między lekami, duplikatów substancji i nietypowych dawek, powiązań z wynikami badań i ciśnieniem, systematyczności przyjmowania oraz lista pytań do lekarza. Model ma podawać pewność wniosków, oddzielać sprawy pilne i nie zalecać samodzielnych zmian dawek.
 2. **Dane:** leki z dawkowaniem i wskazówkami, harmonogram dnia (co jest brane razem), zmiany dawkowania, zgodność z planem (pominięte, spóźnione i nieodhaczone dawki, średnia godzina przyjęcia względem pory), ciśnienie, wyniki badań z zakresami, kontrole i notatki.
 
-Okres jest ten sam co w raporcie dla lekarza. Możesz wybrać sekcje i wpisać kontekst medyczny (wiek, płeć, choroby, alergie, leki bez recepty, godziny posiłków), co mocno poprawia analizę. Imię i nazwisko jest domyślnie pomijane. Tekst powstaje na urządzeniu i opuszcza je dopiero, gdy go skopiujesz lub udostępnisz. Odpowiedź AI nie jest poradą medyczną.
+Do raportu można dołączyć zapisy EKG z zegarka z wybranego okresu (pigułka „EKG z zegarka”): wskaźniki, wyniki analizy i odstępy RR w milisekundach, bez surowego przebiegu, a polecenie dla modelu dostaje wtedy dodatkowy punkt o EKG z zakazem oceny QT i ST. Okres jest ten sam co w raporcie dla lekarza. Możesz wybrać sekcje i wpisać kontekst medyczny (wiek, płeć, choroby, alergie, leki bez recepty, godziny posiłków), co mocno poprawia analizę. Imię i nazwisko jest domyślnie pomijane. Tekst powstaje na urządzeniu i opuszcza je dopiero, gdy go skopiujesz lub udostępnisz. Odpowiedź AI nie jest poradą medyczną.
 
 ## EKG z zegarka
 
@@ -37,6 +37,16 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 2. Tekst nagłówka (OCR na urządzeniu) daje datę, godzinę, tętno i ocenę rytmu zegarka. Imię, płeć, wiek, wzrost i waga z wydruku **nie są odczytywane ani zapisywane**. Datę i resztę możesz poprawić przed zapisem.
 3. Z przebiegu aplikacja liczy tętno, odstępy RR i ich zmienność, rozpoznaje zakłócenia ruchowe (są pomijane) i wskazuje kandydatów do omówienia z lekarzem: tętno poniżej 50 lub powyżej 100/min, wyraźnie nieregularny rytm, przedwczesne uderzenia z dłuższą przerwą po nich, długie przerwy.
 4. Zapis (sam przebieg w 125 próbkach na sekundę) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
+
+**Jak to jest liczone (algorytmy).** Obliczenia robi sama aplikacja na telefonie, bez bibliotek zewnętrznych, internetu i modeli AI (kod: `core/.../Ecg.kt`, opis w `EcgInfo.kt` i w aplikacji pod „Jak to jest liczone”):
+1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV, potem zapis w 125 próbkach/s.
+2. **Dryf linii podstawowej** usuwany ruchomą medianą z okna 0,6 s.
+3. **Uderzenia (QRS):** metoda energii pochodnej w duchu algorytmu Pana i Tompkinsa (1985), uproszczona: kwadrat różnicy próbek wygładzony oknem 60 ms, próg 40% mediany maksimów z okien 1,5 s, odstęp refrakcji 250 ms, punkt R jako maksimum w ±70 ms, kierunek QRS według większości uderzeń.
+4. **Zakłócenia:** pomijane fragmenty ±0,35 s wokół wychyleń ponad 2,5 amplitudy R, wychyleń przeciwnych do QRS o amplitudzie co najmniej 0,9 R i skoków ponad 4 razy bardziej stromych niż QRS.
+5. **Wskaźniki:** tętno = 60 / RR (mediana, średnia, zakres), SDNN, RMSSD, pNN50 (różnice kolejnych odstępów większe niż 50 ms).
+6. **Reguły oznaczeń:** wolne tętno (mediana poniżej 50/min), szybkie (powyżej 100/min), rytm wyraźnie nieregularny (co najmniej 35% odstępów odbiega o ponad 15% od mediany i współczynnik zmienności powyżej 0,1), przedwczesne uderzenie (odstęp poniżej 80% mediany, po nim powyżej 110%), przerwa (odstęp powyżej 1,6 mediany i powyżej 1,8 s). Do oceny potrzeba co najmniej 8 uderzeń.
+
+To zwykła heurystyka, a nie zatwierdzony algorytm medyczny; nie była walidowana klinicznie.
 
 **Ograniczenia, które trzeba znać:**
 - To narzędzie pomocnicze do rozmowy z lekarzem, a nie diagnoza ani wyrób medyczny. Brak oznaczeń nie wyklucza choroby serca.

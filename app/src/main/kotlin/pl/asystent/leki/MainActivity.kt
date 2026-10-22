@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -67,6 +68,9 @@ import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiButton
 import pl.asystent.leki.ui.LekiTheme
 import pl.asystent.leki.ui.LocalToast
+import pl.asystent.leki.ui.OverlayLayer
+import pl.asystent.leki.ui.OverlayHost
+import pl.asystent.leki.ui.LocalOverlayHost
 import pl.asystent.leki.ui.MedsScreen
 import pl.asystent.leki.ui.Mono
 import pl.asystent.leki.ui.Nav
@@ -127,6 +131,9 @@ fun App(store: Store) {
             val importer = rememberImporter(s, store)
             BackHandler(enabled = tab != 0) { tab = 0 }
 
+            val overlays = remember { OverlayHost() }
+            CompositionLocalProvider(LocalOverlayHost provides overlays) {
+            Box(Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = pal.bg,
                 snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
@@ -175,6 +182,13 @@ fun App(store: Store) {
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
                         modifier = Modifier.align(Alignment.BottomCenter))
                 }
+            }
+            OverlayLayer(overlays)
+            // komunikaty muszą być widoczne także nad pełnoekranowym edytorem, który zasłania pasek główny
+            if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 88.dp)) { data ->
+                Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape)
+            }
+            }
             }
             if (rules) AlertDialog(
                 onDismissRequest = { rules = false },

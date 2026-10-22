@@ -35,7 +35,11 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CtlShape
+import pl.asystent.leki.ui.EcgEditor
 import pl.asystent.leki.ui.EcgFindings
+import pl.asystent.leki.ui.LocalOverlayHost
+import pl.asystent.leki.ui.OverlayHost
+import pl.asystent.leki.ui.OverlayLayer
 import pl.asystent.leki.ui.EcgWaveView
 import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiTheme
@@ -138,6 +142,15 @@ class ScreenshotTest {
         val e = ecgState.ecgs.single(); val r = EcgAnalysis.analyze(e)
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
             EcgWaveView(e, r); EcgFindings(r)
+        }
+    }
+
+    /** Pełnoekranowy edytor rysowany w głównym oknie (warstwa nakładek): stopka z przyciskami ma być widoczna. */
+    @Test fun ekgEdytor() = shot("ekg-edytor") {
+        val host = remember { OverlayHost() }
+        CompositionLocalProvider(LocalOverlayHost provides host) {
+            EcgEditor(ecgState.ecgs.single(), true, store) {}
+            OverlayLayer(host)
         }
     }
 

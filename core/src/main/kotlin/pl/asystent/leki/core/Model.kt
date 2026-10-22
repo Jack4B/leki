@@ -96,6 +96,8 @@ data class AiParts(
     val labs: Boolean = true,
     val events: Boolean = true,
     val notes: Boolean = true,
+    /** Czy dołączyć zapisy EKG z zegarka (wskaźniki i odstępy RR, bez surowego przebiegu). */
+    val ecg: Boolean = true,
     val name: Boolean = false,
     val context: String = "",
 )

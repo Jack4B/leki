@@ -165,6 +165,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Badania", ai.labs) { setAi { it.copy(labs = !it.labs) } }
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
+                        ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     var context by remember { mutableStateOf(ai.context) }

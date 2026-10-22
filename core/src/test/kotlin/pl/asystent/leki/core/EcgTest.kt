@@ -205,4 +205,41 @@ class EcgTest {
         val html = DoctorReport.html(Fixtures.state.saveEcg(e), Fixtures.period(7), Fixtures.today, Fixtures.now)
         assertTrue("<script>x" !in html && "<img onerror" !in html)
     }
+
+    @Test fun metaNoteIsCleanedOfMergedHeaderColumns() {
+        assertEquals("Rytm zatokowy", EcgMeta.cleanNote("Rytm zatokowy  Średnie tętno:73ud./min"))
+        assertEquals("Rytm zatokowy", EcgMeta.cleanNote("Rytm zatokowy Godzina 2026-10-13 19:08"))
+        assertEquals("", EcgMeta.cleanNote("Średnie tętno:73"))
+        val m = EcgMeta.parse(listOf("Rytm zatokowy  Średnie tętno:73ud./min", "Godzina 2026-10-13 19:08"))
+        assertEquals("Rytm zatokowy", m.note); assertEquals(73, m.hr)
+    }
+
+    @Test fun aiReportIncludesEcgOnlyWhenPresentAndEnabled() {
+        val plain = AiReport.build(Fixtures.state, Fixtures.period(30), Fixtures.today, Fixtures.now, "x")
+        assertTrue("EKG z zegarka" !in plain)
+        val s = Fixtures.state.saveEcg(sampleEcg(date = Fixtures.today.minusDays(2)))
+        val t = AiReport.build(s, Fixtures.period(30), Fixtures.today, Fixtures.now, "x")
+        assertTrue("## EKG z zegarka (jedno odprowadzenie)" in t)
+        assertTrue("Tętno wg zegarka: 73/min." in t && "Ocena zegarka: Rytm zatokowy." in t)
+        assertTrue("Kolejne wiarygodne odstępy RR (ms): " in t && "Metoda obliczeń:" in t && "Nie oceniaj odstępu QT" in t)
+        assertTrue("5. **Powiązania z wynikami badań, ciśnieniem i EKG z zegarka:**" in t)
+        assertTrue("Surowy przebieg EKG nie jest dołączony" in t)
+        val off = s.copy(settings = s.settings.copy(ai = s.settings.ai.copy(ecg = false)))
+        assertEquals(plain, AiReport.build(off, Fixtures.period(30), Fixtures.today, Fixtures.now, "x"))
+        // zapis spoza okresu nie trafia do raportu
+        val old = Fixtures.state.saveEcg(sampleEcg(date = Fixtures.today.minusDays(200)))
+        assertEquals(plain, AiReport.build(old, Fixtures.period(30), Fixtures.today, Fixtures.now, "x"))
+    }
+
+    @Test fun aiEcgFlagRoundTripsAndDefaultsToOnForOldBackups() {
+        assertTrue(Fixtures.state.settings.ai.ecg)
+        val off = Fixtures.state.copy(settings = Fixtures.state.settings.copy(ai = Fixtures.state.settings.ai.copy(ecg = false)))
+        assertEquals(false, Backup.parseState(Backup.export(off)).settings.ai.ecg)
+    }
+
+    @Test fun methodDescriptionMatchesTheCodeConstants() {
+        val all = EcgInfo.STEPS.joinToString(" ") { it.text }
+        // wartości z opisu muszą odpowiadać stałym w algorytmie (0,6 s, 60 ms, 40%, 250 ms, 0,35 s, 2,5, 0,9, 4x; progi 50 i 100)
+        for (k in listOf("0,6 s", "60 ms", "40%", "250 ms", "±70 ms", "±0,35 s", "2,5", "0,9", "4 razy", "poniżej 50/min", "powyżej 100/min", "35%", "15%", "80%", "110%", "1,6 mediany", "1,8 s", "8 uderzeń", "6 wiarygodnych")) assertTrue(k in all, k)
+    }
 }

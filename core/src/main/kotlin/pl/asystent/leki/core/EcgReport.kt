@@ -60,11 +60,12 @@ object EcgReport {
             parts.add("jakość zapisu: ${r.quality}")
             h.append("<p style=\"margin:0 0 6px\">${parts.joinToString("; ")}.</p>")
             h.append("<ul>")
-            r.flags.forEach { h.append("<li>${esc(it.text)}</li>") }
+            r.flags.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
             h.append("</ul>")
             if (e.note.isNotBlank()) h.append("<p class=\"muted\">Notatka pacjenta: ${esc(e.note)}</p>")
             h.append(svg(e, r))
         }
+        h.append("<p class=\"muted\" style=\"margin:6px 0 0\">Metoda: ${esc(EcgInfo.SHORT)}</p>")
         return h.toString()
     }
 }

@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.6.1-preview
+
+- **Przyciski na dole okien edycji nie chowają się już za paskiem systemowym** (zgłoszone dla ekranu „Nowe EKG z zegarka”). Pełnoekranowe edytory (EKG, lek, wynik, analiza AI i inne) są rysowane w głównym oknie aplikacji zamiast w osobnym oknie dialogu, więc marginesy pasków systemowych i klawiatury działają tak samo jak na zwykłych ekranach. Komunikaty są widoczne także nad edytorem.
+- **Czytelniejszy wynik analizy EKG:** wskaźniki w trzech kafelkach, lista „Co wykryto” z ikoną, pogrubionym tytułem i opisem, ramka „Ważne” z krótkimi punktami zamiast jednego bloku tekstu.
+- **Pole „Ocena zegarka” zawiera już tylko ocenę rytmu** (OCR sklejał w nim kolumny nagłówka, np. „Rytm zatokowy Średnie tętno:73”).
+- **Opis obliczeń i algorytmów:** w aplikacji (rozwijane „Jak to jest liczone”), w README, w skrócie w raporcie dla lekarza i dla AI. Test pilnuje, żeby liczby w opisie zgadzały się ze stałymi w kodzie.
+- **EKG w raporcie dla AI:** nowa pigułka „EKG z zegarka” w zakładce Raport → Dla AI. Do raportu trafiają wskaźniki (tętno, zmienność RR, jakość, zakłócenia), wyniki analizy i kolejne odstępy RR w milisekundach, ale nie surowy przebieg. Polecenie dla modelu dostaje punkt o EKG (z zakazem oceny QT i ST oraz prośbą o wskazanie, kiedy potrzebne jest pełne EKG, szczególnie przy lekach wydłużających QT i zaburzeniach elektrolitów). Raport bez zapisów EKG jest identyczny jak wcześniej.
+- 4 nowe testy (czyszczenie oceny rytmu, raport AI z EKG i bez, kopia z flagą, zgodność opisu metody z kodem).
+
 ## 0.6.0-preview
 
 - **EKG z zegarka.** W zakładce Badania nowa karta „EKG”: wczytujesz PDF wyeksportowany z aplikacji zegarka lub opaski (jedno odprowadzenie, zwykle 30 s). Aplikacja na telefonie odtwarza przebieg z obrazu (czerwona linia na siatce, 25 mm/s i 10 mm/mV), odczytuje z nagłówka datę, godzinę, tętno i ocenę rytmu zegarka (OCR, bez imienia, płci, wieku, wzrostu i wagi), a potem liczy tętno, odstępy między uderzeniami (RR) i ich zmienność.

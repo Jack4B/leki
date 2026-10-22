@@ -5,6 +5,7 @@ import android.graphics.Matrix
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
@@ -45,6 +48,7 @@ import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Ecg
 import pl.asystent.leki.core.EcgAnalysis
 import pl.asystent.leki.core.EcgDigitizer
+import pl.asystent.leki.core.EcgInfo
 import pl.asystent.leki.core.EcgMeta
 import pl.asystent.leki.core.EcgResult
 import pl.asystent.leki.core.EcgSeverity
@@ -69,6 +73,7 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
             LekiButton("Dodaj EKG z pliku PDF", onAdd, Modifier.fillMaxWidth().padding(top = 12.dp), primary = true, icon = Ph.Heartbeat)
         }
     }
+    item { EcgMethods() }
     if (s.ecgs.isEmpty()) item { EmptyBox("Brak zapisów EKG.", Modifier.padding(top = 16.dp)) }
     else item {
         LekiCard(Modifier.padding(top = 16.dp)) {
@@ -185,20 +190,66 @@ fun EcgWaveView(e: Ecg, r: EcgResult, modifier: Modifier = Modifier) {
     }
 }
 
+/** Wskaźniki i oznaczenia z analizy zapisu, w czytelnych blokach. */
 @Composable
 fun EcgFindings(r: EcgResult) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat(r.hrMedian?.let { "${Math.round(it)}" } ?: "brak", "tętno z zapisu, /min", Modifier.weight(1f))
+            Stat(r.hrMedian?.let { "${Math.round(it)}" } ?: "brak", "tętno, /min", Modifier.weight(1f))
             Stat(r.hrMin?.let { "${Math.round(it)}–${Math.round(r.hrMax ?: it)}" } ?: "brak", "zakres tętna", Modifier.weight(1f))
             Stat(r.quality, "jakość zapisu", Modifier.weight(1f), mono = false)
         }
-        if (r.sdnnMs != null) Hint("Zmienność odstępów między uderzeniami (SDNN): ${Math.round(r.sdnnMs ?: 0.0)} ms. Wykryte uderzenia: ${r.beats.size}.")
-        r.flags.forEach { f ->
-            if (f.severity == EcgSeverity.Attention) AlertBox("Do omówienia z lekarzem", body = f.text)
-            else Hint(f.text)
+        if (r.sdnnMs != null) Hint("Zmienność odstępów RR: SDNN ${Math.round(r.sdnnMs ?: 0.0)} ms, RMSSD ${Math.round(r.rmssdMs ?: 0.0)} ms. Wykryte uderzenia: ${r.beats.size}.")
+        Column {
+            Overline("Co wykryto")
+            LekiCard {
+                r.flags.forEachIndexed { i, f ->
+                    if (i > 0) Divider()
+                    val attention = f.severity == EcgSeverity.Attention
+                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PhIcon(if (attention) Ph.Warning else Ph.Info, size = 22.dp, tint = if (attention) pal.warn else pal.accent)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(f.title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (attention) pal.warn else pal.ink))
+                            Text(f.text, style = TextStyle(fontSize = 13.5.sp, lineHeight = 19.sp, color = pal.ink2))
+                        }
+                    }
+                }
+            }
         }
-        Hint("To narzędzie pomocnicze, nie diagnoza. Aplikacja nie mierzy odstępu QT ani odcinka ST i nie rozpoznaje niedokrwienia czy zawału. Zegarek zapisuje jedno odprowadzenie. Przy bólu w klatce piersiowej, duszności, omdleniu lub kołataniu nie czekaj na analizę: skontaktuj się z lekarzem lub zadzwoń pod 112. Przy lekach wydłużających odstęp QT albo zaburzeniach potasu poproś lekarza o pełne EKG.")
+        Column(Modifier.fillMaxWidth().clip(CardShape).background(pal.accentSoft).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Ważne", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
+            listOf(
+                "To narzędzie pomocnicze, a nie diagnoza.",
+                "Aplikacja nie mierzy odstępu QT ani odcinka ST i nie rozpoznaje niedokrwienia ani zawału. Zegarek zapisuje tylko jedno odprowadzenie.",
+                "Przy bólu w klatce piersiowej, duszności, omdleniu lub kołataniu nie czekaj na analizę: skontaktuj się z lekarzem lub zadzwoń pod 112.",
+                "Przy lekach wydłużających odstęp QT albo zaburzeniach potasu poproś lekarza o pełne EKG.",
+            ).forEach { t ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("•", style = TextStyle(fontSize = 13.5.sp, color = pal.accent, fontWeight = FontWeight.Bold))
+                    Text(t, style = TextStyle(fontSize = 13.5.sp, lineHeight = 19.sp, color = pal.ink2), modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/** Rozwijany opis algorytmów i obliczeń (ten sam tekst jest w README i w skróconej formie w raportach). */
+@Composable
+fun EcgMethods() {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Column {
+        LinkButton((if (open) "▾ " else "▸ ") + "Jak to jest liczone (algorytmy)", { open = !open })
+        if (open) LekiCard {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                EcgInfo.STEPS.forEachIndexed { i, st ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${i + 1}. ${st.title}", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        Text(st.text, style = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = pal.ink2))
+                    }
+                }
+                Hint("Obliczenia wykonuje sama aplikacja na telefonie: bez bibliotek zewnętrznych, bez internetu i bez modeli AI. Kod: core/…/Ecg.kt.")
+            }
+        }
     }
 }
 
@@ -230,6 +281,7 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
         EcgWaveView(initial, result)
         Hint("Przebieg odtworzony z wydruku. Sprawdź, czy wygląda tak jak na wydruku z zegarka; jeśli nie, nie opieraj się na analizie.")
         EcgFindings(result)
+        EcgMethods()
         Overline("Dane zapisu", Modifier.padding(top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             DateField("Data", date, { date = it }, Modifier.weight(1f))

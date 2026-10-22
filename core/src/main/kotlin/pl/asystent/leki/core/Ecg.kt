@@ -32,7 +32,7 @@ data class Ecg(
 
 enum class EcgSeverity { Info, Attention }
 
-data class EcgFlag(val code: String, val text: String, val severity: EcgSeverity)
+data class EcgFlag(val code: String, val title: String, val text: String, val severity: EcgSeverity)
 
 data class EcgBeat(val tSec: Double, val amplitudeMv: Double)
 
@@ -159,7 +159,7 @@ object EcgAnalysis {
         val flags = ArrayList<EcgFlag>()
         val premature = ArrayList<Double>()
         if (beats.size < 8 || v.size < 6) {
-            flags.add(EcgFlag("poor", "Za mało czytelnych uderzeń do oceny rytmu. Powtórz pomiar: siedząc, w spokoju, z rękami opartymi i nieruchomo.", EcgSeverity.Attention))
+            flags.add(EcgFlag("poor", "Zapis słabej jakości", "Za mało czytelnych uderzeń do oceny rytmu. Powtórz pomiar: siedząc, w spokoju, z rękami opartymi i nieruchomo.", EcgSeverity.Attention))
             return EcgResult(dur, beats, rr, null, null, null, null, null, null, null, null, artifactRatio, artifacts, flags, premature)
         }
         val m = median(v)
@@ -180,17 +180,17 @@ object EcgAnalysis {
         val deviating = v.count { abs(it - m) / m > 0.15 }.toDouble() / v.size
         val longest = v.max()
 
-        if (hrMed > 100) flags.add(EcgFlag("tachy", "Tętno w spoczynku powyżej 100/min (${hrMed.toInt()}/min). Jeśli utrzymuje się w spoczynku, omów z lekarzem.", EcgSeverity.Attention))
-        if (hrMed < 50) flags.add(EcgFlag("brady", "Tętno poniżej 50/min (${hrMed.toInt()}/min). Jeśli towarzyszą zawroty głowy lub omdlenia, skontaktuj się z lekarzem.", EcgSeverity.Attention))
+        if (hrMed > 100) flags.add(EcgFlag("tachy", "Szybkie tętno: ${hrMed.toInt()}/min", "Tętno powyżej 100/min. Jeśli utrzymuje się w spoczynku, omów z lekarzem.", EcgSeverity.Attention))
+        if (hrMed < 50) flags.add(EcgFlag("brady", "Wolne tętno: ${hrMed.toInt()}/min", "Tętno poniżej 50/min. Jeśli towarzyszą zawroty głowy lub omdlenia, skontaktuj się z lekarzem.", EcgSeverity.Attention))
         if (deviating >= 0.35 && cv > 0.1) {
-            flags.add(EcgFlag("irregular", "Rytm wyraźnie nieregularny: ${"%.0f".format(deviating * 100)}% odstępów odbiega o ponad 15% od typowego. Może to być migotanie przedsionków albo częste pobudzenia dodatkowe. Aplikacja tego nie rozpoznaje; pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
+            flags.add(EcgFlag("irregular", "Rytm wyraźnie nieregularny", "${"%.0f".format(deviating * 100)}% odstępów między uderzeniami odbiega o ponad 15% od typowego. Przyczyną może być migotanie przedsionków albo częste pobudzenia dodatkowe. Aplikacja tego nie rozpoznaje: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
         } else {
-            if (premature.size >= 3) flags.add(EcgFlag("premature_many", "Kilka przedwczesnych uderzeń z następującą po nich dłuższą przerwą (${premature.size}). Mogą to być pobudzenia dodatkowe; omów z lekarzem, zwłaszcza gdy je czujesz.", EcgSeverity.Attention))
-            else if (premature.isNotEmpty()) flags.add(EcgFlag("premature", "Pojedyncze przedwczesne uderzenie z następującą po nim dłuższą przerwą (${premature.size}). Takie pobudzenia bywają u zdrowych osób.", EcgSeverity.Info))
+            if (premature.size >= 3) flags.add(EcgFlag("premature_many", "Kilka przedwczesnych uderzeń (${premature.size})", "Po każdym następuje dłuższa przerwa. Mogą to być pobudzenia dodatkowe; omów z lekarzem, zwłaszcza gdy je czujesz.", EcgSeverity.Attention))
+            else if (premature.isNotEmpty()) flags.add(EcgFlag("premature", "Pojedyncze przedwczesne uderzenie", "Po nim następuje dłuższa przerwa (${premature.size} w zapisie, około ${premature.joinToString(", ") { "%.1f s".format(it) }}). Takie pobudzenia bywają u zdrowych osób, ale może to być też zakłócenie. Warto o nie zapytać lekarza.", EcgSeverity.Info))
         }
-        if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Najdłuższa przerwa między uderzeniami: ${"%.1f".format(longest)} s (typowo ${"%.1f".format(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
-        if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "W zapisie są zakłócenia (ruch lub słaby kontakt), około ${"%.0f".format(artifactRatio * 100)}% czasu pominięto w analizie.", EcgSeverity.Info))
-        if (flags.none { it.severity == EcgSeverity.Attention }) flags.add(0, EcgFlag("none", "Aplikacja nie wykryła nieregularności rytmu w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
+        if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Przerwa w rytmie: ${"%.1f".format(longest)} s", "Najdłuższy odstęp między uderzeniami (typowo ${"%.1f".format(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
+        if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
+        if (flags.none { it.severity == EcgSeverity.Attention }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
 
         return EcgResult(
             dur, beats, rr, hrMean, hrMed, 60.0 / v.max(), 60.0 / v.min(), sd * 1000, rmssd, pnn, cv, artifactRatio, artifacts, flags, premature,
@@ -199,7 +199,7 @@ object EcgAnalysis {
 
     private fun empty(dur: Double, why: String) = EcgResult(
         dur, emptyList(), emptyList(), null, null, null, null, null, null, null, null, 0.0, emptyList(),
-        listOf(EcgFlag("poor", why, EcgSeverity.Attention)), emptyList(),
+        listOf(EcgFlag("poor", "Zapis nie nadaje się do analizy", why, EcgSeverity.Attention)), emptyList(),
     )
 
     /** Zmniejsza liczbę próbek do [fsOut] (liniowo) i zaokrągla do setnych mV. */
@@ -298,6 +298,12 @@ object EcgDigitizer {
 
 /** Dane odczytane z tekstu wydruku zegarka (po OCR). Imię, płeć, wiek, wzrost i wagę celowo pomijamy. */
 object EcgMeta {
+    /** OCR skleja kolumny nagłówka w jeden wiersz („Rytm zatokowy Średnie tętno:73…”): zostawiamy tylko samą ocenę rytmu. */
+    fun cleanNote(raw: String): String {
+        val cut = Regex("""(?:^|\s+)(Średnie|Srednie|Godzina|Czas\s+trwania|Wzmocnienie|Prędkość|Predkosc|Imię|Imie|Płeć|Plec|Wiek|Wzrost|Waga|Dane\s+osobowe|Ten\s+zapis)\b""", RegexOption.IGNORE_CASE).find(raw)
+        return (if (cut != null) raw.substring(0, cut.range.first) else raw).trim().trim(',', ';', ':').take(120)
+    }
+
     data class Meta(val date: LocalDate?, val time: LocalTime?, val hr: Int, val note: String)
 
     fun parse(lines: List<String>): Meta {
@@ -306,7 +312,7 @@ object EcgMeta {
         val dt = Regex("""(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})""").find(all)
         val date = dt?.let { runCatching { LocalDate.of(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt()) }.getOrNull() }
         val time = dt?.let { runCatching { LocalTime.of(it.groupValues[4].toInt(), it.groupValues[5].toInt()) }.getOrNull() }
-        val rhythm = lines.firstOrNull { Regex("""^\s*(rytm|migotanie|arytmia|trzepotanie|tachykardia|bradykardia|nieregularny|nie\s+mo[zż]na)""", RegexOption.IGNORE_CASE).containsMatchIn(it) }?.trim().orEmpty()
-        return Meta(date, time, hr, rhythm.take(120))
+        val rhythm = lines.firstOrNull { Regex("""^\s*(rytm|migotanie|arytmia|trzepotanie|tachykardia|bradykardia|nieregularny|nie\s+mo[zż]na)""", RegexOption.IGNORE_CASE).containsMatchIn(it) }.orEmpty()
+        return Meta(date, time, hr, cleanNote(rhythm))
     }
 }
