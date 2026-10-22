@@ -4,10 +4,13 @@ import java.text.Normalizer
 import java.time.LocalDate
 
 /** Linia tekstu rozpoznana na obrazie wraz z położeniem (piksele). */
-data class OcrLine(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int) {
+data class OcrLine(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int, val conf: Float = 1f) {
     val centerY: Double get() = (top + bottom) / 2.0
     val height: Int get() = (bottom - top).coerceAtLeast(1)
 }
+
+/** Ocena jakości odczytu całego obrazu: liczba rozpoznanych liter i cyfr ważona pewnością rozpoznania (do wyboru lepszego z dwóch odczytów tego samego zdjęcia). */
+fun ocrScore(lines: List<OcrLine>): Double = lines.sumOf { l -> l.text.count { it.isLetterOrDigit() } * l.conf.toDouble().coerceIn(0.0, 1.0) }
 
 /** Jeden wiersz tabeli wyników odczytany ze skanu. [qualifier]: "<" albo ">" przy wynikach typu "<0,5". */
 data class ScanRow(val raw: String, val name: String, val value: Double, val qualifier: String, val unit: String, val lo: Double?, val hi: Double?)

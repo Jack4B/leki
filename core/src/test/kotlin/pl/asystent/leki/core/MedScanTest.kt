@@ -104,4 +104,24 @@ class MedScanTest {
         val generic = assertNotNull(MedScan.parse(listOf(line("Probamidu chlorowodorek", 40, 60), line("10 mg", 120, 30))))
         assertEquals("Probamidu chlorowodorek", generic.name); assertEquals("Probamidu chlorowodorek", generic.substance)
     }
+
+    @Test fun manualPicksAreCleanedForTheirField() {
+        // OCR czyta ® jako „°”: znak nie zostaje w nazwie
+        assertEquals("Testokinet", MedScan.tidyName("Testokinet°"))
+        assertEquals("Testokinet 20 mg", MedScan.asName("Testokinet® 20 mg", "20 mg"))
+        assertEquals("Testokinet 20 mg", MedScan.asName("TESTOKINET°", "20 mg"))
+        assertEquals("Zdrowex Plus", MedScan.asName("Zdrowex Plus\n10 mg"))
+        assertEquals("Probamidu chlorowodorek", MedScan.asSubstance("Probamidu chlorowodorek"))
+        assertEquals("Amlodipinum", MedScan.asSubstance("Substancja czynna: Amlodipinum"))
+        assertEquals("telmisartan", MedScan.asSubstance("telmisartan 40 mg"))
+        assertEquals("", MedScan.asSubstance("   "))
+    }
+
+    @Test fun ocrScoreWeighsCharactersByConfidence() {
+        fun l(t: String, c: Float) = OcrLine(t, 0, 0, 10, 10, c)
+        assertTrue(ocrScore(listOf(l("Potas 4,3", 0.9f))) > ocrScore(listOf(l("Potas 4,3", 0.4f))))
+        assertTrue(ocrScore(listOf(l("Potas 4,3", 0.9f), l("Sód 140", 0.9f))) > ocrScore(listOf(l("Potas 4,3", 0.9f))))
+        assertEquals(0.0, ocrScore(emptyList()))
+        assertEquals(0.0, ocrScore(listOf(l("...", 1f))))
+    }
 }

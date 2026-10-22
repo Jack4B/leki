@@ -97,6 +97,7 @@ fun SettingsScreen(
     var medEdit by remember { mutableStateOf<Pair<String?, String?>?>(null) } // (id leku, id leku zastępowanego)
     var medScan by remember { mutableStateOf(false) }
     var medDraft by remember { mutableStateOf<MedDraft?>(null) }
+    var medPhoto by remember { mutableStateOf<pl.asystent.leki.ocr.ScanPhoto?>(null) }
     var slotEdit by remember { mutableStateOf<Slot?>(null) }
     var slotNew by remember { mutableStateOf(false) }
     var eventEdit by remember { mutableStateOf<Event?>(null) }
@@ -264,8 +265,8 @@ fun SettingsScreen(
         }
     }
 
-    if (medScan) MedScanDialog(onDraft = { medScan = false; medDraft = it; medEdit = null to null }, onClose = { medScan = false })
-    medEdit?.let { (id, rep) -> MedEditor(s, store, id, rep, onClose = { medEdit = null; medDraft = null }, onReplace = { medEdit = null to it }, prefill = medDraft) }
+    if (medScan) MedScanDialog(onDraft = { d, ph -> medScan = false; medDraft = d; medPhoto?.release(); medPhoto = ph; medEdit = null to null }, onClose = { medScan = false })
+    medEdit?.let { (id, rep) -> MedEditor(s, store, id, rep, onClose = { medEdit = null; medDraft = null; medPhoto?.release(); medPhoto = null }, onReplace = { medEdit = null to it }, prefill = medDraft, photo = medPhoto) }
     if (slotEdit != null || slotNew) SlotEditor(s, slotEdit, onSave = { store.update { st -> st.saveSlot(it) }; slotEdit = null; slotNew = false; toast("Zapisano porę dnia") },
         onDelete = { id ->
             val r = s.deleteSlot(id)

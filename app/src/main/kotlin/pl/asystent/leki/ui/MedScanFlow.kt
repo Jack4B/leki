@@ -28,6 +28,7 @@ import pl.asystent.leki.core.MedDraft
 import pl.asystent.leki.core.MedScan
 import pl.asystent.leki.ocr.OcrEngine
 import pl.asystent.leki.ocr.ScanImages
+import pl.asystent.leki.ocr.ScanPhoto
 import java.io.File
 
 /**
@@ -35,7 +36,7 @@ import java.io.File
  * jednostka i liczba sztuk w opakowaniu. Wynik trafia do edytora leku jako propozycja; dawkowanie ustawia użytkownik.
  */
 @Composable
-fun MedScanDialog(onDraft: (MedDraft) -> Unit, onClose: () -> Unit) {
+fun MedScanDialog(onDraft: (MedDraft, ScanPhoto) -> Unit, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val scope = rememberCoroutineScope()
@@ -47,19 +48,22 @@ fun MedScanDialog(onDraft: (MedDraft) -> Unit, onClose: () -> Unit) {
         working = "Rozpoznaję tekst z opakowania…"; failed = null
         scope.launch {
             val engine = OcrEngine()
+            var handedOver = false
+            val bmp = ScanImages.load(ctx, uri)
             try {
-                val bmp = ScanImages.load(ctx, uri)
                 if (bmp == null) { failed = "Nie udało się wczytać zdjęcia."; return@launch }
-                val lines = try { engine.recognize(bmp) } finally { bmp.recycle() }
-                val draft = MedScan.parse(lines)
-                if (draft == null) failed = "Nie znalazłem na zdjęciu nazwy leku ani jego mocy. Zrób wyraźniejsze zdjęcie przodu opakowania, przy dobrym świetle, z nazwą dużym drukiem w kadrze."
-                else onDraft(draft)
+                val lines = engine.recognizeBest(bmp)
+                // nawet gdy nic sensownego nie odczytano, edytor otwiera się z pustą propozycją i zdjęciem: nazwę i substancję można zaznaczyć ręcznie
+                val draft = MedScan.parse(lines) ?: MedDraft(emptyList(), "", "", "tabl.", null, emptyList())
+                handedOver = true
+                onDraft(draft, ScanPhoto(bmp, lines))
             } catch (e: OutOfMemoryError) {
                 failed = "Zdjęcie jest za duże dla pamięci telefonu. Zrób zdjęcie w niższej rozdzielczości."
             } catch (e: Exception) {
                 failed = "Nie udało się rozpoznać tekstu (${e.javaClass.simpleName}). Spróbuj ponownie."
             } finally {
                 engine.close(); cameraFile?.delete(); cameraFile = null; working = null
+                if (!handedOver) bmp?.recycle()
             }
         }
     }

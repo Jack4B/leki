@@ -46,6 +46,9 @@ import pl.asystent.leki.core.phaseAt
 import pl.asystent.leki.core.phaseText
 import pl.asystent.leki.core.plDate
 import pl.asystent.leki.core.MedDraft
+import pl.asystent.leki.core.MedScan
+import pl.asystent.leki.ocr.ScanPhoto
+import androidx.compose.ui.focus.onFocusChanged
 import pl.asystent.leki.core.saveMed
 import pl.asystent.leki.core.stockLeft
 import pl.asystent.leki.core.shortDate
@@ -54,7 +57,7 @@ import java.time.LocalDate
 /** Edytor leku: nowy, edycja istniejącego albo zamiana na inny lek ([replaces]). Zmiana dawkowania dodaje nową fazę od wybranego dnia, a historia zostaje. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onClose: () -> Unit, onReplace: (String) -> Unit, prefill: MedDraft? = null) {
+fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onClose: () -> Unit, onReplace: (String) -> Unit, prefill: MedDraft? = null, photo: ScanPhoto? = null) {
     val today = LocalDate.now()
     val toast = LocalToast.current
     val m = medId?.let { s.med(it) }
@@ -76,13 +79,24 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     var mmol by remember(medId, replaces) { mutableStateOf(if ((m?.mmol ?: 0.0) > 0) num(m!!.mmol) else "") }
     val stockInit = remember(medId, replaces) { m?.let { s.stockLeft(it, today) }?.let { num(it) } ?: "" }
     var stock by remember(medId, replaces) { mutableStateOf(if (stockInit.isEmpty()) pre?.count?.let { num(it) } ?: "" else stockInit) }
-    var showRaw by remember { mutableStateOf(false) }
+    // pole, do którego trafia dotknięty napis z rozpoznanego tekstu (0 nazwa, 1 substancja, 2 wskazówka); ustawia je też fokus na polu
+    var target by remember { mutableStateOf(0) }
+    var pickPhoto by remember { mutableStateOf(false) }
     var end by remember(medId, replaces) { mutableStateOf(m?.end) }
     var from by remember(medId, replaces) { mutableStateOf(init.first) }
     val doses = remember(medId, replaces) { mutableStateMapOf<String, Double>().also { it.putAll(init.second) } }
     val dow = remember(medId, replaces) { mutableStateListOf<Int>().also { it.addAll(init.third) } }
     var err by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
+
+    fun put(t: Int, text: String) {
+        when (t) {
+            0 -> name = MedScan.asName(text, pre?.strength.orEmpty())
+            1 -> substance = MedScan.asSubstance(text)
+            else -> note = text.replace('\n', ' ').trim().take(120)
+        }
+        err = ""
+    }
 
     fun edit(endOverride: LocalDate?, useEnd: Boolean) = MedEdit(
         id = medId, name = name, substance = substance, note = note, unit = unit, timerMin = timer.toIntOrNull() ?: 0, mmol = parseNum(mmol) ?: 0.0,
@@ -123,25 +137,20 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
         }
         if (pre != null) {
             Notice("Dane odczytane ze zdjęcia opakowania. Sprawdź nazwę, moc i liczbę sztuk, a potem ustaw dawkowanie według zaleceń lekarza.")
-            if (pre.names.size > 1) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Inne napisy z opakowania (dotknij, żeby użyć jako nazwy)", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pre.names.forEach { n -> val full = pre.fullName(n); ToggleChip(n, name == full) { name = full; err = "" } }
+            val chips = if (pre.lines.isNotEmpty()) pre.lines else pre.names
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Rozpoznany tekst: dotknij napisu, żeby wstawić go do pola", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
+                SegRow(listOf("Nazwa", "Substancja", "Wskazówka"), target, { target = it })
+                Hint("Pole wybierasz tu albo dotykając go poniżej: wskazane pole dostaje dotknięty napis.")
+                if (chips.isNotEmpty()) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    chips.forEach { l -> ToggleChip(l, false) { put(target, l) } }
                 }
+                if (photo != null) LekiButton("Zaznacz na zdjęciu", { pickPhoto = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Camera)
             }
         }
-        if (pre != null && pre.lines.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            LinkButton((if (showRaw) "▾ " else "▸ ") + "Pokaż cały rozpoznany tekst (${pre.lines.size})", { showRaw = !showRaw })
-            if (showRaw) {
-                Hint("Dotknij napisu, żeby użyć go jako nazwy. Tak wygląda tekst odczytany z opakowania, od góry.")
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pre.lines.forEach { l -> ToggleChip(l, name == l) { name = l; err = "" } }
-                }
-            }
-        }
-        LekiField("Nazwa", name, { name = it; err = "" }, placeholder = "np. nazwa z opakowania")
-        LekiField("Substancja (opcjonalnie)", substance, { substance = it }, placeholder = "np. substancja czynna")
-        LekiField("Wskazówka przy dawce (opcjonalnie)", note, { note = it }, placeholder = "np. po posiłku, popić wodą")
+        LekiField("Nazwa", name, { name = it; err = "" }, Modifier.onFocusChanged { if (it.hasFocus) target = 0 }, placeholder = "np. nazwa z opakowania")
+        LekiField("Substancja (opcjonalnie)", substance, { substance = it }, Modifier.onFocusChanged { if (it.hasFocus) target = 1 }, placeholder = "np. substancja czynna")
+        LekiField("Wskazówka przy dawce (opcjonalnie)", note, { note = it }, Modifier.onFocusChanged { if (it.hasFocus) target = 2 }, placeholder = "np. po posiłku, popić wodą")
 
         LekiCard {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -217,6 +226,12 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
         }
         if (m != null) LinkButton("Usuń lek razem z historią", { confirmDelete = true }, danger = true)
     }
+    if (pickPhoto && photo != null) PhotoPickDialog(
+        title = "Zaznacz na zdjęciu", bitmap = photo.bitmap, lines = photo.lines, targets = listOf("Nazwa", "Substancja", "Wskazówka"), initialTarget = target, closeOnResult = false,
+        hint = "Dotknij obrysowanego napisu albo narysuj palcem prostokąt wokół tekstu: odczytam zaznaczony obszar dokładniej. Wybierz pole, do którego ma trafić tekst; możesz zaznaczyć kilka napisów po kolei.",
+        onResult = { t, rows -> put(t, rows.joinToString(" ")); target = t; toast("Wstawiono: " + rows.joinToString(" ").take(60)) },
+        onClose = { pickPhoto = false },
+    )
     if (confirmDelete && m != null) ConfirmDialog(
         "Usunąć lek ${m.name}?", "Lek zniknie z planu, a odhaczenia tego leku zostaną usunięte z historii. Jeśli chcesz tylko przestać go brać, zamiast tego ustaw ostatni dzień przyjmowania.",
         "Usuń lek", onConfirm = { store.update { it.deleteMed(m.id) }; toast("Usunięto lek"); onClose() }, onDismiss = { confirmDelete = false }, danger = true,

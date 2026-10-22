@@ -46,7 +46,8 @@ object MedScan {
 
     /** WIELKIE LITERY z opakowania zamieniamy na zwykły zapis („CONCOR” → „Concor”); mieszana wielkość zostaje. */
     fun tidyName(raw: String): String {
-        val t = raw.replace(Regex("""\s+"""), " ").trim().trim('-', '–', '.', ',', ':', ';', '*', '®', '™', '©', ' ')
+        // z brzegów znikają znaki interpunkcyjne i symbole (®, ™, °, który OCR czyta zamiast ®), zostają litery i cyfry
+        val t = raw.replace(Regex("""\s+"""), " ").trim().trim { !it.isLetterOrDigit() }
         val letters = t.filter { it.isLetter() }
         if (letters.length >= 3 && letters.all { it.isUpperCase() }) return t.split(' ').joinToString(" ") { w -> if (w.any { it.isDigit() }) w else w.lowercase().replaceFirstChar { it.uppercase() } }
         return t
@@ -70,6 +71,19 @@ object MedScan {
 
     /** Nazwa substancji czynnej wydrukowana pod nazwą handlową (bez etykiety „Substancja czynna”): sól albo rzeczownik w dopełniaczu, np. „…u chlorowodorek”. */
     private val innRx = Regex("""(?i)chlorowodorek|siarczan|fumaran|maleinian|winian|bursztynian|mesylan|\bsodu\b|\bpotasu\b|\bwapnia\b|\bmagnezu\b|\b\p{L}{8,}u\b""")
+
+    /** Tekst zaznaczony ręcznie (dotknięty napis albo obszar ze zdjęcia) wstawiony jako nazwa: bez mocy, ® i WIELKICH LITER, z mocą z opakowania dopisaną, gdy znana. */
+    fun asName(raw: String, strength: String = ""): String {
+        val n = tidyName(withoutStrength(raw.replace('\n', ' ')))
+        return if (strength.isBlank() || n.isBlank() || n.contains(strength, ignoreCase = true)) n else "$n $strength"
+    }
+
+    /** Tekst zaznaczony ręcznie wstawiony jako substancja czynna: bez etykiety „Substancja czynna:” i bez mocy. */
+    fun asSubstance(raw: String): String {
+        var t = raw.replace('\n', ' ').trim()
+        substanceRx.find(t)?.let { m -> t = m.groupValues[1] }
+        return tidyName(withoutStrength(t)).take(60)
+    }
 
     /** Odczyt z linii OCR (z położeniem i wysokością napisów, bo nazwa leku to zwykle największy napis na opakowaniu). Null, gdy nic sensownego nie znaleziono. */
     fun parse(lines: List<OcrLine>): MedDraft? {

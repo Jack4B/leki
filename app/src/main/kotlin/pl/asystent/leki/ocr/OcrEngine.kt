@@ -5,6 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
@@ -29,16 +33,54 @@ class OcrEngine : AutoCloseable {
     suspend fun recognize(bitmap: Bitmap): List<OcrLine> = suspendCancellableCoroutine { cont ->
         recognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { text ->
-                cont.resume(text.textBlocks.flatMap { it.lines }.mapNotNull { l -> l.boundingBox?.let { b -> OcrLine(l.text, b.left, b.top, b.right, b.bottom) } })
+                cont.resume(text.textBlocks.flatMap { it.lines }.mapNotNull { l -> l.boundingBox?.let { b -> OcrLine(l.text, b.left, b.top, b.right, b.bottom, l.confidence) } })
             }
             .addOnFailureListener { cont.resumeWithException(it) }
+    }
+
+    /**
+     * Rozpoznawanie zdjęć (aparat, galeria): dwa odczyty, z oryginału i ze wzmocnionego kontrastu w skali szarości (pomaga przy słabym świetle, połysku i bladym druku),
+     * a wynik z większą liczbą pewnie rozpoznanych znaków wygrywa. Dla stron PDF wystarczy zwykłe [recognize] (renderowane są czysto).
+     */
+    suspend fun recognizeBest(bitmap: Bitmap): List<OcrLine> {
+        val plain = recognize(bitmap)
+        val boosted = runCatching { ScanImages.enhance(bitmap) }.getOrNull() ?: return plain
+        return try {
+            val b = recognize(boosted)
+            if (pl.asystent.leki.core.ocrScore(b) > pl.asystent.leki.core.ocrScore(plain) * 1.05) b else plain
+        } catch (e: Exception) { plain } finally { boosted.recycle() }
+    }
+
+    /** Odczyt zaznaczonego fragmentu ([rect] we współrzędnych [src]): wycinek jest powiększany (do 4 razy), co poprawia odczyt małego druku. Współrzędne wyniku dotyczą wycinka. */
+    suspend fun recognizeCrop(src: Bitmap, rect: Rect): List<OcrLine> {
+        val l = rect.left.coerceIn(0, src.width - 1); val t = rect.top.coerceIn(0, src.height - 1)
+        val r = rect.right.coerceIn(l + 1, src.width); val b = rect.bottom.coerceIn(t + 1, src.height)
+        val crop = Bitmap.createBitmap(src, l, t, r - l, b - t)
+        val factor = (1600f / maxOf(crop.width, crop.height)).coerceIn(1f, 4f)
+        val big = if (factor > 1.05f) Bitmap.createScaledBitmap(crop, (crop.width * factor).toInt(), (crop.height * factor).toInt(), true) else crop
+        return try { recognizeBest(big) } finally { if (big !== crop) big.recycle(); crop.recycle() }
     }
 
     override fun close() = recognizer.close()
 }
 
+/** Zdjęcie z odczytanymi wierszami, trzymane w pamięci na czas ręcznego zaznaczania tekstu (zwalniane przy zamknięciu edytora). */
+class ScanPhoto(val bitmap: Bitmap, val lines: List<OcrLine>) {
+    fun release() { if (!bitmap.isRecycled) bitmap.recycle() }
+}
+
 object ScanImages {
     private const val MAX_SIDE = 3200
+
+    /** Kopia w skali szarości ze wzmocnionym kontrastem (do drugiego odczytu tego samego zdjęcia). */
+    fun enhance(src: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        val cm = ColorMatrix().apply { setSaturation(0f) }
+        val k = 1.6f; val t = (-0.5f * k + 0.5f) * 255f
+        cm.postConcat(ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, t, 0f, k, 0f, 0f, t, 0f, 0f, k, 0f, t, 0f, 0f, 0f, 1f, 0f)))
+        Canvas(out).drawBitmap(src, 0f, 0f, Paint().apply { colorFilter = ColorMatrixColorFilter(cm) })
+        return out
+    }
 
     /** Wczytuje obraz z pliku lub galerii, zmniejsza do rozsądnego rozmiaru i uwzględnia obrót z danych EXIF. */
     suspend fun load(ctx: Context, uri: Uri): Bitmap? = withContext(Dispatchers.IO) {

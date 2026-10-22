@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.9.0-preview
+
+Dopracowanie modułu OCR (odczyt leku ze zdjęcia opakowania oraz wyników badań ze zdjęcia).
+
+- **Wstawianie rozpoznanego tekstu do wybranego pola.** W edytorze leku rozpoznane wiersze są przyciskami; dotknięty napis trafia do pola wskazanego przełącznikiem (Nazwa, Substancja, Wskazówka) albo do pola, które ostatnio dotknąłeś (dotknij pola Substancja, potem napisu). Wstawiany tekst jest czyszczony pod pole: w nazwie bez WIELKICH LITER, ®/™ (także „°”, który OCR czyta zamiast ®) i z dopisaną mocą z opakowania, w substancji bez etykiety „Substancja czynna:” i bez mocy.
+- **Ręczne zaznaczanie na zdjęciu** („Zaznacz na zdjęciu” w edytorze leku): zdjęcie z obrysowanymi rozpoznanymi napisami; dotknięcie napisu bierze go, a narysowanie palcem prostokąta odczytuje zaznaczony obszar jeszcze raz, z powiększeniem do 4 razy (dokładniej niż przy całym zdjęciu). Tekst trafia do wybranego pola; można zaznaczyć kilka napisów po kolei. Edytor otwiera się ze zdjęciem także wtedy, gdy automatyczny odczyt nic nie znalazł.
+- **Lepszy odczyt zdjęć** (leki i wyniki badań): dwa odczyty tego samego zdjęcia, z oryginału i ze wzmocnionego kontrastu w skali szarości (pomaga przy słabym świetle, połysku i bladym druku); wygrywa odczyt z większą liczbą pewnie rozpoznanych znaków (ocena ważona pewnością z ML Kit). Strony PDF nadal czytane jednym przejściem (są renderowane czysto).
+- **Wyniki badań ze zdjęcia: ręczne zaznaczenie tabeli.** Gdy odczyt nie znalazł wyników, przycisk „Zaznacz tabelę na zdjęciu” pozwala narysować prostokąt wokół tabeli; obszar jest odczytywany z powiększeniem i trafia do zwykłego ekranu sprawdzania wyników.
+- Znaki na brzegach nazwy: znikają wszystkie znaki niebędące literą ani cyfrą (wcześniej tylko wybrane).
+- 2 nowe testy (czyszczenie tekstu wstawianego do pól, ocena jakości odczytu), razem 141 testów logiki.
+
 ## 0.8.5-preview
 
 Poprawki odczytu leku ze zdjęcia po teście na prawdziwym opakowaniu (nazwa handlowa w jednym wierszu z mocą, pod nią nazwa substancji; odczyt wybrał nazwę substancji albo szum z OCR).

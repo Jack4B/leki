@@ -83,6 +83,10 @@ fun ScanDialog(s: AppState, store: Store, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     var stage by remember { mutableStateOf<Stage>(Stage.Pick) }
     var cameraFile by remember { mutableStateOf<File?>(null) }
+    // zdjęcie (gdy wybrano jedno) zostaje w pamięci na wypadek nieudanego odczytu: wtedy tabelę można zaznaczyć ręcznie
+    var photo by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var regionOpen by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { photo?.let { if (!it.isRecycled) it.recycle() } } }
 
     fun finish(rows: List<String>, pages: Int) {
         val raw = rows.joinToString("\n").trim()
@@ -121,8 +125,9 @@ fun ScanDialog(s: AppState, store: Store, onClose: () -> Unit) {
         for ((i, uri) in uris.withIndex()) {
             stage = Stage.Working("Rozpoznaję tekst (${i + 1} z ${uris.size})…")
             val bmp = ScanImages.load(ctx, uri) ?: continue
-            rows += LabScan.rows(engine.recognize(bmp)); rows += ""
-            bmp.recycle(); n++
+            rows += LabScan.rows(engine.recognizeBest(bmp)); rows += ""
+            if (uris.size == 1) { photo?.let { if (!it.isRecycled) it.recycle() }; photo = bmp } else bmp.recycle()
+            n++
         }
         n
     }
@@ -170,12 +175,20 @@ fun ScanDialog(s: AppState, store: Store, onClose: () -> Unit) {
                 is Stage.Failed -> {
                     AlertBox("Nie udało się odczytać wyników", body = st.message)
                     if (st.rawText.isNotEmpty()) RawTextBlock(st.rawText)
+                    photo?.let { LekiButton("Zaznacz tabelę na zdjęciu", { regionOpen = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Camera) }
                     LekiButton("Spróbuj ponownie", { stage = Stage.Pick }, Modifier.fillMaxWidth(), primary = true)
                 }
                 is Stage.Review -> {}
             }
         }
     }
+    val ph = photo
+    if (regionOpen && ph != null) PhotoPickDialog(
+        title = "Zaznacz tabelę z wynikami", bitmap = ph, lines = emptyList(), targets = listOf("Wyniki"), initialTarget = 0, closeOnResult = true,
+        hint = "Narysuj palcem prostokąt wokół tabeli z wynikami (nazwy, wartości i jednostki). Odczytam tylko ten obszar, z powiększeniem, co pomaga przy małym druku i słabym zdjęciu.",
+        onResult = { _, rows -> regionOpen = false; finish(rows, 1) },
+        onClose = { regionOpen = false },
+    )
 }
 
 @Composable
