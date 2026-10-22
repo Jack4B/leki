@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,6 +105,8 @@ fun ScanDialog(s: AppState, store: Store, onClose: () -> Unit) {
                 finish(rows, pages)
             } catch (e: ScanImages.PdfException) {
                 stage = Stage.Failed(e.message ?: "Nie można otworzyć PDF.", "")
+            } catch (e: OutOfMemoryError) {
+                stage = Stage.Failed("Zdjęcie lub plik jest za duży dla pamięci telefonu. Zrób zdjęcie w niższej rozdzielczości albo skanuj mniej stron naraz.", "")
             } catch (e: Exception) {
                 stage = Stage.Failed("Nie udało się rozpoznać tekstu (${e.javaClass.simpleName}). Spróbuj ponownie.", "")
             } finally {
@@ -248,7 +251,7 @@ fun ReviewBody(s: AppState, rv: ReviewState) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
                     Modifier.padding(top = 14.dp).size(26.dp).clip(RoundedCornerShape(7.dp)).border(2.dp, if (on) pal.accent else pal.ink3, RoundedCornerShape(7.dp))
-                        .background(if (on) pal.accent else androidx.compose.ui.graphics.Color.Transparent).clickable(role = Role.Checkbox) { rv.included[c.index] = !on },
+                        .background(if (on) pal.accent else androidx.compose.ui.graphics.Color.Transparent).toggleable(value = on, role = Role.Checkbox) { rv.included[c.index] = !on },
                     contentAlignment = Alignment.Center,
                 ) { if (on) PhIcon(Ph.Check, size = 16.dp, tint = pal.accentInk) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -2,10 +2,13 @@ package pl.asystent.leki
 
 import android.app.Activity
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PersistableBundle
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
@@ -17,7 +20,10 @@ import java.io.File
 object Platform {
     fun copyText(ctx: Context, label: String, text: String) {
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText(label, text))
+        val clip = ClipData.newPlainText(label, text)
+        // dane zdrowotne: Android 13+ nie pokazuje treści w podglądzie schowka
+        if (Build.VERSION.SDK_INT >= 33) clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        cm.setPrimaryClip(clip)
     }
 
     /** Tekst ze schowka (pusty, gdy schowek jest pusty albo nie zawiera tekstu). */
@@ -50,8 +56,13 @@ object Platform {
         ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Nie można otworzyć pliku")
 
     /** Drukuje dokument HTML lub zapisuje go jako PDF (okno druku Androida). */
+    // WebView musi żyć do końca zadania druku, więc trzymamy referencję (kontekst aplikacji, żeby nie wyciekała aktywność)
+    private var printWeb: WebView? = null
+
     fun printHtml(activity: Activity, title: String, html: String) {
-        val web = WebView(activity)
+        printWeb?.destroy()
+        val web = WebView(activity.applicationContext)
+        printWeb = web
         web.settings.javaScriptEnabled = false
         web.settings.allowFileAccess = false
         web.webViewClient = object : WebViewClient() {

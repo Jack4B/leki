@@ -40,6 +40,12 @@ jobs:
           fi
       - name: Testy logiki i zbudowanie APK
         run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} -PlekiKeystore="$HOME/.android/debug.keystore" --no-daemon
+      - name: Sprawdź, że APK nie ma uprawnienia INTERNET
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT2=$(ls "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | tee permissions.txt
+          if grep -q 'android.permission.INTERNET' permissions.txt; then echo "::error::APK ma uprawnienie INTERNET, a aplikacja ma działać bez sieci"; exit 1; fi
       - name: Nazwij plik według wersji
         run: |
           VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)

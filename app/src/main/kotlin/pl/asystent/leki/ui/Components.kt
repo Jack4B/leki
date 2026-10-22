@@ -175,6 +175,7 @@ fun LekiField(
 @Composable
 fun IntField(label: String, value: Int, onValue: (Int) -> Unit, range: IntRange, modifier: Modifier = Modifier, placeholder: String = "") {
     var text by remember(value) { mutableStateOf(value.toString()) }
+    var hadFocus by remember { mutableStateOf(false) }
     Column(modifier) {
         if (label.isNotEmpty()) Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
@@ -185,7 +186,10 @@ fun IntField(label: String, value: Int, onValue: (Int) -> Unit, range: IntRange,
                 f.toIntOrNull()?.let { if (it in range) onValue(it) }
             },
             modifier = Modifier.fillMaxWidth().onFocusChanged { st ->
-                if (!st.isFocused) {
+                // poprawiamy wartość dopiero po utracie fokusu, a nie przy samym wyświetleniu pola (to wywoływało zbędny zapis przy otwarciu ekranu)
+                if (st.isFocused) hadFocus = true
+                else if (hadFocus) {
+                    hadFocus = false
                     val n = (text.toIntOrNull() ?: value).coerceIn(range.first, range.last)
                     text = n.toString(); onValue(n)
                 }

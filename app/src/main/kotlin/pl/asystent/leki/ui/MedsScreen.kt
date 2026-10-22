@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -300,7 +301,7 @@ private fun DoseRow(
     x: Item, sel: LocalDate, today: LocalDate, s: AppState, on: Boolean, time: LocalTime?, skipped: Skipped?, late: String,
     onToggle: () -> Unit, onSkip: () -> Unit, onTime: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth().clickable(role = Role.Checkbox, onClick = onToggle).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+    Row(Modifier.fillMaxWidth().toggleable(value = on, role = Role.Checkbox, onValueChange = { onToggle() }).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
         Box(
             Modifier.padding(top = 1.dp).size(28.dp).clip(CircleShape).border(2.dp, if (on) pal.accent else pal.ink3, CircleShape).background(if (on) pal.accent else androidx.compose.ui.graphics.Color.Transparent)
                 .semantics { contentDescription = x.med.name + ", " + num(x.dose) + " " + x.med.unit },

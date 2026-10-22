@@ -47,7 +47,7 @@ object ScanImages {
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
         var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIDE) sample *= 2
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MAX_SIDE) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
         val bmp = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return@withContext null
         val orientation = runCatching {
@@ -77,8 +77,9 @@ object ScanImages {
                 for (i in 0 until minOf(total, maxPages)) {
                     val bmp = withContext(Dispatchers.IO) {
                         r.openPage(i).use { page ->
-                            val scale = 2200f / page.width
-                            val w = 2200
+                            // szerokość 2200 px, ale wysokość nie większa niż 6600 px (bardzo długie strony nie mogą wyczerpać pamięci)
+                            val scale = minOf(2200f / page.width, 6600f / page.height)
+                            val w = (page.width * scale).toInt().coerceAtLeast(1)
                             val h = (page.height * scale).toInt().coerceAtLeast(1)
                             val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                             Canvas(b).drawColor(Color.WHITE)

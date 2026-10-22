@@ -320,6 +320,8 @@ private fun ReminderSection(s: AppState, store: Store) {
     val toast = LocalToast.current
     val c = s.settings
     var tick by remember { mutableStateOf(0) }
+    // po powrocie z ustawień systemowych odświeżamy stan zgód
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { tick++; onPauseOrDispose {} }
 
     fun enable() {
         store.update { it.copy(settings = it.settings.copy(remindOn = true)) }
@@ -349,7 +351,15 @@ private fun ReminderSection(s: AppState, store: Store) {
                 if (!Reminders.canNotify(ctx)) toast("Brak zgody na powiadomienia. Włącz je w ustawieniach telefonu.")
                 else { Reminders.scheduleTest(ctx); toast("Powiadomienie pojawi się za kilka sekund. Możesz zablokować ekran.") }
             })
-            if (c.remindOn) Hint(if (!Reminders.canNotify(ctx)) "Powiadomienia są wyłączone w ustawieniach telefonu." else "Zaplanowane przypomnienia: $planned.")
+            val notifyOk = tick >= 0 && Reminders.canNotify(ctx)
+            if (c.remindOn) Hint(if (!notifyOk) "Powiadomienia są wyłączone w ustawieniach telefonu, więc przypomnienia się nie pokażą." else "Zaplanowane przypomnienia: $planned.")
+            if (c.remindOn && !notifyOk) LekiButton("Zezwól na powiadomienia", {
+                if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else runCatching { ctx.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }, Modifier.fillMaxWidth(), tonal = true)
+            if (c.remindOn && Build.VERSION.SDK_INT >= 31 && tick >= 0 && !Reminders.canScheduleExact(ctx)) LekiButton("Zezwól na dokładne alarmy", {
+                runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }, Modifier.fillMaxWidth(), tonal = true)
         }
     }
 }

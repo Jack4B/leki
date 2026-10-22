@@ -67,7 +67,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     var preview by remember { mutableStateOf(false) }
     var showAi by rememberSaveable { mutableStateOf(false) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<pl.asystent.leki.core.Analysis?>(null) }
+    var editId by rememberSaveable { mutableStateOf("") }
     val first = s.firstDate(today)
     val custom = if (fromStr.isNotEmpty() || toStr.isNotEmpty()) (fromStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) } to toStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }) else null
     val per = Period.resolve(preset, custom, today, first)
@@ -126,11 +126,11 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                                     Column(Modifier.weight(1f)) {
                                         CheckRow(a.title, picked?.id == a.id, { setRp { it.copy(analysisId = a.id) } }, subtitle = plDate(a.date) + ", " + Markdown.selected(a.text, a.excluded).length + " z " + a.text.length + " znaków")
                                     }
-                                    LekiButton("Edytuj", { editing = a; editorOpen = true }, small = true)
+                                    LekiButton("Edytuj", { editId = a.id; editorOpen = true }, small = true)
                                 }
                             }
                         }
-                        LekiButton(if (s.analyses.isEmpty()) "Wklej odpowiedź AI" else "Dodaj kolejną analizę", { editing = null; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
+                        LekiButton(if (s.analyses.isEmpty()) "Wklej odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
                     if (rp.labs) {
                         Spacer8()
@@ -177,14 +177,14 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     }
                     LinkButton((if (showAi) "▾ " else "▸ ") + "Podgląd treści", { showAi = !showAi }, Modifier.padding(top = 4.dp))
                     if (showAi) LekiField("", text, {}, readOnly = true, singleLine = false, minLines = 8, mono = true)
-                    LinkButton("Wklej odpowiedź AI do raportu dla lekarza", { editing = null; editorOpen = true }, Modifier.padding(top = 4.dp))
+                    LinkButton("Wklej odpowiedź AI do raportu dla lekarza", { editId = ""; editorOpen = true }, Modifier.padding(top = 4.dp))
                     Hint("Długość: ${"%,d".format(java.util.Locale.forLanguageTag("pl"), text.length)} znaków (około ${Math.round(text.length / 3.5 / 100) * 100} tokenów). Odpowiedź AI to pomoc w przygotowaniu pytań do lekarza lub farmaceuty, a nie porada medyczna.")
                 }
             }
         }
     }
 
-    if (editorOpen) AnalysisEditor(editing, store, today) { editorOpen = false; editing = null }
+    if (editorOpen) AnalysisEditor(s.analysis(editId), store, today) { editorOpen = false; editId = "" }
 
     if (preview) {
         val html = remember(s, per, now.toLocalTime().hour) { DoctorReport.document(DoctorReport.html(s, per, today, now)) }
@@ -213,5 +213,6 @@ fun ReportWebView(html: String, modifier: Modifier = Modifier) {
             }
         },
         update = { it.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null) },
+        onRelease = { it.destroy() },
     )
 }

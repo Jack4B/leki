@@ -63,6 +63,8 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
             }
         } catch (e: Backup.FormatException) {
             toast("To nie jest plik kopii z tej aplikacji.")
+        } catch (e: Exception) {
+            toast("Nie udało się wczytać pliku.")
         }
     }
 

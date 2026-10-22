@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -31,6 +33,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -82,6 +85,12 @@ class MainActivity : ComponentActivity() {
         setContent { App(store) }
     }
 
+    // zapis przy każdym opuszczeniu ekranu, a nie dopiero w onStop: system może zabić proces między onPause a onStop
+    override fun onPause() {
+        super.onPause()
+        (application as LekiApp).store.flush()
+    }
+
     override fun onStop() {
         super.onStop()
         (application as LekiApp).store.flush()
@@ -107,6 +116,10 @@ fun App(store: Store) {
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val toast: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
+        val saveFailed by store.saveFailed.collectAsStateWithLifecycle()
+        LaunchedEffect(saveFailed) {
+            if (saveFailed) toast("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.")
+        }
         CompositionLocalProvider(LocalToast provides toast) {
             var tab by rememberSaveable { mutableIntStateOf(0) }
             var newMed by remember { mutableStateOf(false) }
@@ -149,7 +162,8 @@ fun App(store: Store) {
                     }
                 },
             ) { padding ->
-                Box(Modifier.padding(padding).fillMaxSize()) {
+                // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
+                Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
                     val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true })
                     when (tab) {
                         0 -> MedsScreen(s, store, nav, onGoData = { tab = 4 }, recoveredFrom = store.recoveredFrom)

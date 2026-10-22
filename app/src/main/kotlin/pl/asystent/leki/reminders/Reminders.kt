@@ -59,7 +59,7 @@ object Reminders {
             pending(ctx, id, null, null, false)?.let { am.cancel(it); it.cancel() }
         }
         if (!s.settings.remindOn) {
-            prefs.edit().putStringSet(KEY_IDS, emptySet()).apply()
+            prefs.edit().putStringSet(KEY_IDS, emptySet()).commit()
             return
         }
         ensureChannel(ctx)
@@ -67,10 +67,19 @@ object Reminders {
         val exact = canScheduleExact(ctx)
         list.forEach { r ->
             val pi = pending(ctx, r.id, r.title, r.body, true) ?: return@forEach
-            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.atMillis, pi)
-            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.atMillis, pi)
+            setAlarm(am, r.atMillis, pi, exact)
         }
-        prefs.edit().putStringSet(KEY_IDS, list.map { it.id.toString() }.toSet()).apply()
+        // commit zamiast apply: lista identyfikatorów musi być zapisana, zanim proces zostanie zabity, inaczej zostają alarmy-sieroty
+        prefs.edit().putStringSet(KEY_IDS, list.map { it.id.toString() }.toSet()).commit()
+    }
+
+    /** Dokładny alarm, a gdy system odmówi (cofnięta zgoda, polityka producenta), zwykły alarm: lepsze spóźnione przypomnienie niż awaria. */
+    private fun setAlarm(am: AlarmManager, at: Long, pi: PendingIntent, exact: Boolean) {
+        try {
+            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        } catch (e: SecurityException) {
+            runCatching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+        }
     }
 
     /** Natychmiastowe powiadomienie próbne (po kilku sekundach). */
@@ -79,16 +88,25 @@ object Reminders {
         val am = ctx.getSystemService(AlarmManager::class.java)
         val pi = pending(ctx, 2, "Asystent leków", "Tak będzie wyglądać przypomnienie.", true) ?: return
         val at = System.currentTimeMillis() + 8000
-        if (canScheduleExact(ctx)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        setAlarm(am, at, pi, canScheduleExact(ctx))
     }
 
     fun show(ctx: Context, id: Int, title: String, body: String) {
         if (!canNotify(ctx)) return
         ensureChannel(ctx)
         val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE)
+        // nazwa leku to dane zdrowotne: na zablokowanym ekranie (gdy użytkownik ukrywa wrażliwą treść) pokazujemy wersję neutralną
+        val publicVersion = NotificationCompat.Builder(ctx, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_pill)
+            .setColor(0xFF0B6B58.toInt())
+            .setContentTitle("Asystent leków")
+            .setContentText("Czas na przyjęcie leku")
+            .build()
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_pill)
             .setColor(0xFF0B6B58.toInt())
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -109,13 +127,37 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Reminders.ACTION) return
         Reminders.show(context, intent.getIntExtra("id", 0), intent.getStringExtra("title") ?: "Asystent leków", intent.getStringExtra("body") ?: "")
+        // okno alarmów jest kroczące (14 dni): po każdym przypomnieniu uzupełniamy je, żeby nie wygasło, gdy aplikacja długo nie jest otwierana
+        refresh(context)
     }
 }
 
-/** Po restarcie telefonu i po aktualizacji aplikacji alarmy trzeba ustawić od nowa. */
+/** Ustawia alarmy od nowa na podstawie aktualnych danych (stan z pamięci aplikacji, a gdy go nie ma, z pliku). */
+private fun BroadcastReceiver.refresh(context: Context) {
+    val pending = goAsync()
+    Thread {
+        try {
+            val state = (context.applicationContext as? pl.asystent.leki.LekiApp)?.store?.state?.value ?: Store.read(context.filesDir).first
+            Reminders.reschedule(context, state)
+        } catch (e: Exception) {
+            android.util.Log.e("Reminders", "Nie udało się odświeżyć alarmów", e)
+        } finally {
+            pending.finish()
+        }
+    }.start()
+}
+
+/** Po restarcie telefonu, aktualizacji aplikacji, zmianie strefy czasu lub zegara i po zmianie zgody na dokładne alarmy trzeba ustawić alarmy od nowa. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val (state, _) = Store.read(context.filesDir)
-        Reminders.reschedule(context, state)
+        if (intent.action !in ACTIONS) return
+        refresh(context)
+    }
+
+    companion object {
+        private val ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_TIME_CHANGED,
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+        )
     }
 }

@@ -1,5 +1,19 @@
 # Zmiany
 
+## 0.5.2-preview
+
+Przegląd kodu aplikacji i poprawki znalezionych problemów.
+
+- **Bezpieczniejszy zapis danych:** zapis przez `AtomicFile` (synchronizacja z dyskiem, poprzedni dobry plik zostaje, gdy zapis się przerwie), zapis także przy opuszczeniu ekranu (nie tylko przy zatrzymaniu), ostrzeżenie w aplikacji, gdy zapis na dysk się nie udał (np. brak miejsca). Uszkodzony plik danych jest odkładany jako jedna kopia (`state.uszkodzony.json`) zamiast nowego pliku przy każdym starcie.
+- **Przypomnienia:** okno alarmów jest kroczące, więc po każdym przypomnieniu uzupełnia się o kolejne dni (wcześniej wygasały po 14 dniach bez otwarcia aplikacji). Alarmy ustawiają się od nowa po zmianie strefy czasu, zmianie zegara i zmianie zgody na dokładne alarmy. Błąd ustawiania alarmów nie przerywa już uruchomienia aplikacji (wcześniej mógł powodować awarię przy każdym starcie). Od Androida 13 dokładne alarmy nie wymagają prośby (`USE_EXACT_ALARM`). Po wczytaniu kopii z włączonymi przypomnieniami ekran ustawień pokazuje przyciski „Zezwól na powiadomienia” i „Zezwól na dokładne alarmy”, jeśli brakuje zgód.
+- **Prywatność:** powiadomienia o lekach pokazują na zablokowanym ekranie wersję neutralną, gdy ukryta jest wrażliwa treść; skopiowany raport i kopia JSON są oznaczone w schowku jako wrażliwe (Android 13+); pliki tymczasowe z udostępniania i aparatu są kasowane przy starcie aplikacji.
+- **Formularze nie tracą wpisanych danych** przy obrocie ekranu, zmianie motywu lub rozmiaru czcionki (aktywność sama obsługuje zmiany konfiguracji). Edycja istniejącej analizy AI nie otwiera się już po obrocie jako nowa.
+- **Klawiatura** nie zasłania pól wpisywania na Androidzie 15 (odstęp na klawiaturę).
+- **OCR:** poprawione zmniejszanie dużych zdjęć i stron PDF oraz komunikat zamiast awarii, gdy zdjęcie jest za duże dla pamięci telefonu.
+- Drobne: pola liczbowe w Ustawieniach nie zapisują danych samym otwarciem ekranu; pola wyboru dawek i wyników skanu są dla TalkBack przełącznikami z odczytywanym stanem; wczytanie uszkodzonego pliku pokazuje komunikat zamiast awarii; podgląd i druk raportu zwalniają WebView.
+- CI sprawdza, że zbudowany APK nie ma uprawnienia INTERNET.
+- README: procedura wydania aplikacji (Google Play i inne drogi).
+
 ## 0.5.1-preview
 
 - **Poprawka komunikatów (snackbar) w ciemnym motywie:** po wczytaniu kopii pojawiała się jasna belka bez widocznego tekstu. Styl tekstu w motywie miał na stałe ustawiony jasny kolor, który wygrywał z kolorem paska. Teraz tekst bierze kolor z kontenera, więc na jasnym pasku jest ciemny. Dodane zrzuty testowe komunikatu w obu motywach.
