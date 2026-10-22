@@ -9,13 +9,16 @@ object EcgReport {
 
     private fun f(v: Double) = "%.1f".format(java.util.Locale.ROOT, v)
 
-    fun svg(e: Ecg, r: EcgResult): String {
+    private val LOCATED = setOf("premature", "premature_many", "pause", "artifacts")
+
+    /** [trueScale]: szerokość w milimetrach tak, by 10 s zajmowało 250 mm (25 mm/s, 10 mm/mV), do wydruku A4 poziomo. */
+    fun svg(e: Ecg, r: EcgResult, trueScale: Boolean = false): String {
         val sig = e.signalMv()
         if (sig.isEmpty()) return ""
         val per = (10.0 * e.fs).toInt().coerceAtLeast(1)
         val rows = ((sig.size + per - 1) / per).coerceIn(1, 3)
         val sb = StringBuilder()
-        sb.append("<svg class=\"chart\" viewBox=\"0 0 ${f(W + 30)} ${f(ROW * rows)}\" role=\"img\" aria-label=\"Przebieg EKG\">")
+        sb.append("<svg class=\"chart\" viewBox=\"0 0 ${f(W + 30)} ${f(ROW * rows)}\"" + (if (trueScale) " style=\"width:${f((W + 30) / 4)}mm;max-width:none\"" else "") + " role=\"img\" aria-label=\"Przebieg EKG\">")
         for (k in 0 until rows) {
             val top = k * ROW
             sb.append("<g transform=\"translate(24 ${f(top)})\">")
@@ -45,28 +48,45 @@ object EcgReport {
         return sb.toString()
     }
 
+    /** Opis jednego zapisu: wskaźniki, wyniki (ogólne i zdarzenia z czasem) i przebieg. */
+    private fun entry(e: Ecg, r: EcgResult, heading: Boolean, trueScale: Boolean): String {
+        val h = StringBuilder()
+        if (heading) h.append("<h4>${plDate(e.date)} ${e.time.hhmm()}, ${"%.0f".format(e.durationS)} s</h4>")
+        val parts = ArrayList<String>()
+        if (e.watchHr > 0) parts.add("tętno wg zegarka: <b>${e.watchHr}/min</b>")
+        if (e.watchNote.isNotBlank()) parts.add("ocena zegarka: <b>${esc(e.watchNote)}</b>")
+        r.hrMedian?.let { parts.add("tętno z zapisu: <b>${Math.round(it)}/min</b>" + (if (r.hrMin != null && r.hrMax != null) " (zakres ${Math.round(r.hrMin)}–${Math.round(r.hrMax)})" else "")) }
+        r.sdnnMs?.let { parts.add("zmienność odstępów RR (SDNN): ${Math.round(it)} ms") }
+        r.qrsWidthMs?.let { parts.add("szerokość QRS: ok. ${Math.round(it)} ms (orientacyjnie)") }
+        parts.add("jakość zapisu: ${r.quality}")
+        h.append("<p style=\"margin:0 0 6px\">${parts.joinToString("; ")}.</p>")
+        h.append("<ul>")
+        r.flags.filter { it.code !in LOCATED }.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
+        r.events.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
+        h.append("</ul>")
+        if (e.note.isNotBlank()) h.append("<p class=\"muted\">Notatka pacjenta: ${esc(e.note)}</p>")
+        h.append(svg(e, r, trueScale))
+        return h.toString()
+    }
+
     fun html(list: List<Ecg>): String {
         val h = StringBuilder()
         h.append("<h3>EKG z zegarka (jedno odprowadzenie)</h3>")
         h.append("<p class=\"muted\" style=\"margin:0 0 6px\">Zapis z zegarka lub opaski, wczytany przez pacjenta z wydruku PDF; to nie jest badanie EKG w gabinecie. Wskaźniki są liczone przez aplikację orientacyjnie (rytm i odstępy między uderzeniami), bez oceny odstępu QT, odcinka ST ani niedokrwienia. Trójkąty oznaczają wykryte uderzenia, szare tło to zakłócenia pominięte w analizie.</p>")
-        for (e in list) {
-            val r = EcgAnalysis.analyze(e)
-            h.append("<h4>${plDate(e.date)} ${e.time.hhmm()}, ${"%.0f".format(e.durationS)} s</h4>")
-            val parts = ArrayList<String>()
-            if (e.watchHr > 0) parts.add("tętno wg zegarka: <b>${e.watchHr}/min</b>")
-            if (e.watchNote.isNotBlank()) parts.add("ocena zegarka: <b>${esc(e.watchNote)}</b>")
-            r.hrMedian?.let { parts.add("tętno z zapisu: <b>${Math.round(it)}/min</b>" + (if (r.hrMin != null && r.hrMax != null) " (zakres ${Math.round(r.hrMin)}–${Math.round(r.hrMax)})" else "")) }
-            r.sdnnMs?.let { parts.add("zmienność odstępów RR (SDNN): ${Math.round(it)} ms") }
-            r.qrsWidthMs?.let { parts.add("szerokość QRS: ok. ${Math.round(it)} ms (orientacyjnie)") }
-            parts.add("jakość zapisu: ${r.quality}")
-            h.append("<p style=\"margin:0 0 6px\">${parts.joinToString("; ")}.</p>")
-            h.append("<ul>")
-            r.flags.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
-            h.append("</ul>")
-            if (e.note.isNotBlank()) h.append("<p class=\"muted\">Notatka pacjenta: ${esc(e.note)}</p>")
-            h.append(svg(e, r))
-        }
+        for (e in list) h.append(entry(e, EcgAnalysis.analyze(e), heading = true, trueScale = false))
         h.append("<p class=\"muted\" style=\"margin:6px 0 0\">Metoda: ${esc(EcgInfo.SHORT)}</p>")
         return h.toString()
+    }
+
+    /** Samodzielny dokument jednego zapisu do wydruku lub PDF: A4 poziomo, przebieg w skali papieru (25 mm/s i 10 mm/mV), wyniki ze zdarzeniami i opis metody. */
+    fun document(s: AppState, e: Ecg, today: java.time.LocalDate, now: java.time.LocalDateTime): String {
+        val r = EcgAnalysis.analyze(e)
+        val b = StringBuilder()
+        b.append("<h2 class=\"rp-title\">EKG z zegarka</h2>")
+        b.append("<div class=\"rp-meta\">Pacjent: <b>${esc(s.patient.ifEmpty { "bez imienia" })}</b><br>Zapis z ${plDate(e.date)} ${e.time.hhmm()}, czas trwania ${"%.0f".format(e.durationS)} s. Przebieg w skali papieru: 25 mm/s i 10 mm/mV (wydruk A4 poziomo, 100% skali).</div>")
+        b.append(entry(e, r, heading = false, trueScale = true))
+        b.append("<p class=\"muted\" style=\"margin:8px 0 0\">Metoda: ${esc(EcgInfo.SHORT)}</p>")
+        b.append("<p class=\"rp-foot\">Wygenerowano ${plDate(today)} ${now.toLocalTime().hhmm()}. Przebieg odtworzony przez aplikację z wydruku PDF zegarka (przybliżenie z błędem rzędu 0,05 mV); to nie jest badanie EKG ani diagnoza.</p>")
+        return "<!doctype html><html lang=\"pl\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>${DoctorReport.CSS}@page{size:A4 landscape;margin:10mm}</style></head><body>$b</body></html>"
     }
 }

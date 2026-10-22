@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.6.7-preview
+
+- **Eksport EKG do PDF.** W edytorze zapisu przycisk „Eksport PDF” (obok „Powiększ przebieg”) i w zakładce Raport → Dla lekarza lista zapisów EKG z wybranego okresu z przyciskiem „PDF” przy każdym. Powstaje samodzielny dokument jednego zapisu: **A4 poziomo, przebieg w skali papieru** (25 mm/s i 10 mm/mV, 100% skali, więc 10 s to 250 mm), wskaźniki, wyniki ogólne i zdarzenia z czasem (przedwczesne uderzenia, przerwy, zakłócenia), notatka, opis metody i zastrzeżenie, że to nie jest badanie EKG ani diagnoza. Zapis do PDF lub druk przez okno systemowe, jak w raporcie dla lekarza. Do eksportu trafiają bieżące wartości z formularza (data, godzina, tętno, ocena, notatka), także dla zapisu jeszcze niezapisanego.
+- **Sekcja EKG w raporcie dla lekarza** ma teraz też zdarzenia z czasem (zamiast powtarzania ich w ogólnych wynikach).
+- Wydruk w skali wymaga drukowania „w 100%” (bez dopasowania do strony) i pozycji poziomej; aplikacja ustawia A4 poziomo.
+- 1 nowy test (dokument EKG: skala papieru, A4 poziomo, zdarzenia, ucieczka znaków HTML, sekcja w raporcie).
+
 ## 0.6.6-preview
 
 - **Lista nieprawidłowości pod wykresem w podglądzie EKG.** Pod powiększanym przebiegiem są teraz karty z opisem każdej wykrytej nieprawidłowości i jej położeniem w czasie: przedwczesne uderzenia (z odstępami RR i opisem kształtu), przerwy w rytmie i zakłócenia pominięte w analizie. **Dotknięcie karty powiększa wykres, przewija go do tego miejsca i zaznacza je** (pas z pionowymi liniami). Ogólne wyniki, które dotyczą całego zapisu (wolne lub szybkie tętno, rytm nieregularny, odstępy jak przy migotaniu), mają osobne karty z przyciskiem „pokaż całość”. Gdy nic nie wykryto, widać o tym informację.

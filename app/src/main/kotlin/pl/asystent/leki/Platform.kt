@@ -59,7 +59,7 @@ object Platform {
     // WebView musi żyć do końca zadania druku, więc trzymamy referencję (kontekst aplikacji, żeby nie wyciekała aktywność)
     private var printWeb: WebView? = null
 
-    fun printHtml(activity: Activity, title: String, html: String) {
+    fun printHtml(activity: Activity, title: String, html: String, landscape: Boolean = false) {
         printWeb?.destroy()
         val web = WebView(activity.applicationContext)
         printWeb = web
@@ -68,7 +68,7 @@ object Platform {
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
                 val pm = activity.getSystemService(Context.PRINT_SERVICE) as PrintManager
-                pm.print(title, view.createPrintDocumentAdapter(title), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
+                pm.print(title, view.createPrintDocumentAdapter(title), PrintAttributes.Builder().setMediaSize(if (landscape) PrintAttributes.MediaSize.ISO_A4.asLandscape() else PrintAttributes.MediaSize.ISO_A4).build())
             }
         }
         web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)

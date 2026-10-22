@@ -417,4 +417,20 @@ class EcgTest {
         val both = EcgAnalysis.analyze(ecg(times) { t -> if (t in 3.0..3.25) -2.6 * sin((t - 3.0) / 0.25 * PI) else 0.0 }, fs)
         assertEquals(both.events.sortedBy { it.tSec }, both.events)
     }
+
+    @Test fun standaloneEcgDocumentIsATrueScaleLandscapePage() {
+        val rrs = MutableList(40) { 0.8 }; rrs[12] = 0.5; rrs[13] = 1.1
+        val e = Ecg("p", LocalDate.of(2026, 10, 13), LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm <b>zatokowy</b>", fs = 250,
+            cmv = EcgVector.normalize(EcgAnalysis.toRecord(ecg(fromRr(rrs)), fs, 250)), note = "po spacerze")
+        val st = AppState(settings = Settings(), patient = "Jan <Testowy>")
+        val html = EcgReport.document(st, e, Fixtures.today, Fixtures.now)
+        assertTrue("size:A4 landscape" in html && "width:257.5mm" in html, "skala papieru")
+        assertTrue("25 mm/s i 10 mm/mV" in html && "Metoda:" in html && "nie jest badaniem EKG ani diagnozą" !in html && "to nie jest badanie EKG ani diagnoza" in html)
+        assertTrue("Przedwczesne uderzenie" in html && "zamiast typowego" in html && "<polyline" in html)
+        assertTrue("Jan &lt;Testowy&gt;" in html && "Rytm &lt;b&gt;zatokowy" in html && "<b>zatokowy</b>" !in html)
+        assertTrue("tętno wg zegarka: <b>73/min</b>" in html && "Notatka pacjenta: po spacerze" in html)
+        // sekcja w raporcie dla lekarza ma te same zdarzenia, ale bez skali papieru
+        val sec = EcgReport.html(listOf(e))
+        assertTrue("zamiast typowego" in sec && "width:257.5mm" !in sec)
+    }
 }

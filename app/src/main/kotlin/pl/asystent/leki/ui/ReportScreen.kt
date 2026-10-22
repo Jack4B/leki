@@ -39,14 +39,17 @@ import pl.asystent.leki.core.AiParts
 import pl.asystent.leki.core.AiReport
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.DoctorReport
+import pl.asystent.leki.core.EcgReport
+import pl.asystent.leki.core.Ecg
 import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.Period
 import pl.asystent.leki.core.ReportParts
 import pl.asystent.leki.core.firstDate
+import pl.asystent.leki.core.hhmm
 import pl.asystent.leki.core.plDate
 import java.time.LocalDate
 
-private fun Context.findActivity(): Activity? {
+internal fun Context.findActivity(): Activity? {
     var c = this
     while (c is ContextWrapper) { if (c is Activity) return c; c = c.baseContext }
     return null
@@ -114,6 +117,27 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
                         ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                    }
+                    if (rp.ecg) {
+                        val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
+                        if (ecgs.isNotEmpty()) {
+                            Overline("EKG z wybranego okresu", Modifier.padding(top = 18.dp))
+                            LekiCard {
+                                ecgs.take(6).forEachIndexed { i, e ->
+                                    if (i > 0) Divider()
+                                    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(plDate(e.date) + ", " + e.time.hhmm(), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                                            Text(listOf(if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "", e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" }, style = TextStyle(fontSize = 13.sp, color = pal.ink3))
+                                        }
+                                        LekiButton("PDF", {
+                                            ctx.findActivity()?.let { a -> Platform.printHtml(a, "EKG ${plDate(e.date)} ${e.time.hhmm()}", EcgReport.document(s, e, today, now), landscape = true) }
+                                        }, small = true, tonal = true, icon = Ph.Printer)
+                                    }
+                                }
+                            }
+                            Hint("Do raportu dla lekarza trafia do 6 ostatnich zapisów z okresu. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).", Modifier.padding(top = 6.dp))
+                        }
                     }
                     if (rp.analysis) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))

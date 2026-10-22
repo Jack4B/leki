@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import pl.asystent.leki.Store
+import pl.asystent.leki.Platform
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Ecg
 import pl.asystent.leki.core.EcgAnalysis
@@ -67,6 +68,7 @@ import pl.asystent.leki.core.EcgEvent
 import pl.asystent.leki.core.EcgInfo
 import pl.asystent.leki.core.EcgMeta
 import pl.asystent.leki.core.EcgResult
+import pl.asystent.leki.core.EcgReport
 import pl.asystent.leki.core.EcgVector
 import pl.asystent.leki.core.EcgSeverity
 import pl.asystent.leki.core.LabScan
@@ -413,6 +415,7 @@ fun EcgMethods() {
 @Composable
 fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
     val toast = LocalToast.current
+    val ctx = LocalContext.current
     var date by remember { mutableStateOf(initial.date) }
     var time by remember { mutableStateOf(initial.time) }
     var hr by remember { mutableStateOf(if (initial.watchHr > 0) initial.watchHr.toString() else "") }
@@ -436,7 +439,15 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
         },
     ) {
         EcgWaveView(initial, result)
-        LekiButton("Powiększ przebieg", { zoom = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Heartbeat)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LekiButton("Powiększ przebieg", { zoom = true }, Modifier.weight(1f), tonal = true, icon = Ph.Heartbeat)
+            LekiButton("Eksport PDF", {
+                // bieżące wartości z formularza (data, godzina, notatki), także dla zapisu jeszcze niezapisanego
+                val cur = initial.copy(date = date, time = time, watchHr = hr.toIntOrNull()?.coerceIn(0, 300) ?: 0, watchNote = watchNote.trim(), note = note.trim())
+                val now = java.time.LocalDateTime.now()
+                ctx.findActivity()?.let { a -> Platform.printHtml(a, "EKG ${plDate(cur.date)} ${cur.time.hhmm()}", EcgReport.document(store.state.value, cur, now.toLocalDate(), now), landscape = true) }
+            }, Modifier.weight(1f), tonal = true, icon = Ph.Printer)
+        }
         Hint("Przebieg odtworzony z wydruku. Sprawdź, czy wygląda tak jak na wydruku z zegarka; jeśli nie, nie opieraj się na analizie.")
         EcgFindings(result)
         EcgMethods()
