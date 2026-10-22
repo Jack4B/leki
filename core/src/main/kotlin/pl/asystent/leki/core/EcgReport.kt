@@ -41,6 +41,20 @@ object EcgReport {
                 if (t < 0 || t >= 10) continue
                 sb.append("<path d=\"M${f(t * W / 10 - 3)},4 L${f(t * W / 10 + 3)},4 L${f(t * W / 10)},11 Z\" fill=\"#0b6b58\"/>")
             }
+            // zdarzenia z listy pod wykresem: pomarańczowy pas z przerywanymi brzegami (przedwczesne uderzenie, przerwa) i numer; zakłócenia mają szare tło, więc same numer
+            r.events.forEachIndexed { n, ev ->
+                val a0 = if (ev.endSec == null) ev.tSec - 0.35 else ev.tSec
+                val a1 = if (ev.endSec == null) ev.tSec + 0.35 else ev.endSec
+                val lo = maxOf(a0, k * 10.0); val hi = minOf(a1, k * 10.0 + 10)
+                if (hi <= lo) return@forEachIndexed
+                val x0 = (lo - k * 10.0) * W / 10; val x1 = (hi - k * 10.0) * W / 10
+                if (ev.code != "artifact") {
+                    sb.append("<rect class=\"ev\" x=\"${f(x0)}\" y=\"0\" width=\"${f(x1 - x0)}\" height=\"${f(ROW - 12)}\" fill=\"#c25b00\" opacity=\".16\"/>")
+                    sb.append("<line x1=\"${f(x0)}\" x2=\"${f(x0)}\" y1=\"0\" y2=\"${f(ROW - 12)}\" stroke=\"#c25b00\" stroke-width=\"1\" stroke-dasharray=\"4 3\"/><line x1=\"${f(x1)}\" x2=\"${f(x1)}\" y1=\"0\" y2=\"${f(ROW - 12)}\" stroke=\"#c25b00\" stroke-width=\"1\" stroke-dasharray=\"4 3\"/>")
+                }
+                val cx = (x0 + x1) / 2
+                sb.append("<circle class=\"evn\" cx=\"${f(cx)}\" cy=\"24\" r=\"8\" fill=\"${if (ev.code == "artifact") "#666" else "#c25b00"}\"/><text x=\"${f(cx)}\" y=\"27.3\" font-size=\"9.5\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#fff\">${n + 1}</text>")
+            }
             sb.append("<text x=\"2\" y=\"${f(ROW - 2)}\" font-size=\"9\" fill=\"#666\">${k * 10}–${k * 10 + 10} s</text>")
             sb.append("</g>")
         }
@@ -62,10 +76,11 @@ object EcgReport {
         h.append("<p style=\"margin:0 0 6px\">${parts.joinToString("; ")}.</p>")
         h.append("<ul>")
         r.flags.filter { it.code !in LOCATED }.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
-        r.events.forEach { h.append("<li><b>${esc(it.title)}.</b> ${esc(it.text)}</li>") }
+        r.events.forEachIndexed { n, ev -> h.append("<li><b>${n + 1}. ${esc(ev.title)}.</b> ${esc(ev.text)}</li>") }
         h.append("</ul>")
         if (e.note.isNotBlank()) h.append("<p class=\"muted\">Notatka pacjenta: ${esc(e.note)}</p>")
         h.append(svg(e, r, trueScale))
+        if (r.events.isNotEmpty()) h.append("<p class=\"muted\" style=\"margin:2px 0 0\">Numery na wykresie odpowiadają zdarzeniom z listy powyżej; pomarańczowe pasy wskazują miejsce przedwczesnego uderzenia lub przerwy w rytmie, szare tło to zakłócenia pominięte w analizie.</p>")
         if (e.durationS > 30.5) h.append("<p class=\"muted\">Na wykresie są pierwsze 30 s zapisu; wskaźniki obejmują cały zapis.</p>")
         return h.toString()
     }

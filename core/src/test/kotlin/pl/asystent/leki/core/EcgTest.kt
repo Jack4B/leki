@@ -552,4 +552,27 @@ class EcgTest {
         assertEquals(1, d.strips)
         assertTrue(abs(d.mv.size - 900) <= 2, "próbek ${d.mv.size}")
     }
+
+    @Test fun printoutMarksEventsOnTheTraceAndNumbersThem() {
+        val rrs = MutableList(40) { 0.8 }; rrs[12] = 0.5; rrs[13] = 1.1
+        val times = fromRr(rrs)
+        val e = Ecg("m", LocalDate.of(2026, 1, 1), LocalTime.of(8, 0), fs = 125, cmv = EcgAnalysis.toRecord(ecg(times) { t -> if (t in 20.0..20.25) -2.6 * sin((t - 20.0) / 0.25 * PI) else 0.0 }, fs, 125))
+        val r = EcgAnalysis.analyze(e)
+        assertTrue(r.events.any { it.code == "premature" } && r.events.any { it.code == "artifact" })
+        val svg = EcgReport.svg(e, r)
+        // każde zdarzenie ma numer na wykresie, a pas tylko zdarzenia inne niż zakłócenia
+        // zdarzenie przechodzące przez granicę pasa 10 s ma numer w obu pasach
+        assertTrue(Regex("class=\"evn\"").findAll(svg).count() >= r.events.size)
+        assertEquals(r.events.count { it.code != "artifact" }, Regex("class=\"ev\"").findAll(svg).count())
+        for (n in 1..r.events.size) assertTrue(">$n</text>" in svg, "brak numeru $n")
+        // lista zdarzeń w dokumencie ma te same numery
+        val doc = EcgReport.document(AppState(), e, LocalDate.of(2026, 1, 2), java.time.LocalDateTime.of(2026, 1, 2, 9, 0))
+        for ((i, ev) in r.events.withIndex()) assertTrue("<b>${i + 1}. ${esc(ev.title)}.</b>" in doc, "numer ${i + 1} na liście")
+        assertTrue("Numery na wykresie odpowiadają zdarzeniom" in doc)
+        // zapis bez zdarzeń: bez znaczników i bez podpisu
+        val clean = Ecg("c", LocalDate.of(2026, 1, 1), LocalTime.of(8, 0), fs = 125, cmv = EcgAnalysis.toRecord(ecg(regular(0.8)), fs, 125))
+        val cleanSvg = EcgReport.svg(clean, EcgAnalysis.analyze(clean))
+        assertTrue("class=\"evn\"" !in cleanSvg)
+        assertTrue("Numery na wykresie" !in EcgReport.html(listOf(clean)))
+    }
 }
