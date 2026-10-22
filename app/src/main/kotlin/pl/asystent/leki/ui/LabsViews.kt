@@ -139,16 +139,19 @@ fun LazyListScope.overview(
             Stat("${model.withResults.count { labFlag(it.last!!, it.marker).isNotEmpty() }}", "poza zakresem", Modifier.weight(1f), valueColor = if (model.withResults.any { labFlag(it.last!!, it.marker).isNotEmpty() }) pal.warn else pal.ink)
             Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie badanie", Modifier.weight(1f))
         }
-        if (days.size >= 2) Row(Modifier.padding(top = 14.dp)) { ToggleChip("Porównaj dni", compare) { ui.compare = !ui.compare } }
-        if (days.isNotEmpty() && !compare) {
-            SegRow(listOf("Grupami", "A–Z", "Najnowsze"), ui.sort, { ui.sort = it }, Modifier.padding(top = 14.dp))
-            // filtry pojawiają się, gdy mają sens: „zmienione” od drugiego wyniku któregokolwiek parametru, „przypięte” po przypięciu pierwszego
-            val canChange = s.markers.any { s.labsOf(it.id).size >= 2 }
-            FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // jeden rząd pigułek: porównanie dni i filtry; „zmienione” pojawia się od drugiego wyniku któregokolwiek parametru, „przypięte” po przypięciu pierwszego
+        val canChange = s.markers.any { s.labsOf(it.id).size >= 2 }
+        if (days.isNotEmpty()) FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (days.size >= 2) ToggleChip("Porównaj dni", compare) { ui.compare = !ui.compare }
+            if (days.isNotEmpty() && !compare) {
                 ToggleChip("Poza zakresem", ui.fOut) { ui.fOut = !ui.fOut }
-                if (canChange) ToggleChip("Zmienione od poprzedniego", ui.fChanged) { ui.fChanged = !ui.fChanged }
+                if (canChange) ToggleChip("Zmienione", ui.fChanged) { ui.fChanged = !ui.fChanged }
                 if (s.markers.any { it.pin }) ToggleChip("Przypięte", ui.fPinned) { ui.fPinned = !ui.fPinned }
             }
+        }
+        if (days.isNotEmpty() && !compare) {
+            SegRow(listOf("Grupami", "A–Z", "Najnowsze"), ui.sort, { ui.sort = it }, Modifier.padding(top = 12.dp))
+            if (ui.fChanged) Hint("„Zmienione”: ostatni wynik różni się od poprzedniego o co najmniej 10% zakresu odniesienia.", Modifier.padding(top = 6.dp))
             if (s.labsSpanOverYear()) {
                 Text("Okres miniwykresów", style = TextStyle(fontSize = 12.sp, color = pal.ink3), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                 SegRow(labWindows(), ui.win, { ui.win = it })
@@ -292,7 +295,7 @@ fun LabMap(s: AppState, ui: LabsUi, onOpen: (String) -> Unit) {
                     Box(Modifier.height(HEAD_H).padding(start = 12.dp), contentAlignment = Alignment.CenterStart) { Text("Parametr", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3)) }
                     items.forEach { (g, r) ->
                         if (g != null) Box(Modifier.height(GRP_H).padding(start = 12.dp), contentAlignment = Alignment.BottomStart) {
-                            Text(g.uppercase(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.6.sp))
+                            Text(g.uppercase(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.1.sp))
                         } else if (r != null) Box(Modifier.height(ROW_H).fillMaxWidth().clickable(role = Role.Button) { onOpen(r.marker.id) }.padding(start = 12.dp, end = 4.dp), contentAlignment = Alignment.CenterStart) {
                             Text(r.marker.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
                         }
