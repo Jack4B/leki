@@ -73,19 +73,45 @@ data class LabsModel(
 
 private val plCollator: java.text.Collator get() = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl"))
 
-fun AppState.labsModel(sort: LabSort = LabSort.Groups): LabsModel {
-    val rows = markers.map { LabRow(it, labsOf(it.id)) }
-    val with = rows.filter { it.last != null }
-    val none = rows.filter { it.last == null }.map { it.marker }
+/** Kolejność grup parametrów: znane grupy wg ustawień domyślnych, potem własne alfabetycznie, „Inne” na końcu. */
+private val labGroupOrder = Comparator<String> { a, b ->
+    fun idx(x: String): Int { val i = Defaults.groupOrder.indexOf(x); return if (i >= 0) i else if (x == "Inne") 999 else 100 }
+    val ia = idx(a); val ib = idx(b)
+    if (ia != ib) ia - ib else plCollator.compare(a, b)
+}
+
+/** Wiersz porównania dni: parametr i jego wyniki w kolejnych wybranych dniach (null, gdy tego dnia nie badano). */
+data class LabCompareRow(val marker: Marker, val group: String, val labs: List<Lab?>)
+
+/**
+ * Porównanie wyników z kilku dni: dla każdego parametru, który ma wynik w którymś z [dates], wynik z danego dnia (a przy kilku tego dnia
+ * ostatni dodany). Kolejność kolumn jak w [dates]; wiersze w grupach, w grupie alfabetycznie.
+ */
+fun AppState.labCompare(dates: List<LocalDate>): List<LabCompareRow> {
+    val col = plCollator
+    return markers.mapNotNull { m ->
+        val cells = dates.map { d -> labs.filter { it.marker == m.id && it.date == d }.lastOrNull() }
+        if (cells.all { it == null }) null else LabCompareRow(m, m.grp.ifEmpty { "Inne" }, cells)
+    }.sortedWith(compareBy<LabCompareRow, String>(labGroupOrder) { it.group }.thenComparator { a, b -> col.compare(a.marker.name, b.marker.name) })
+}
+
+/** Dni, w których są wyniki (od najnowszego), z liczbą wyników; do wyboru daty na liście parametrów. */
+fun AppState.labDays(): List<Pair<LocalDate, Int>> = labs.groupingBy { it.date }.eachCount().toList().sortedByDescending { it.first }
+
+/**
+ * Model listy parametrów. Bez [asOf] każdy parametr pokazuje ostatni wynik (z jego własnej daty).
+ * Z [asOf] to stan na ten dzień: ostatni wynik z tego dnia lub wcześniejszy (wykres i zmiana też liczą się do tego dnia);
+ * z [exact] tylko parametry, które mają wynik dokładnie z tego dnia.
+ */
+fun AppState.labsModel(sort: LabSort = LabSort.Groups, asOf: LocalDate? = null, exact: Boolean = false): LabsModel {
+    val rows = markers.map { LabRow(it, labsOf(it.id, asOf)) }
+    val with = rows.filter { it.last != null && !(exact && asOf != null && it.last!!.date != asOf) }
+    val none = rows.filter { it !in with }.map { it.marker }
     val out = with.filter { labFlag(it.last!!.value, it.marker).isNotEmpty() }.sortedByDescending { it.last!!.date }
     val rest = with.filter { labFlag(it.last!!.value, it.marker).isEmpty() }
     val map = LinkedHashMap<String, MutableList<LabRow>>()
     rest.forEach { map.getOrPut(it.marker.grp.ifEmpty { "Inne" }) { ArrayList() }.add(it) }
-    val names = map.keys.sortedWith { a, b ->
-        fun idx(x: String): Int { val i = Defaults.groupOrder.indexOf(x); return if (i >= 0) i else if (x == "Inne") 999 else 100 }
-        val ia = idx(a); val ib = idx(b)
-        if (ia != ib) ia - ib else java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl")).compare(a, b)
-    }
+    val names = map.keys.sortedWith(labGroupOrder)
     val col = plCollator
     val byName = Comparator<LabRow> { a, b -> col.compare(a.marker.name, b.marker.name) }
     val groups = names.map { LabGroup(it, map[it]!!.sortedWith(byName)) }

@@ -2,6 +2,7 @@ package pl.asystent.leki.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,8 @@ import pl.asystent.leki.core.deleteMarker
 import pl.asystent.leki.core.labChart
 import pl.asystent.leki.core.labFlag
 import pl.asystent.leki.core.labGroupSummary
+import pl.asystent.leki.core.labCompare
+import pl.asystent.leki.core.labDays
 import pl.asystent.leki.core.labsModel
 import pl.asystent.leki.core.labsOf
 import pl.asystent.leki.core.lnum
@@ -69,7 +72,20 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     val markerHist = rememberHistoryState()
 
     var labSort by rememberSaveable { mutableStateOf(0) }
-    val model = s.labsModel(pl.asystent.leki.core.LabSort.values()[labSort.coerceIn(0, 2)])
+    var labAsOf by rememberSaveable { mutableStateOf("") }
+    var labExact by rememberSaveable { mutableStateOf(false) }
+    var labCompare by rememberSaveable { mutableStateOf(false) }
+    var labCmp by rememberSaveable { mutableStateOf("") }
+    // data, której wyniki już nie istnieją (np. po usunięciu), wraca do „najnowszych”
+    val labDays = s.labDays()
+    val asOf = runCatching { java.time.LocalDate.parse(labAsOf) }.getOrNull()?.takeIf { d -> labDays.any { it.first == d } }
+    // porównanie dni: do 4 wybranych dat (domyślnie dwie najnowsze), zapisane jako lista dat po przecinku
+    val cmpDates = labCmp.split(',').mapNotNull { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }.filter { d -> labDays.any { it.first == d } }
+        .ifEmpty { labDays.take(2).map { it.first } }.take(4).sorted()
+    val toggleCmp = { d: java.time.LocalDate ->
+        labCmp = (if (d in cmpDates) cmpDates - d else if (cmpDates.size < 4) cmpDates + d else cmpDates).sorted().joinToString(",")
+    }
+    val model = s.labsModel(pl.asystent.leki.core.LabSort.values()[labSort.coerceIn(0, 2)], asOf, labExact && asOf != null)
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
     if (openId.isNotEmpty() && s.marker(openId) == null) openId = ""
     val open = s.marker(openId)
@@ -88,7 +104,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
             if (mode == 2) ecgSection(s, ecgHist, java.time.LocalDate.now(), onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
-            else if (mode == 1) labsByDate(s, labHist, java.time.LocalDate.now()) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) }, labSort, { labSort = it })
+            else if (mode == 1) labsByDate(s, labHist, java.time.LocalDate.now()) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) }, labSort, { labSort = it }, labDays, asOf?.toString().orEmpty(), { labAsOf = it }, labExact, { labExact = it }, labCompare, { labCompare = it }, cmpDates, toggleCmp)
             if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
@@ -164,18 +180,33 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
 
 private fun androidx.compose.foundation.lazy.LazyListScope.overview(
     s: AppState, model: pl.asystent.leki.core.LabsModel, showNone: Boolean, toggleNone: () -> Unit, onOpen: (String) -> Unit, onAddTo: (String) -> Unit,
-    sort: Int, onSort: (Int) -> Unit,
+    sort: Int, onSort: (Int) -> Unit, days: List<Pair<java.time.LocalDate, Int>>, asOf: String, onAsOf: (String) -> Unit, exact: Boolean, onExact: (Boolean) -> Unit,
+    compare: Boolean, onCompare: (Boolean) -> Unit, cmpDates: List<java.time.LocalDate>, onCmpDate: (java.time.LocalDate) -> Unit,
 ) {
     item {
-        val lastDate = s.labs.maxByOrNull { it.date }?.date
+        val lastDate = model.withResults.mapNotNull { it.last?.date }.maxOrNull()
         Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Stat("${model.withResults.size}", "parametrów z wynikami", Modifier.weight(1f))
             Stat("${model.out.size}", "poza zakresem", Modifier.weight(1f), valueColor = if (model.out.isNotEmpty()) pal.warn else pal.ink)
             Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie badanie", Modifier.weight(1f))
         }
-        if (model.withResults.isEmpty()) EmptyBox("Brak wyników. Zeskanuj wyniki ze zdjęcia lub pliku PDF albo dodaj pierwszy wynik ręcznie.", Modifier.padding(top = 16.dp))
-        else SegRow(listOf("Grupami", "A–Z", "Najnowsze"), sort, onSort, Modifier.padding(top = 14.dp))
+        if (days.size >= 2) Row(Modifier.padding(top = 14.dp)) { ToggleChip("Porównaj dni", compare) { onCompare(!compare) } }
+        if (days.isNotEmpty() && !compare) {
+            SegRow(listOf("Grupami", "A–Z", "Najnowsze"), sort, onSort, Modifier.padding(top = 14.dp))
+            // wybór daty: stan na dany dzień (ostatni wynik z tego dnia lub wcześniejszy) albo tylko wyniki z tego dnia
+            DropdownField(
+                "Wyniki z dnia", listOf("" to "Najnowsze (każdy parametr z ostatniej daty)") + days.map { (d, n) -> d.toString() to plDate(d) + " · " + n + " " + plN(n, "wynik", "wyniki", "wyników") },
+                asOf, onAsOf, Modifier.padding(top = 14.dp),
+            )
+            if (asOf.isNotEmpty()) {
+                Row(Modifier.padding(top = 10.dp)) { ToggleChip("Tylko wyniki z tego dnia", exact) { onExact(!exact) } }
+                Hint(if (exact) "Pokazane są tylko parametry zbadane tego dnia." else "Każdy parametr pokazuje ostatni wynik z tego dnia lub wcześniejszy; wykres kończy się na tym dniu.", Modifier.padding(top = 6.dp))
+            }
+        }
+        if (compare && days.size >= 2) { /* tabela poniżej */ }
+        else if (model.withResults.isEmpty()) EmptyBox(if (days.isEmpty()) "Brak wyników. Zeskanuj wyniki ze zdjęcia lub pliku PDF albo dodaj pierwszy wynik ręcznie." else "Brak wyników z tego dnia.", Modifier.padding(top = 16.dp))
     }
+    if (compare && days.size >= 2) { labCompareSection(s, days, cmpDates, onCmpDate); return }
     if (model.sort != pl.asystent.leki.core.LabSort.Groups) {
         // jedna lista w wybranej kolejności; wyniki poza zakresem mają pomarańczową ocenę w wierszu, więc osobna karta z nimi jest zbędna
         if (model.flat.isNotEmpty()) item(key = "flat") {
@@ -213,6 +244,54 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overview(
                 }
             }
         }
+    }
+}
+
+/** Porównanie wyników z kilku dni: parametry w wierszach (grupami), wybrane dni w kolumnach od najstarszego; wartości poza zakresem na pomarańczowo. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+private fun androidx.compose.foundation.lazy.LazyListScope.labCompareSection(s: AppState, days: List<Pair<java.time.LocalDate, Int>>, selected: List<java.time.LocalDate>, onToggle: (java.time.LocalDate) -> Unit) {
+    item(key = "cmp-pick") {
+        var all by remember { mutableStateOf(false) }
+        Column(Modifier.padding(top = 14.dp)) {
+            Text("Dni do porównania (do 4)", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 8.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (if (all) days else days.take(12)).forEach { (d, n) -> ToggleChip(shortDate(d) + " (" + n + ")", d in selected) { onToggle(d) } }
+            }
+            if (days.size > 12) LinkButton(if (all) "Pokaż mniej dni" else "Pokaż starsze dni (${days.size - 12})", { all = !all })
+            Hint("W nawiasie liczba wyników z tego dnia. Kolumny idą od najstarszego dnia do najnowszego.", Modifier.padding(top = 4.dp))
+        }
+    }
+    item(key = "cmp-table") {
+        val rows = remember(s.labs, s.markers, selected) { s.labCompare(selected) }
+        if (rows.isEmpty()) { EmptyBox("Brak wyników z wybranych dni.", Modifier.padding(top = 16.dp)); return@item }
+        LekiCard(Modifier.padding(top = 16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Parametr", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3), modifier = Modifier.weight(1.5f))
+                selected.forEach { d -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { FitText(shortDate(d), TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3), wrap = false, minSp = 9f) } }
+            }
+            var group = ""
+            rows.forEach { r ->
+                if (r.group != group) {
+                    group = r.group
+                    Divider()
+                    Text(group.uppercase(), style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp), modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp))
+                } else Divider()
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1.5f)) {
+                        Text(r.marker.name, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        if (r.marker.unit.isNotEmpty()) Hint(r.marker.unit)
+                    }
+                    r.labs.forEach { l ->
+                        val out = l != null && labFlag(l.value, r.marker).isNotEmpty()
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                            if (l == null) Text("–", style = TextStyle(fontSize = 15.sp, color = pal.ink3))
+                            else FitText(lnum(l.value), TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = if (out) pal.warn else pal.ink), wrap = false, minSp = 10f)
+                        }
+                    }
+                }
+            }
+        }
+        Hint("Pomarańczowa wartość jest poza zakresem odniesienia. Kreska oznacza, że tego dnia parametru nie badano. Ocenia lekarz.", Modifier.padding(top = 8.dp))
     }
 }
 

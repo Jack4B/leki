@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.9.8-preview
+
+- **Wybór daty w Badania → Parametry.** Lista „Wyniki z dnia” (domyślnie „Najnowsze”: każdy parametr z ostatniej daty) pozwala wybrać dzień badań. Wtedy każdy parametr pokazuje **ostatni wynik z tego dnia lub wcześniejszy** (stan na dzień; wykres i zmiana kończą się na tym dniu), a przełącznik **„Tylko wyniki z tego dnia”** zostawia tylko parametry zbadane dokładnie wtedy. Parametry bez wyniku do tego dnia trafiają do „Parametry bez wyników”.
+- **Porównanie dni.** Przycisk **„Porównaj dni”** (od dwóch dni z wynikami) pokazuje tabelę: parametry w wierszach (grupami, alfabetycznie), wybrane dni w kolumnach od najstarszego do najnowszego (do 4 dni, domyślnie dwa najnowsze). Wartości poza zakresem są pomarańczowe, kreska oznacza, że parametru tego dnia nie badano. Przy kilku wynikach jednego parametru z tego samego dnia pokazany jest ostatni dodany.
+- `core`: `labsModel(sort, asOf, exact)`, `labDays`, `labCompare` z testami.
+
 ## 0.9.7-preview
 
 - **Badania → Parametry są posortowane.** Wewnątrz każdej grupy parametry są teraz **alfabetycznie** (polskie sortowanie: Ć po C, Ż na końcu), a nie w kolejności dodania. Nad listą jest przełącznik **Grupami | A–Z | Najnowsze**: „A–Z” to jedna lista wszystkich parametrów alfabetycznie, „Najnowsze” to jedna lista od ostatnio badanych. W listach płaskich wyniki poza zakresem mają pomarańczową ocenę w wierszu (osobna karta „poza zakresem” jest tylko w widoku Grupami). Strzałki „poprzedni/następny” w szczegółach parametru idą w wybranej kolejności.

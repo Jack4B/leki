@@ -303,4 +303,35 @@ class HousekeepingTest {
         assertEquals(listOf("Białko", "Albumina", "Ćwiartka", "Żelazo"), st.labsModel(LabSort.Recent).flat.map { it.marker.name })
         assertEquals(listOf("b", "a", "c", "z"), st.labsModel(LabSort.Recent).order)
     }
+
+    @Test fun labsModelAsOfDateAndExactDay() {
+        val ms = listOf(Marker("k", "Potas", "mmol/l", lo = 3.5, hi = 5.5), Marker("na", "Sód", "mmol/l", lo = 136.0, hi = 146.0), Marker("tsh", "TSH"))
+        fun lab(id: String, d: Int, m: String, v: Double) = Lab(id, LocalDate.of(2026, 10, d), m, v)
+        val st = AppState(markers = ms, labs = listOf(lab("1", 10, "k", 4.0), lab("2", 10, "na", 140.0), lab("3", 20, "k", 6.0), lab("4", 20, "tsh", 2.0)))
+        assertEquals(listOf(LocalDate.of(2026, 10, 20) to 2, LocalDate.of(2026, 10, 10) to 2), st.labDays())
+        // najnowsze: potas z 20.10 (poza zakresem), sód z 10.10, TSH z 20.10
+        val latest = st.labsModel()
+        assertEquals(3, latest.withResults.size); assertEquals(listOf("Potas"), latest.out.map { it.marker.name })
+        // stan na 15.10: potas i sód z 10.10, TSH jeszcze bez wyniku; nic poza zakresem
+        val asOf = st.labsModel(asOf = LocalDate.of(2026, 10, 15))
+        assertEquals(listOf("Potas", "Sód"), asOf.withResults.map { it.marker.name }); assertTrue(asOf.out.isEmpty())
+        assertEquals(listOf("TSH"), asOf.none.map { it.name })
+        assertEquals(1, asOf.withResults.first { it.marker.id == "k" }.list.size)   // wykres kończy się na wybranym dniu
+        // tylko 20.10: potas i TSH; sód bez wyniku tego dnia
+        val exact = st.labsModel(asOf = LocalDate.of(2026, 10, 20), exact = true)
+        assertEquals(listOf("Potas", "TSH"), exact.withResults.map { it.marker.name }); assertEquals(listOf("Sód"), exact.none.map { it.name })
+    }
+
+    @Test fun labCompareAcrossDays() {
+        val ms = listOf(Marker("na", "Sód", grp = "Elektrolity"), Marker("k", "Potas", grp = "Elektrolity"), Marker("tsh", "TSH", grp = "Wątroba i tarczyca"), Marker("x", "Inny"))
+        fun lab(id: String, d: Int, m: String, v: Double) = Lab(id, LocalDate.of(2026, 10, d), m, v)
+        val st = AppState(markers = ms, labs = listOf(lab("1", 10, "k", 4.0), lab("2", 10, "na", 140.0), lab("3", 20, "k", 4.5), lab("4", 20, "tsh", 2.0), lab("5", 20, "k", 4.6)))
+        val d1 = LocalDate.of(2026, 10, 10); val d2 = LocalDate.of(2026, 10, 20)
+        val rows = st.labCompare(listOf(d1, d2))
+        assertEquals(listOf("Potas", "Sód", "TSH"), rows.map { it.marker.name })           // grupy, w grupie alfabetycznie; parametr bez wyników pominięty
+        assertEquals(listOf(4.0, 4.6), rows[0].labs.map { it!!.value })                   // kilka wyników tego dnia: ostatni dodany
+        assertEquals(listOf(140.0, null), rows[1].labs.map { it?.value })
+        assertEquals(listOf(null, 2.0), rows[2].labs.map { it?.value })
+        assertTrue(st.labCompare(listOf(LocalDate.of(2026, 1, 1))).isEmpty())
+    }
 }
