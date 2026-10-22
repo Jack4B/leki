@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.7.1-preview
+
+- Poprawka testów zrzutów ekranu (zdublowana nazwa testu), które w 0.7.0 nie powstały. Bez zmian w aplikacji.
+
 ## 0.7.0-preview
 
 Siedem nowych funkcji.

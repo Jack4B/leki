@@ -147,7 +147,6 @@ class ScreenshotTest {
         val e = ecgState.ecgs.single()
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) { EcgZoomView(e, EcgAnalysis.analyze(e), startEvent = 0) }
     }
-    @Test fun ustawieniaDane() = slices("ustawienia-dane", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Data") }
     @Test fun ustawieniaBlokada() = slices("ustawienia-blokada", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Security") }
     @Test fun ekgTrend() = shot("ekg-trend") {
         val d = LocalDate.of(2026, 10, 1)
@@ -179,7 +178,7 @@ class ScreenshotTest {
     @Test fun ustawienia() = slices("ustawienia", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it) }
     @Test fun ustawieniaLeki() = slices("ustawienia-leki", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Meds") }
     @Test fun ustawieniaOgolne() = slices("ustawienia-ogolne", 2) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "General") }
-    @Test fun ustawieniaDane() = slices("ustawienia-dane", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Data") }
+    @Test fun ustawieniaDane() = slices("ustawienia-dane", 2) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Data") }
 
     @Test fun skanWybor() = shot("skan-wybor") { Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) { PickBody({}, {}, {}) } }
 
