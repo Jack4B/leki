@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.6.11-preview
+
+- **Regresja z 0.6.9: głębokie skoki w przeciwną stronę (ruch, odklejenie elektrody) były liczone jako uderzenia** (na wykresie pojawiały się trójkąty przy zakłóceniach, a z nimi fałszywe odstępy RR). Ratowanie dużych uderzeń przed uznaniem za zakłócenie dotyczy teraz tylko wychyleń tego samego kierunku co zwykły QRS; skoki przeciwne zostają zakłóceniem. Test: duże uderzenie tego samego kierunku jest uderzeniem, głęboki skok przeciwny jest zakłóceniem i nie tworzy uderzenia.
+- **Podgląd EKG: opis „Pokazane na wykresie” mówi prawdę.** Pojawia się tylko, gdy zdarzenie faktycznie mieści się w widocznym oknie; po przesunięciu widoku karta wraca do „Pokaż na wykresie ›”, a nad mapą jest przycisk „Wróć do zdarzenia: …”.
+- **Mniej przypadkowych zmian widoku:** przesuwanie jednym palcem używa standardowego detektora z progiem ruchu (dotknięcie i pionowe przewijanie ekranu nic nie zmieniają), powiększanie to osobny detektor dwóch palców, a mapa zapisu reaguje na przeciągnięcie, nie na samo dotknięcie (wcześniej przypadkowy dotyk przy przewijaniu strony mógł przestawić widok na koniec zapisu).
+- Nowy zrzut ekranu `ekg-powiekszenie-zdarzenie` (widok otwarty na pierwszym zdarzeniu) do kontroli w CI.
+
 ## 0.6.10-preview
 
 - **Decyzja: zostajemy przy własnych algorytmach EKG.** Modele HeartKit (TensorFlow Lite) nie będą dodawane: były trenowane na EKG z plastra i mogłyby pogarszać odczyt zapisów odtworzonych z zegarka, a własne reguły są jawne, opisane w aplikacji i sprawdzone testami. Usunięto je z planów w README; licencja HeartKit pozostaje w wykazie jako oceniona i niedołączona. Bez zmian w kodzie.

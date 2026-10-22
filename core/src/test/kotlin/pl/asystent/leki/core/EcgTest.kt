@@ -505,17 +505,20 @@ class EcgTest {
         }
     }
 
-    @Test fun hugeAndOppositeBeatsAreBeatsNotArtifacts() {
+    @Test fun hugeSameDirectionBeatIsABeatButAnOppositeSpikeStaysAnArtifact() {
         val rrs = MutableList(40) { 0.8 }
         rrs[12] = 0.5; rrs[13] = 1.1
         val times = fromRr(rrs)
         val tp = times[13]
-        for ((name, amp) in listOf("duże" to 2.0, "odwrócone" to -4.2)) {
-            val r = EcgAnalysis.analyze(ecg(times) { t -> g(t, tp, amp, 0.03) }, fs)
-            assertTrue("premature" in codes(r), "$name: ${codes(r)}")
-            assertTrue(r.events.none { it.code == "artifact" && tp >= it.tSec - 0.1 && tp <= (it.endSec ?: it.tSec) + 0.1 }, "$name uznane za zakłócenie")
-            assertTrue(r.beats.any { abs(it.tSec - tp) < 0.06 }, "$name: brak uderzenia")
-        }
+        // duże uderzenie tego samego kierunku: uderzenie do oceny, nie zakłócenie
+        val big = EcgAnalysis.analyze(ecg(times) { t -> g(t, tp, 2.0, 0.03) }, fs)
+        assertTrue("premature" in codes(big), codes(big).toString())
+        assertTrue(big.events.none { it.code == "artifact" && tp >= it.tSec - 0.1 && tp <= (it.endSec ?: it.tSec) + 0.1 })
+        assertTrue(big.beats.any { abs(it.tSec - tp) < 0.06 })
+        // głęboki skok w przeciwną stronę (ruch, odklejenie) nie jest uderzeniem: zostaje zakłóceniem i nie tworzy fałszywych uderzeń
+        val spike = EcgAnalysis.analyze(ecg(regular(0.8)) { t -> g(t, 12.3, -4.2, 0.03) }, fs)
+        assertTrue(spike.events.any { it.code == "artifact" && 12.3 in it.tSec..it.endSec!! })
+        assertTrue(spike.beats.none { abs(it.tSec - 12.3) < 0.1 })
     }
 
     @Test fun analysisWorksAtTheStoredRate() {

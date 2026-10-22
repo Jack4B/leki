@@ -10,8 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.layout.Arrangement
@@ -240,12 +239,15 @@ fun EcgWaveView(e: Ecg, r: EcgResult, modifier: Modifier = Modifier) {
  * Siatka jak na papierze: mała kratka to 0,04 s i 0,1 mV (25 mm/s i 10 mm/mV), duża to 0,2 s i 0,5 mV.
  */
 @Composable
-fun EcgZoomView(e: Ecg, r: EcgResult) {
+fun EcgZoomView(e: Ecg, r: EcgResult, startEvent: Int? = null) {
     val sig = remember(e) { e.signalMv() }
     val total = e.durationS.toFloat().coerceAtLeast(EcgViewport.MIN_VISIBLE)
-    var startSec by rememberSaveable { mutableStateOf(0f) }
-    var visibleSec by rememberSaveable { mutableStateOf(minOf(10f, total)) }
-    var focus by remember { mutableStateOf<EcgEvent?>(null) }
+    // startEvent: numer zdarzenia, przy którym widok ma się otworzyć (do zrzutów ekranu); normalnie widok zaczyna od początku zapisu
+    val first = startEvent?.let { r.events.getOrNull(it) }
+    val firstWindow = first?.let { EcgViewport.forEvent(it, total) }
+    var startSec by rememberSaveable { mutableStateOf(firstWindow?.start ?: 0f) }
+    var visibleSec by rememberSaveable { mutableStateOf(firstWindow?.visible ?: minOf(10f, total)) }
+    var focus by remember { mutableStateOf(first) }
     fun window() = EcgViewport.Window(startSec, visibleSec)
     fun show(w: EcgViewport.Window) { val c = EcgViewport.clamp(w, total); startSec = c.start; visibleSec = c.visible }
     fun jump(ev: EcgEvent) { focus = ev; show(EcgViewport.forEvent(ev, total)) }
@@ -254,6 +256,8 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
         if (sec >= total) show(EcgViewport.whole(total)) else show(EcgViewport.centerOn(mid, sec, total))
     }
     val grid = pal.line; val ink = pal.ink; val accent = pal.accent; val warn = pal.warn; val ink3 = pal.ink3
+    // zdarzenie jest „pokazane”, tylko gdy faktycznie mieści się w oknie (po ręcznym przesunięciu widoku opis nie może kłamać)
+    fun shown(ev: EcgEvent) = ev.tSec <= startSec + visibleSec && (ev.endSec ?: ev.tSec) >= startSec
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Całość" to total, "10 s" to 10f, "5 s" to 5f, "2 s" to 2f).forEach { (label, v) ->
@@ -264,19 +268,22 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
         Canvas(
             Modifier.fillMaxWidth().height(250.dp)
                 .semantics { contentDescription = "Przebieg EKG, widoczne ${"%.1f".format(visibleSec)} sekund od ${"%.1f".format(startSec)} sekundy z ${"%.0f".format(total)}" }
+                // jeden palec: przesuwanie poziome (z progiem ruchu, więc dotknięcie i pionowe przewijanie ekranu nic nie zmieniają)
                 .pointerInput(total) {
-                    // jeden detektor na jeden i dwa palce: przesuwanie poziome oraz powiększanie wokół punktu dotyku; ruch pionowy zostaje dla przewijania ekranu
+                    detectHorizontalDragGestures { change, dx -> change.consume(); show(EcgViewport.pan(window(), -dx / size.width, total)) }
+                }
+                // dwa palce: powiększanie wokół punktu dotyku (ten detektor widzi zdarzenia pierwszy i je zużywa, więc przesuwanie jednym palcem go nie dubluje)
+                .pointerInput(total) {
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         do {
                             val ev = awaitPointerEvent()
-                            val z = ev.calculateZoom(); val pan = ev.calculatePan()
-                            val pinch = ev.changes.size >= 2
-                            if ((pinch && z != 1f) || Math.abs(pan.x) > Math.abs(pan.y)) {
-                                var win = window()
-                                if (pinch && z != 1f) win = EcgViewport.zoom(win, z, (ev.calculateCentroid(useCurrent = true).x / size.width).coerceIn(0f, 1f), total)
-                                show(EcgViewport.pan(win, -pan.x / size.width, total))
-                                ev.changes.forEach { it.consume() }
+                            if (ev.changes.size >= 2) {
+                                val z = ev.calculateZoom()
+                                if (z != 1f) {
+                                    show(EcgViewport.zoom(window(), z, (ev.calculateCentroid(useCurrent = true).x / size.width).coerceIn(0f, 1f), total))
+                                    ev.changes.forEach { it.consume() }
+                                }
                             }
                         } while (ev.changes.any { it.pressed })
                     }
@@ -319,11 +326,15 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
             var sec = (Math.ceil(t0 / step) * step).toInt()
             while (sec <= t1) { val label = "$sec s"; val lx = x(sec.toDouble()) + 3f * k; if (lx + txt.measureText(label) <= w) drawContext.canvas.nativeCanvas.drawText(label, lx, h - 4f * k, txt); sec += step }
         }
-        // mapa zapisu: położenie okna i zdarzeń; dotknięcie przesuwa okno
+        focus?.let { f -> if (!shown(f)) LekiButton("Wróć do zdarzenia: ${f.title}", { jump(f) }, Modifier.fillMaxWidth(), small = true, tonal = true) }
+        // mapa zapisu: położenie okna i zdarzeń; przeciągnięcie przesuwa okno
         Canvas(
             Modifier.fillMaxWidth().height(40.dp).pointerInput(total) {
-                detectTapGestures { off -> show(EcgViewport.centerOn(off.x / size.width * total, visibleSec, total)) }
-            }.semantics { contentDescription = "Mapa zapisu: dotknij, aby przesunąć widok" },
+                // przeciąganie (nie samo dotknięcie), żeby przypadkowy dotyk przy przewijaniu ekranu nie przestawiał widoku
+                detectHorizontalDragGestures(onDragStart = { off -> show(EcgViewport.centerOn(off.x / size.width * total, visibleSec, total)) }) { change, _ ->
+                    change.consume(); show(EcgViewport.centerOn(change.position.x / size.width * total, visibleSec, total))
+                }
+            }.semantics { contentDescription = "Mapa zapisu: przeciągnij, aby przesunąć widok" },
         ) {
             val k = density; val w = size.width; val h = size.height
             drawRect(grid.copy(alpha = .5f), Offset(0f, h * 0.3f), Size(w, h * 0.4f))
@@ -334,7 +345,7 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
             drawRect(accent.copy(alpha = .3f), Offset(startSec / total * w, 0f), Size(visibleSec / total * w, h))
             drawRect(accent, Offset(startSec / total * w, 0f), Size(visibleSec / total * w, h), style = Stroke(width = 2f * k))
         }
-        Hint("Przeciągnij wykres palcem, dwoma palcami powiększaj i zmniejszaj, a mapą pod nim przeskakuj po zapisie. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
+        Hint("Przeciągnij wykres palcem, dwoma palcami powiększaj i zmniejszaj, a po mapie pod nim przeciągnij, żeby przeskoczyć w inne miejsce zapisu. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
 
         // lista nieprawidłowości: dotknięcie pozycji pokazuje to miejsce na wykresie
         val located = setOf("premature", "premature_many", "pause", "artifacts")
@@ -345,7 +356,7 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
         } else Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             r.events.forEach { ev ->
                 val attention = ev.severity == EcgSeverity.Attention
-                val selected = focus == ev
+                val selected = focus == ev && shown(ev)
                 Row(
                     Modifier.fillMaxWidth().clip(CardShape).border(if (selected) 2.dp else 1.dp, if (selected) pal.accent else pal.line, CardShape).background(pal.surface)
                         .clickable(role = Role.Button) { jump(ev) }.padding(14.dp),

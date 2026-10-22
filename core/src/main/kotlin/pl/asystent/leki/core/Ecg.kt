@@ -196,20 +196,18 @@ object EcgAnalysis {
         if (cand0.isEmpty()) return empty(dur, "Nie wykryto uderzeń serca.")
         val ampRef = median(cand0.map { it.second }.filter { it > 0 }.ifEmpty { listOf(1.0) })
         fun wideAt(i: Int) = abs(x[i]) > 2.5 * ampRef || pol * x[i] < -0.9 * ampRef
-        // uderzenie szerokie, duże albo o przeciwnym kierunku (np. komorowe) ma stromość zwykłego QRS (od połowy do 4 razy typowej energii pochodnej), w odróżnieniu od skoku z ruchu albo powolnego falowania: takie nie jest zakłóceniem, tylko uderzeniem do oceny
+        // duże uderzenie tego samego kierunku co zwykłe (np. komorowe, szersze i wyższe) ma stromość zwykłego QRS (od połowy do 4 razy typowej energii pochodnej),
+        // w odróżnieniu od skoku z ruchu albo powolnego falowania: takie nie jest zakłóceniem, tylko uderzeniem do oceny. Wychylenia przeciwnego kierunku zostają zakłóceniem.
         val reach = (0.10 * fs).toInt()
-        val rescued = HashSet<Int>()
-        val protect = BooleanArray(n)
         val shield = (0.25 * fs).toInt()   // cały szeroki załamek, razem z jego zboczami
+        val protect = BooleanArray(n)
         for (p in taken) {
-            if (s[p] > 4.0 * ref || s[p] < 0.5 * ref || (max(0, p - reach)..min(n - 1, p + reach)).none { wideAt(it) }) continue
-            val big = max(abs(x[extreme(p, 1)]), abs(x[extreme(p, -1)]))
-            if (big < 0.5) continue   // szum i bardzo małe wychylenia nie są uderzeniami do ratowania
-            rescued.add(p); for (i in max(0, p - shield)..min(n - 1, p + shield)) protect[i] = true
+            if (s[p] > 4.0 * ref || s[p] < 0.5 * ref) continue
+            if ((max(0, p - reach)..min(n - 1, p + reach)).none { pol * x[it] > 2.5 * ampRef }) continue
+            if (pol * x[extreme(p, pol)] < 0.5) continue   // szum i bardzo małe wychylenia nie są uderzeniami do ratowania
+            for (i in max(0, p - shield)..min(n - 1, p + shield)) protect[i] = true
         }
-        val cand = cand0.mapIndexed { k, c ->
-            if (taken[k] !in rescued) c else { val i = extreme(taken[k], 1); val j = extreme(taken[k], -1); val r = if (abs(x[i]) >= abs(x[j])) i else j; r to abs(x[r]) }
-        }
+        val cand = cand0
 
         // 6. artefakty: wychylenia kilkakrotnie większe niż typowy QRS albo skoki znacznie bardziej strome niż QRS (ruch, odklejenie elektrody)
         val bad = BooleanArray(n)
