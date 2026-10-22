@@ -245,7 +245,7 @@ private fun LazyListScope.labCompareSection(s: AppState, ui: LabsUi, days: List<
                     Column(Modifier.weight(1.5f)) {
                         Text(r.marker.name, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
                         if (r.marker.unit.isNotEmpty()) Hint(r.marker.unit)
-                        if (r.delta != null) Text("zmiana " + arrow(r.delta) + labDeltaText(r.delta, r.pct), style = TextStyle(fontSize = 11.5.sp, fontWeight = if (r.significant) FontWeight.SemiBold else FontWeight.Normal, color = if (r.significant) pal.ink2 else pal.ink3))
+                        r.delta?.let { d -> Text("zmiana " + arrow(d) + labDeltaText(d, r.pct), style = TextStyle(fontSize = 11.5.sp, fontWeight = if (r.significant) FontWeight.SemiBold else FontWeight.Normal, color = if (r.significant) pal.ink2 else pal.ink3)) }
                     }
                     r.labs.forEach { l ->
                         val out = l != null && labFlag(l, r.marker).isNotEmpty()
