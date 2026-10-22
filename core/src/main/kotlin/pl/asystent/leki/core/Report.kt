@@ -209,8 +209,12 @@ code{font-family:var(--mono);font-size:12px}
             h.append("</ul>")
         }
         if (P.ecg) {
-            val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time }).take(6)
-            if (ecgs.isNotEmpty()) h.append(EcgReport.html(ecgs.reversed()))
+            val inPeriod = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
+            val ecgs = inPeriod.take(6)
+            if (ecgs.isNotEmpty()) {
+                h.append(EcgReport.html(ecgs.reversed()))
+                if (inPeriod.size > ecgs.size) h.append("<p class=\"muted\">Pokazano ${ecgs.size} najnowszych z ${inPeriod.size} zapisów EKG z tego okresu.</p>")
+            } else if (s.ecgs.isNotEmpty()) h.append("<h3>EKG z zegarka</h3><p class=\"muted\">Brak zapisów EKG w wybranym okresie.</p>")
         }
         if (P.analysis) s.reportAnalysis()?.let { a ->
             val body = Markdown.selected(a.text, a.excluded)

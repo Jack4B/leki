@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
@@ -130,7 +134,7 @@ fun LekiButton(
     val border = if (primary) pal.accent else if (tonal) pal.accentSoft else pal.line
     Row(
         modifier = modifier
-            .heightIn(min = if (small) 40.dp else 48.dp)
+            .heightIn(min = 48.dp)
             .clip(CtlShape)
             .background(bg.copy(alpha = if (enabled) 1f else 0.45f))
             .border(1.dp, border.copy(alpha = if (enabled) 1f else 0.45f), CtlShape)
@@ -146,7 +150,7 @@ fun LekiButton(
 @Composable
 fun LinkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, danger: Boolean = false) {
     Text(
-        text, modifier = modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp),
+        text, modifier = modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
         style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (danger) pal.danger else pal.accent),
     )
 }
@@ -316,8 +320,21 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subti
 @Composable
 fun Stat(value: String, label: String, modifier: Modifier = Modifier, valueColor: Color = pal.ink, mono: Boolean = true) {
     Column(modifier) {
-        Text(value, style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor))
+        // wartości tekstowe (np. „umiarkowana”) są mniejsze, żeby nie łamały się w środku wyrazu
+        Text(value, style = TextStyle(fontSize = if (value.length > 7) 17.sp else 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor), maxLines = 1)
         Text(label, style = TextStyle(fontSize = 12.sp, color = pal.ink3))
+    }
+}
+
+/** Ostrzeżenie w treści ekranu (żółte tło, ikona): coś, co warto sprawdzić przed zapisem. */
+@Composable
+fun Notice(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().clip(CardShape).background(pal.warnBg).border(1.dp, pal.warnLine, CardShape).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PhIcon(Ph.Warning, size = 20.dp, tint = pal.warn)
+        Text(text, modifier = Modifier.weight(1f), style = TextStyle(fontSize = 13.5.sp, lineHeight = 19.sp, color = pal.ink2))
     }
 }
 
@@ -404,7 +421,7 @@ fun FullScreenDialog(title: String, onClose: () -> Unit, footer: (@Composable ()
 fun FullScreenBody(title: String, onClose: () -> Unit, footer: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
     androidx.activity.compose.BackHandler(onBack = onClose)
     Surface(Modifier.fillMaxSize().pointerInput(Unit) {}, color = pal.bg) {
-        Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(Modifier.fillMaxWidth().height(56.dp).background(pal.bg).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose).semantics { contentDescription = "Zamknij" }, contentAlignment = Alignment.Center) {
                     PhIcon(Ph.X, size = 22.dp, tint = pal.ink)

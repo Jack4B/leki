@@ -4,7 +4,7 @@ package pl.asystent.leki.core
 object EcgReport {
     private const val W = 1000.0          // 10 s = 250 mm, czyli 4 jednostki na milimetr
     private const val ROW = 140.0
-    private const val BASE = 85.0         // linia izoelektryczna od góry pasa
+    private const val BASE = 75.0         // linia izoelektryczna od góry pasa
     private const val MV = 40.0           // jednostek na mV (10 mm/mV)
 
     private fun f(v: Double) = "%.1f".format(java.util.Locale.ROOT, v)
@@ -34,7 +34,7 @@ object EcgReport {
             }
             val pts = StringBuilder()
             val from = k * per; val to = minOf(sig.size, from + per)
-            for (i in from until to) pts.append(f((i - from).toDouble() / e.fs * W / 10)).append(',').append(f(BASE - sig[i].coerceIn(-1.9, 2.4) * MV)).append(' ')
+            for (i in from until to) pts.append(f((i - from).toDouble() / e.fs * W / 10)).append(',').append(f(BASE - sig[i].coerceIn(-(ROW - 12 - BASE) / MV, BASE / MV) * MV)).append(' ')
             sb.append("<polyline points=\"${pts.toString().trim()}\" fill=\"none\" stroke=\"#1a1a1a\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/>")
             for (b in r.beats) {
                 val t = b.tSec - k * 10.0
@@ -51,7 +51,7 @@ object EcgReport {
     /** Opis jednego zapisu: wskaźniki, wyniki (ogólne i zdarzenia z czasem) i przebieg. */
     private fun entry(e: Ecg, r: EcgResult, heading: Boolean, trueScale: Boolean): String {
         val h = StringBuilder()
-        if (heading) h.append("<h4>${plDate(e.date)} ${e.time.hhmm()}, ${"%.0f".format(e.durationS)} s</h4>")
+        if (heading) h.append("<h4>${plDate(e.date)} ${e.time.hhmm()}, ${"%.0f".format(java.util.Locale.ROOT, e.durationS)} s</h4>")
         val parts = ArrayList<String>()
         if (e.watchHr > 0) parts.add("tętno wg zegarka: <b>${e.watchHr}/min</b>")
         if (e.watchNote.isNotBlank()) parts.add("ocena zegarka: <b>${esc(e.watchNote)}</b>")
@@ -66,6 +66,7 @@ object EcgReport {
         h.append("</ul>")
         if (e.note.isNotBlank()) h.append("<p class=\"muted\">Notatka pacjenta: ${esc(e.note)}</p>")
         h.append(svg(e, r, trueScale))
+        if (e.durationS > 30.5) h.append("<p class=\"muted\">Na wykresie są pierwsze 30 s zapisu; wskaźniki obejmują cały zapis.</p>")
         return h.toString()
     }
 
@@ -83,7 +84,7 @@ object EcgReport {
         val r = EcgAnalysis.analyze(e)
         val b = StringBuilder()
         b.append("<h2 class=\"rp-title\">EKG z zegarka</h2>")
-        b.append("<div class=\"rp-meta\">Pacjent: <b>${esc(s.patient.ifEmpty { "bez imienia" })}</b><br>Zapis z ${plDate(e.date)} ${e.time.hhmm()}, czas trwania ${"%.0f".format(e.durationS)} s. Przebieg w skali papieru: 25 mm/s i 10 mm/mV (wydruk A4 poziomo, 100% skali).</div>")
+        b.append("<div class=\"rp-meta\">Pacjent: <b>${esc(s.patient.ifEmpty { "bez imienia" })}</b><br>Zapis z ${plDate(e.date)} ${e.time.hhmm()}, czas trwania ${"%.0f".format(java.util.Locale.ROOT, e.durationS)} s. Przebieg w skali papieru: 25 mm/s i 10 mm/mV (wydruk A4 poziomo, 100% skali).</div>")
         b.append(entry(e, r, heading = false, trueScale = true))
         b.append("<p class=\"muted\" style=\"margin:8px 0 0\">Metoda: ${esc(EcgInfo.SHORT)}</p>")
         b.append("<p class=\"rp-foot\">Wygenerowano ${plDate(today)} ${now.toLocalTime().hhmm()}. Przebieg odtworzony przez aplikację z wydruku PDF zegarka (przybliżenie z błędem rzędu 0,05 mV); to nie jest badanie EKG ani diagnoza.</p>")

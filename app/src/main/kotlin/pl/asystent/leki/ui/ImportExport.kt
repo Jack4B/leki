@@ -78,7 +78,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
     when (val p = pending) {
         is Pending.Replace -> ConfirmDialog(
             "Wczytać tę kopię?",
-            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia. Wczytanie zastąpi wszystkie dane na tym urządzeniu. Jeśli masz tu coś ważnego, najpierw zrób kopię.",
+            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG. Wczytanie zastąpi wszystkie dane na tym urządzeniu. Jeśli masz tu coś ważnego, najpierw zrób kopię.",
             "Zastąp dane", onConfirm = { store.replace(p.next); toast("Wczytano kopię danych") }, onDismiss = { pending = null },
         )
         is Pending.Labs -> {

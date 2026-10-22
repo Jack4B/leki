@@ -18,12 +18,19 @@ import java.io.File
 
 /** Drobne operacje systemowe: schowek, udostępnianie plików i druk. */
 object Platform {
-    fun copyText(ctx: Context, label: String, text: String) {
+    /** Kopiuje tekst do schowka; false, gdy się nie udało (np. dane przekraczają limit schowka, około 1 MB). */
+    fun copyText(ctx: Context, label: String, text: String): Boolean = try {
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         // dane zdrowotne: Android 13+ nie pokazuje treści w podglądzie schowka
         if (Build.VERSION.SDK_INT >= 33) clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
         cm.setPrimaryClip(clip)
+        true
+    } catch (e: Exception) { false }
+
+    /** Usuwa pliki tymczasowe udostępnienia (mogą zawierać dane zdrowotne); wołane przy starcie aplikacji. */
+    fun clearShareCache(ctx: Context) {
+        runCatching { File(ctx.cacheDir, "share").listFiles()?.forEach { it.delete() } }
     }
 
     /** Tekst ze schowka (pusty, gdy schowek jest pusty albo nie zawiera tekstu). */

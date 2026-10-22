@@ -192,8 +192,9 @@ fun SettingsScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), tonal = true, icon = Ph.DownloadSimple)
                                 LekiButton("Kopiuj JSON", {
-                                    Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))
-                                    store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
+                                    if (Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))) {
+                                        store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
+                                    } else toast("Za dużo danych na schowek. Użyj „Zapisz JSON” albo zaszyfrowanej kopii.")
                                 }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
                             }
                             LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)

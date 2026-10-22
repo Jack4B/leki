@@ -55,7 +55,7 @@ data class EcgResult(
     val nRmssd: Double? = null, val tpr: Double? = null, val sampEn: Double? = null,
     /** Odstępy RR układają się w wzorzec losowej nieregularności typowy dla migotania przedsionków (heurystyka, nie rozpoznanie). */
     val afPattern: Boolean = false,
-    /** Szerokość QRS typowego uderzenia (orientacyjnie, rozdzielczość rzędu 8 ms) i mediana korelacji kształtu uderzeń z szablonem. */
+    /** Szerokość QRS typowego uderzenia (orientacyjnie, rozdzielczość jednej próbki: 4 ms przy 250 Hz) i mediana korelacji kształtu uderzeń z szablonem. */
     val qrsWidthMs: Double? = null, val shapeCorr: Double? = null,
     /** Opis kształtu każdego przedwczesnego uderzenia (równolegle do [prematureAt]). */
     val prematureShapes: List<String> = emptyList(),
@@ -108,7 +108,7 @@ object EcgAnalysis {
         return if (saa < 1e-12 || sbb < 1e-12) 0.0 else sab / sqrt(saa * sbb)
     }
 
-    /** Szerokość QRS w ms: od początku do końca najszybszej zmiany napięcia wokół R (próg 15% maksymalnego nachylenia). Rozdzielczość to jedna próbka (8 ms przy 125 Hz). */
+    /** Szerokość QRS w ms: od początku do końca najszybszej zmiany napięcia wokół R (próg 15% maksymalnego nachylenia). Rozdzielczość to jedna próbka (4 ms przy 250 Hz). */
     private fun qrsWidthMs(w: DoubleArray, r: Int, fs: Double): Double? {
         if (w.size < 8) return null
         val d = DoubleArray(w.size - 1) { w[it + 1] - w[it] }
@@ -133,16 +133,18 @@ object EcgAnalysis {
         return if (n == 0) 0.0 else if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2
     }
 
+    /** Mediana ruchoma z okna o [window] próbkach (przy brzegach okno jest krótsze); okno trzymane jest w posortowanej tablicy, więc koszt jest liniowy względem długości sygnału. */
     private fun movingMedian(x: DoubleArray, window: Int): DoubleArray {
         val w = max(3, window or 1); val h = w / 2
         val out = DoubleArray(x.size)
-        val buf = DoubleArray(w)
+        val sorted = DoubleArray(w + 2)
+        var cnt = 0; var lo = 0; var hi = -1
+        fun pos(v: Double): Int { var l = 0; var r = cnt; while (l < r) { val m = (l + r) ushr 1; if (sorted[m] < v) l = m + 1 else r = m }; return l }
         for (i in x.indices) {
-            val a = max(0, i - h); val b = min(x.size - 1, i + h)
-            val len = b - a + 1
-            for (k in 0 until len) buf[k] = x[a + k]
-            java.util.Arrays.sort(buf, 0, len)
-            out[i] = buf[len / 2]
+            val newLo = max(0, i - h); val newHi = min(x.size - 1, i + h)
+            while (hi < newHi) { hi++; val p = pos(x[hi]); System.arraycopy(sorted, p, sorted, p + 1, cnt - p); sorted[p] = x[hi]; cnt++ }
+            while (lo < newLo) { val p = pos(x[lo]); System.arraycopy(sorted, p + 1, sorted, p, cnt - p - 1); cnt--; lo++ }
+            out[i] = sorted[cnt / 2]
         }
         return out
     }
@@ -190,16 +192,31 @@ object EcgAnalysis {
         }
         val firstPass = taken.map { p -> val i = extreme(p, 1); val j = extreme(p, -1); if (abs(x[i]) >= abs(x[j])) 1 else -1 }
         val pol = if (firstPass.count { it > 0 } >= firstPass.count { it < 0 }) 1 else -1
-        val cand = taken.map { p -> val r = extreme(p, pol); r to pol * x[r] }
-        if (cand.isEmpty()) return empty(dur, "Nie wykryto uderzeń serca.")
-        val ampRef = median(cand.map { it.second }.filter { it > 0 }.ifEmpty { listOf(1.0) })
+        val cand0 = taken.map { p -> val r = extreme(p, pol); r to pol * x[r] }
+        if (cand0.isEmpty()) return empty(dur, "Nie wykryto uderzeń serca.")
+        val ampRef = median(cand0.map { it.second }.filter { it > 0 }.ifEmpty { listOf(1.0) })
+        fun wideAt(i: Int) = abs(x[i]) > 2.5 * ampRef || pol * x[i] < -0.9 * ampRef
+        // uderzenie szerokie, duże albo o przeciwnym kierunku (np. komorowe) ma stromość zwykłego QRS (od połowy do 4 razy typowej energii pochodnej), w odróżnieniu od skoku z ruchu albo powolnego falowania: takie nie jest zakłóceniem, tylko uderzeniem do oceny
+        val reach = (0.10 * fs).toInt()
+        val rescued = HashSet<Int>()
+        val protect = BooleanArray(n)
+        val shield = (0.25 * fs).toInt()   // cały szeroki załamek, razem z jego zboczami
+        for (p in taken) {
+            if (s[p] > 4.0 * ref || s[p] < 0.5 * ref || (max(0, p - reach)..min(n - 1, p + reach)).none { wideAt(it) }) continue
+            val big = max(abs(x[extreme(p, 1)]), abs(x[extreme(p, -1)]))
+            if (big < 0.5) continue   // szum i bardzo małe wychylenia nie są uderzeniami do ratowania
+            rescued.add(p); for (i in max(0, p - shield)..min(n - 1, p + shield)) protect[i] = true
+        }
+        val cand = cand0.mapIndexed { k, c ->
+            if (taken[k] !in rescued) c else { val i = extreme(taken[k], 1); val j = extreme(taken[k], -1); val r = if (abs(x[i]) >= abs(x[j])) i else j; r to abs(x[r]) }
+        }
 
         // 6. artefakty: wychylenia kilkakrotnie większe niż typowy QRS albo skoki znacznie bardziej strome niż QRS (ruch, odklejenie elektrody)
         val bad = BooleanArray(n)
         val pad = (0.35 * fs).toInt()
         fun markBad(i: Int) { for (k in max(0, i - pad)..min(n - 1, i + pad)) bad[k] = true }
         // wychylenie przeciwne do QRS o amplitudzie zbliżonej do R nie jest załamkiem S (S jest zwykle kilkakrotnie mniejsze): to ruch lub zakłócenie
-        for (i in 0 until n) if (abs(x[i]) > 2.5 * ampRef || pol * x[i] < -0.9 * ampRef) markBad(i)
+        for (i in 0 until n) if (!protect[i] && wideAt(i)) markBad(i)
         for (p in taken) if (s[p] > 4.0 * ref) markBad(p)
         val artifacts = ArrayList<ClosedFloatingPointRange<Double>>()
         var st = -1
@@ -215,12 +232,14 @@ object EcgAnalysis {
 
         // 7. odstępy RR: tylko między sąsiednimi uderzeniami bez artefaktu pomiędzy nimi
         val rr = ArrayList<Double?>()
+        val gaps = ArrayList<Pair<Int, Double>>()   // odstępy 3-10 s bez zakłócenia: nie liczą się do statystyk, ale są przerwami w rytmie
         for (k in 0 until beatsIdx.size - 1) {
             val a = beatsIdx[k]; val b = beatsIdx[k + 1]
             var ok = true
             for (i in a..b) if (bad[i]) { ok = false; break }
             val v = (b - a) / fs
             rr.add(if (ok && v in 0.25..3.0) v else null)
+            if (ok && v > 3.0 && v <= 10.0) gaps.add(k to v)
         }
         val v = rr.filterNotNull()
         val flags = ArrayList<EcgFlag>()
@@ -272,21 +291,23 @@ object EcgAnalysis {
             }
         } else for (bi in prematureIdx) shapes.add("kształt nieoceniony (za mało czystych uderzeń)")
         val deviating = v.count { abs(it - m) / m > 0.15 }.toDouble() / v.size
-        val longest = v.max()
+        val longest = max(v.max(), gaps.maxOfOrNull { it.second } ?: 0.0)
 
         if (hrMed > 100) flags.add(EcgFlag("tachy", "Szybkie tętno: ${hrMed.toInt()}/min", "Tętno powyżej 100/min. Jeśli utrzymuje się w spoczynku, omów z lekarzem.", EcgSeverity.Attention))
         if (hrMed < 50) flags.add(EcgFlag("brady", "Wolne tętno: ${hrMed.toInt()}/min", "Tętno poniżej 50/min. Jeśli towarzyszą zawroty głowy lub omdlenia, skontaktuj się z lekarzem.", EcgSeverity.Attention))
         if (afPattern) {
-            flags.add(EcgFlag("af_pattern", "Odstępy jak przy migotaniu przedsionków", "Odstępy między uderzeniami są nieregularne w sposób losowy (RMSSD/RR ${pl2(nRmssd!!)}, punkty zwrotne ${"%.0f".format(tpr!! * 100)}%, entropia ${pl1(sampEn!!)}). Aplikacja nie rozpoznaje migotania przedsionków i może się mylić: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
+            flags.add(EcgFlag("af_pattern", "Odstępy jak przy migotaniu przedsionków", "Odstępy między uderzeniami są nieregularne w sposób losowy (RMSSD/RR ${pl2(nRmssd!!)}, punkty zwrotne ${"%.0f".format(java.util.Locale.ROOT, tpr!! * 100)}%, entropia ${pl1(sampEn!!)}). Aplikacja nie rozpoznaje migotania przedsionków i może się mylić: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
         } else if (deviating >= 0.35 && cv > 0.1) {
-            flags.add(EcgFlag("irregular", "Rytm wyraźnie nieregularny", "${"%.0f".format(deviating * 100)}% odstępów między uderzeniami odbiega o ponad 15% od typowego. Przyczyną może być migotanie przedsionków albo częste pobudzenia dodatkowe. Aplikacja tego nie rozpoznaje: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
+            flags.add(EcgFlag("irregular", "Rytm wyraźnie nieregularny", "${"%.0f".format(java.util.Locale.ROOT, deviating * 100)}% odstępów między uderzeniami odbiega o ponad 15% od typowego. Przyczyną może być migotanie przedsionków albo częste pobudzenia dodatkowe. Aplikacja tego nie rozpoznaje: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
         } else {
             if (premature.size >= 3) flags.add(EcgFlag("premature_many", "Kilka przedwczesnych uderzeń (${premature.size})", "Po każdym następuje dłuższa przerwa. Mogą to być pobudzenia dodatkowe (${shapes.groupingBy { it.substringBefore(" (") }.eachCount().entries.joinToString("; ") { "${it.value}× ${it.key}" }}); omów z lekarzem, zwłaszcza gdy je czujesz.", EcgSeverity.Attention))
             else if (premature.isNotEmpty()) flags.add(EcgFlag("premature", "Pojedyncze przedwczesne uderzenie", "Po nim następuje dłuższa przerwa (około ${pl1(premature[0])} s od początku zapisu); ${shapes.firstOrNull() ?: "kształt nieoceniony"}. Takie pobudzenia bywają u zdrowych osób, ale może to być też zakłócenie. Warto o nie zapytać lekarza.", EcgSeverity.Info))
         }
         if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Przerwa w rytmie: ${pl1(longest)} s", "Najdłuższy odstęp między uderzeniami (typowo ${pl1(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
-        if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
-        if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
+        if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(java.util.Locale.ROOT, artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
+        val poorQuality = artifactRatio > 0.35 || (shapeCorr != null && shapeCorr < 0.6)
+        if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" } && poorQuality) flags.add(0, EcgFlag("poor", "Zapis słabej jakości", "Dużo zakłóceń albo uderzenia bardzo różnią się kształtem, więc rytmu nie da się wiarygodnie ocenić. Powtórz pomiar: siedząc, w spokoju, z rękami opartymi i nieruchomo.", EcgSeverity.Attention))
+        else if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
 
         // zdarzenia z położeniem w czasie
         val events = ArrayList<EcgEvent>()
@@ -299,7 +320,7 @@ object EcgAnalysis {
                 if (many) EcgSeverity.Attention else EcgSeverity.Info))
         }
         if (longest > 1.6 * m && longest > 1.8) {
-            val k = rr.indexOfFirst { it == longest }
+            val k = gaps.firstOrNull { it.second == longest }?.first ?: rr.indexOfFirst { it == longest }
             if (k >= 0) events.add(EcgEvent(beats[k].tSec, beats[k + 1].tSec, "pause", "Przerwa w rytmie: ${pl1(longest)} s, od ${pl1(beats[k].tSec)} s",
                 "Odstęp między kolejnymi uderzeniami wynosi ${pl2(longest)} s (typowo ${pl2(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
         }
@@ -330,7 +351,17 @@ object EcgAnalysis {
         }
     }
 
-    fun analyze(e: Ecg): EcgResult = analyze(e.signalMv(), e.fs.toDouble())
+    private data class CacheKey(val id: String, val fs: Int, val size: Int, val hash: Int)
+    private val cache = object : LinkedHashMap<CacheKey, EcgResult>(16, 0.75f, true) { override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, EcgResult>?) = size > 24 }
+
+    /** Analiza zapisu z pamięcią podręczną (klucz: identyfikator i zawartość przebiegu), bo ekrany i raporty liczą ją przy każdym odświeżeniu. */
+    fun analyze(e: Ecg): EcgResult {
+        val key = CacheKey(e.id, e.fs, e.cmv.size, e.cmv.hashCode())
+        synchronized(cache) { cache[key]?.let { return it } }
+        val r = analyze(e.signalMv(), e.fs.toDouble())
+        synchronized(cache) { cache[key] = r }
+        return r
+    }
 }
 
 /** Odtwarzanie przebiegu z obrazu wydruku (PDF z zegarka po wyrenderowaniu do bitmapy): czerwona linia na siatce. */
@@ -380,7 +411,13 @@ object EcgDigitizer {
             if (hv) { if (s < 0) s = v; lastHas = v }
             else if (s >= 0 && (v >= vN || v - lastHas > gap)) { bands.add(s..lastHas); s = -1 }
         }
-        val real = bands.filter { b -> var c = 0; for (u in 0 until uN) for (v in b) if (hit(u, v)) c++; c >= 200 }
+        val real0 = bands.filter { b -> var c = 0; for (u in 0 until uN) for (v in b) if (hit(u, v)) c++; c >= 200 }
+        if (real0.isEmpty()) return null
+        // pasy znacznie krótsze od typowego (ikona, plama, pojedyncza kreska) to nie przebieg: ich doklejenie przesunęłoby cały czas
+        val extents = real0.map { b -> val f = (0 until uN).first { u -> b.any { v -> hit(u, v) } }; val l = (uN - 1 downTo 0).first { u -> b.any { v -> hit(u, v) } }; l - f + 1 }
+        val typical = extents.sorted()[extents.size / 2]
+        val minLen = max(0.15 * typical, 12.5 * pxPerMm)
+        val real = real0.filterIndexed { i, _ -> extents[i] >= minLen }
         if (real.isEmpty()) return null
         // kolejność w czasie: strona pionowa - od prawej do lewej, pozioma - od góry do dołu
         val ordered = if (vertical) real.sortedByDescending { it.first } else real.sortedBy { it.first }
@@ -536,8 +573,9 @@ object EcgVector {
         var pi = 0; var pv = 0; var first = true
         repeat(k) {
             val di = get() ?: return null; val dz = get() ?: return null
-            val i = pi + di; val v = (pv + ((dz ushr 1) xor -(dz and 1))).coerceIn(-1000, 1000)
-            if (i >= n || (!first && di <= 0) || (first && i != 0)) return null
+            val il = pi.toLong() + di
+            if (il >= n || il < 0 || (!first && di <= 0) || (first && il != 0L)) return null
+            val i = il.toInt(); val v = (pv + ((dz ushr 1) xor -(dz and 1))).coerceIn(-1000, 1000)
             if (!first) for (t in pi + 1..i) out[t] = Math.round(pv + (v - pv).toDouble() * (t - pi) / (i - pi)).toInt()
             out[i] = v; pi = i; pv = v; first = false
         }

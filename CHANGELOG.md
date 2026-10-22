@@ -1,5 +1,29 @@
 # Zmiany
 
+## 0.6.9-preview
+
+Poprawki z niezależnego przeglądu modułu EKG i całej aplikacji (każdą uwagę sprawdzono w kodzie, kilka potwierdzono uruchomieniem).
+
+**EKG, analiza**
+- **Przerwy dłuższe niż 3 s były niewidoczne** (zapis z przerwą 3,2 s lub 4,5 s dostawał „Rytm regularny”). Odstępy 3–10 s bez zakłócenia są teraz zgłaszane jako przerwa (nie wchodzą do SDNN i RMSSD).
+- **Duże, szerokie lub odwrócone uderzenie (np. komorowe) było uznawane za zakłócenie**, więc wychodziło „Rytm regularny”. Wychylenie z zespołem o stromości zwykłego QRS w pobliżu (i amplitudą co najmniej 0,5 mV) zostaje uderzeniem do oceny; powolne falowanie i szum nadal są zakłóceniem.
+- **Zapis słabej jakości** (zakłócenia w ponad 35% czasu albo niska korelacja kształtu) nie dostaje już oznaczenia „Rytm regularny”, tylko „Zapis słabej jakości”.
+- **Błędna skala czasu dla stron poziomych:** obraz był ograniczany osobno w szerokości i wysokości, a skala liczona z nominalnych 300 dpi, więc A4 poziomo dawał czas skrócony o ok. 15% i tętno zawyżone. Teraz jedna skala dla obu osi i faktyczna rozdzielczość obrazu. Edytor ostrzega, gdy tętno z przebiegu różni się od tętna z zegarka o ponad 15%.
+- Pasy dużo krótsze od typowego (ikona, plama, pojedyncza kreska) nie są doklejane do przebiegu (przesuwały całą oś czasu). Zapisy krótsze niż 3 s nie są importowane.
+- **Uszkodzony zapis wektorowy** w kopii (przepełnienie indeksu) rzucał wyjątek i unieważniał wczytywanie całego pliku; teraz takie jedno EKG jest pomijane, a reszta danych się wczytuje.
+- Mediana ruchoma (usuwanie dryfu) liczona oknem przesuwnym zamiast sortowania okna dla każdej próbki; wynik analizy jest zapamiętywany (po identyfikatorze i zawartości), więc lista EKG, raporty i raport dla AI nie liczą go od nowa przy każdym odświeżeniu.
+- Opis metody zgodny z kodem: stromość (energia pochodnej 4×, nachylenie 2×), rozdzielczość 4 ms przy 250 Hz, zakres odstępów RR 0,25–3,0 s, warunki koloru piksela, pasy poziome i pionowe, ograniczenie słabych uderzeń.
+- Liczby w tekstach z kropką dziesiętną zawsze w układzie `Locale.ROOT`; wykres w PDF: zakres amplitudy dopasowany do wysokości pasa (nie wchodzi w następny pas); informacja, gdy zapis jest dłuższy niż 30 s (wykres pokazuje pierwsze 30 s).
+
+**Interfejs**
+- Edytory pełnoekranowe uwzględniają wcięcie ekranu (`safeDrawing`), czytnik ekranu nie czyta zasłoniętej aplikacji, komunikaty są widoczne nad klawiaturą.
+- Badania, zakładka EKG: bez przycisków „Skanuj wyniki” i „Dodaj ręcznie” (dotyczą wyników badań). „Wstecz” w szczegółach parametru wraca do listy badań.
+- Import EKG: komunikat, gdy nie odczytano daty z wydruku; ostrzeżenie o zapisie z tą samą datą i godziną (duplikat). Potwierdzenie wczytania kopii podaje też liczbę wyników badań i EKG.
+- Raport dla lekarza: zdanie „Brak zapisów EKG w wybranym okresie” (gdy EKG są, ale poza okresem) i informacja, że pokazano najnowsze z większej liczby; podpowiedź o limitach (6 dla lekarza, 5 dla AI).
+- „Kopiuj JSON” nie wysypuje aplikacji przy bardzo dużej kopii (podpowiedź: „Zapisz JSON”); pliki tymczasowe udostępnienia są usuwane przy starcie aplikacji.
+- Cele dotykowe co najmniej 48 dp (małe przyciski, „Usuń to EKG”, „Jak to jest liczone”), mapa zapisu wyższa; tekstowe wartości statystyk (np. „umiarkowana”) mniejszą czcionką, bez łamania wyrazu.
+- 5 nowych testów (przerwy powyżej 3 s, duże i odwrócone uderzenia, analiza przy 250 Hz, uszkodzony zapis wektorowy w kopii, ikona doklejana jako pas) i rozszerzony test raportu.
+
 ## 0.6.8-preview
 
 - **Poprawka: dotknięcie nieprawidłowości pokazywało zły fragment wykresu.** Podgląd EKG był przewijalnym paskiem, którego położenie zależało od chwilowego układu ekranu, więc przejście do zdarzenia bywało nietrafione (np. do zakłóceń na końcu zapisu zamiast do przedwczesnego uderzenia). Podgląd przepisano: położenie okna (sekunda przy lewej krawędzi i liczba widocznych sekund) jest teraz stanem, a rysowana jest tylko widoczna część. Dotknięcie karty zawsze ustawia zdarzenie na środku okna (co najmniej 4 s, dla dłuższych zdarzeń z zapasem) i zaznacza je pasem.

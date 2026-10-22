@@ -67,8 +67,11 @@ object ScanImages {
 
     class PdfException(message: String) : Exception(message)
 
-    /** Renderuje pierwszą stronę PDF w podanej rozdzielczości (dpi względem rozmiaru strony w punktach), z białym tłem. */
-    suspend fun renderFirstPdfPage(ctx: Context, uri: Uri, dpi: Int): Bitmap {
+    /** Strona PDF jako obraz i faktyczna rozdzielczość (dpi względem rozmiaru strony w punktach): skala jest jedna dla obu osi, więc proporcje (a z nimi czas i napięcie) się nie zniekształcają. */
+    class Rendered(val bitmap: Bitmap, val dpi: Double)
+
+    /** Renderuje pierwszą stronę PDF w podanej rozdzielczości, z białym tłem; [maxW] i [maxH] ograniczają rozmiar obrazu (rozdzielczość spada wtedy proporcjonalnie). */
+    suspend fun renderFirstPdfPageScaled(ctx: Context, uri: Uri, dpi: Int, maxW: Int = 3000, maxH: Int = 4200): Rendered {
         val pfd = withContext(Dispatchers.IO) { runCatching { ctx.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() } ?: throw PdfException("Nie można otworzyć pliku PDF.")
         return pfd.use {
             val renderer = try { PdfRenderer(it) } catch (e: Exception) { throw PdfException("Nie można odczytać PDF (plik może być uszkodzony lub zabezpieczony hasłem).") }
@@ -76,17 +79,20 @@ object ScanImages {
                 if (r.pageCount < 1) throw PdfException("Plik PDF nie ma stron.")
                 withContext(Dispatchers.IO) {
                     r.openPage(0).use { page ->
-                        val w = (page.width * dpi / 72f).toInt().coerceIn(200, 3000)
-                        val h = (page.height * dpi / 72f).toInt().coerceIn(200, 4200)
+                        val sc = minOf(dpi / 72f, maxW.toFloat() / page.width, maxH.toFloat() / page.height)
+                        val w = (page.width * sc).toInt().coerceAtLeast(200)
+                        val h = (page.height * sc).toInt().coerceAtLeast(200)
                         val b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                         Canvas(b).drawColor(Color.WHITE)
                         page.render(b, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        b
+                        Rendered(b, w * 72.0 / page.width)
                     }
                 }
             }
         }
     }
+
+    suspend fun renderFirstPdfPage(ctx: Context, uri: Uri, dpi: Int): Bitmap = renderFirstPdfPageScaled(ctx, uri, dpi).bitmap
 
     /** Renderuje kolejne strony PDF do obrazów (po jednej naraz) i przekazuje je do [onPage]. Zwraca liczbę stron w pliku. */
     suspend fun forEachPdfPage(ctx: Context, uri: Uri, maxPages: Int, onPage: suspend (index: Int, total: Int, bmp: Bitmap) -> Unit): Int {

@@ -136,7 +136,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                                     }
                                 }
                             }
-                            Hint("Do raportu dla lekarza trafia do 6 ostatnich zapisów z okresu. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).", Modifier.padding(top = 6.dp))
+                            Hint("Do raportu dla lekarza trafia do 6 ostatnich zapisów z okresu, a do raportu dla AI do 5. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).", Modifier.padding(top = 6.dp))
                         }
                     }
                     if (rp.analysis) {

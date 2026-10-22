@@ -116,11 +116,16 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
     }
 }
 
-/** Renderuje stronę, odtwarza przebieg i odczytuje nagłówek; null, gdy w pliku nie ma przebiegu EKG. */
-private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Uri, dpi: Int): Ecg? {
-    // przebieg: strona w pełnej rozdzielczości jest od razu zamieniana na maskę jednobajtową (czwarta część pamięci bitmapy) i zwalniana
+/** Wynik wczytania PDF: zapis i informacja, czy data i godzina zostały odczytane z nagłówka wydruku (w przeciwnym razie wstawiono bieżące). */
+private class EcgImport(val ecg: Ecg, val dateRead: Boolean)
+
+/** Renderuje stronę, odtwarza przebieg i odczytuje nagłówek; null, gdy w pliku nie ma przebiegu EKG (albo jest krótszy niż 3 s, czyli nie do analizy). */
+private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Uri, dpi: Int): EcgImport? {
+    // przebieg: strona w pełnej rozdzielczości jest od razu zamieniana na maskę jednobajtową (czwarta część pamięci bitmapy) i zwalniana;
+    // skala czasu i napięcia pochodzi z faktycznej rozdzielczości obrazu (strona pozioma A4 w 300 dpi ma 3508 px szerokości)
     val dig = run {
-        val bmp = ScanImages.renderFirstPdfPage(ctx, uri, dpi)
+        val rendered = ScanImages.renderFirstPdfPageScaled(ctx, uri, dpi, maxW = 3700, maxH = 4400)
+        val bmp = rendered.bitmap
         try {
             val w = bmp.width; val h = bmp.height
             val m = ByteArray(w * h); val row = IntArray(w)
@@ -129,9 +134,10 @@ private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Ur
                 val o = y * w
                 for (x in 0 until w) if (EcgDigitizer.isTrace(row[x])) m[o + x] = 1
             }
-            EcgDigitizer.digitizeMask(m, w, h, dpi / 25.4)
+            EcgDigitizer.digitizeMask(m, w, h, rendered.dpi / 25.4)
         } finally { bmp.recycle() }
     } ?: return null
+    if (dig.mv.size / dig.fs < 3.0) return null
     // nagłówek wydruku (data, tętno, ocena rytmu): osobny, mały render 200 dpi, na którym OCR był sprawdzony
     val meta = runCatching {
         val small = ScanImages.renderFirstPdfPage(ctx, uri, DPI_FALLBACK)
@@ -139,10 +145,11 @@ private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Ur
         OcrEngine().use { eng -> EcgMeta.parse(LabScan.rows(eng.recognize(upright))) }
     }.getOrNull()
     val now = java.time.LocalDateTime.now()
-    return Ecg(
+    val ecg = Ecg(
         newId(), meta?.date ?: now.toLocalDate(), meta?.time ?: now.toLocalTime().withSecond(0).withNano(0),
         watchHr = meta?.hr ?: 0, watchNote = meta?.note.orEmpty(), fs = 250, cmv = EcgVector.normalize(EcgAnalysis.toRecord(dig.mv, dig.fs, 250)),
     )
+    return EcgImport(ecg, meta?.date != null)
 }
 
 /** Wczytywanie PDF z zegarka: render strony, odtworzenie przebiegu, analiza i odczyt daty oraz tętna z nagłówka (OCR na urządzeniu). */
@@ -160,7 +167,11 @@ fun rememberEcgImporter(onDraft: (Ecg) -> Unit): () -> Unit {
                 val draft = withContext(Dispatchers.Default) {
                     try { readPdfEcg(ctx, uri, DPI) } catch (e: OutOfMemoryError) { System.gc(); readPdfEcg(ctx, uri, DPI_FALLBACK) }
                 }
-                if (draft == null) toast("Nie znaleziono przebiegu EKG w tym pliku. Wczytaj PDF wyeksportowany z aplikacji zegarka.") else onDraft(draft)
+                if (draft == null) toast("Nie znaleziono przebiegu EKG w tym pliku. Wczytaj PDF wyeksportowany z aplikacji zegarka.")
+                else {
+                    onDraft(draft.ecg)
+                    if (!draft.dateRead) toast("Nie odczytano daty z wydruku. Ustaw datę i godzinę ręcznie.")
+                }
             } catch (e: ScanImages.PdfException) {
                 toast(e.message ?: "Nie można otworzyć PDF.")
             } catch (e: OutOfMemoryError) {
@@ -310,7 +321,7 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
         }
         // mapa zapisu: położenie okna i zdarzeń; dotknięcie przesuwa okno
         Canvas(
-            Modifier.fillMaxWidth().height(26.dp).pointerInput(total) {
+            Modifier.fillMaxWidth().height(40.dp).pointerInput(total) {
                 detectTapGestures { off -> show(EcgViewport.centerOn(off.x / size.width * total, visibleSec, total)) }
             }.semantics { contentDescription = "Mapa zapisu: dotknij, aby przesunąć widok" },
         ) {
@@ -470,7 +481,14 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
                 ctx.findActivity()?.let { a -> Platform.printHtml(a, "EKG ${plDate(cur.date)} ${cur.time.hhmm()}", EcgReport.document(store.state.value, cur, now.toLocalDate(), now), landscape = true) }
             }, Modifier.weight(1f), tonal = true, icon = Ph.Printer)
         }
-        Hint("Przebieg odtworzony z wydruku. Sprawdź, czy wygląda tak jak na wydruku z zegarka; jeśli nie, nie opieraj się na analizie.")
+        Hint("Przebieg odtworzony z wydruku. Sprawdź, czy wygląda tak jak na wydruku z zegarka; jeśli nie, nie opieraj się na analizie." +
+            (if (initial.durationS > 30.5) " Na wykresie widać pierwsze 30 s; analiza obejmuje cały zapis, a całość jest w widoku powiększonym." else ""))
+        val watchBpm = hr.toIntOrNull() ?: 0
+        val ownBpm = result.hrMedian
+        if (watchBpm > 0 && ownBpm != null && Math.abs(ownBpm - watchBpm) / watchBpm > 0.15)
+            Notice("Tętno z przebiegu (${Math.round(ownBpm)}/min) wyraźnie różni się od tętna z zegarka ($watchBpm/min). Przebieg mógł zostać odczytany w złej skali albo z błędem: porównaj go z wydrukiem i nie opieraj się na analizie.")
+        if (isNew && store.state.value.ecgs.any { it.date == date && it.time == time })
+            Notice("Zapis EKG z tą datą i godziną już istnieje. Jeśli to ten sam wydruk, anuluj, żeby nie dublować zapisu.")
         EcgFindings(result)
         EcgMethods()
         Overline("Dane zapisu", Modifier.padding(top = 4.dp))

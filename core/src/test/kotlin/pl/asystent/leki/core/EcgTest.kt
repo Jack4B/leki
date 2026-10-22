@@ -18,11 +18,11 @@ class EcgTest {
     private fun g(t: Double, c: Double, a: Double, s: Double) = a * exp(-((t - c) * (t - c)) / (2 * s * s))
 
     /** Syntetyczne EKG: P, QRS (Q, R, S), T w zadanych momentach uderzeń, z dryfem linii i szumem. */
-    private fun ecg(beatTimes: List<Double>, seconds: Double = 30.0, rAmp: Double = 1.2, wide: Set<Int> = emptySet(), noise: Double = 0.01, extra: (Double) -> Double = { 0.0 }): DoubleArray {
-        val n = (seconds * fs).toInt()
+    private fun ecg(beatTimes: List<Double>, seconds: Double = 30.0, rAmp: Double = 1.2, wide: Set<Int> = emptySet(), noise: Double = 0.01, rate: Double = fs, extra: (Double) -> Double = { 0.0 }): DoubleArray {
+        val n = (seconds * rate).toInt()
         val rnd = java.util.Random(7)
         return DoubleArray(n) { i ->
-            val t = i / fs
+            val t = i / rate
             var v = 0.2 * sin(2 * PI * 0.3 * t) + noise * rnd.nextGaussian() + extra(t)
             for ((k, b) in beatTimes.withIndex()) {
                 if (abs(t - b) > 0.6) continue
@@ -198,7 +198,13 @@ class EcgTest {
         assertTrue("EKG z zegarka" !in DoctorReport.html(off, Fixtures.period(30), Fixtures.today, Fixtures.now))
         // zapis spoza okresu nie trafia do raportu
         val old = base.saveEcg(sampleEcg(date = Fixtures.today.minusDays(200)))
-        assertTrue("EKG z zegarka" !in DoctorReport.html(old, Fixtures.period(30), Fixtures.today, Fixtures.now))
+        val oldHtml = DoctorReport.html(old, Fixtures.period(30), Fixtures.today, Fixtures.now)
+        assertTrue("Brak zapisów EKG w wybranym okresie" in oldHtml, oldHtml.takeLast(400)); assertTrue("Rytm zatokowy" !in oldHtml)
+        // więcej niż 6 zapisów w okresie: raport mówi, że pokazano najnowsze
+        var many = base
+        for (d in 1..8) many = many.saveEcg(sampleEcg(date = Fixtures.today.minusDays(d.toLong())).copy(id = "e$d"))
+        val manyHtml = DoctorReport.html(many, Fixtures.period(30), Fixtures.today, Fixtures.now)
+        assertTrue("Pokazano 6 najnowszych z 8" in manyHtml, "ecgs=${many.ecgs.size} " + manyHtml.takeLast(300))
     }
 
     @Test fun userTextInEcgReportIsEscaped() {
@@ -481,5 +487,66 @@ class EcgTest {
         assertEquals(2.5f, s.visible); assertEquals(0f, s.start)
         assertEquals(EcgViewport.Window(0f, 30f), EcgViewport.whole(30f))
         assertEquals(10f, EcgViewport.centerOn(15f, 10f, 30f).start)
+    }
+
+    // ---------- poprawki z przeglądu ----------
+
+    @Test fun pausesLongerThanThreeSecondsAreReported() {
+        for (gap in listOf(3.2, 4.5)) {
+            val before = generateSequence(0.5) { it + 0.8 }.takeWhile { it < 12.0 }.toList()
+            val after = generateSequence(before.last() + gap) { it + 0.8 }.takeWhile { it < 29.4 }.toList()
+            val r = EcgAnalysis.analyze(ecg(before + after), fs)
+            assertTrue("pause" in codes(r), "przerwa $gap s: ${codes(r)}")
+            assertTrue("none" !in codes(r))
+            val ev = r.events.first { it.code == "pause" }
+            assertTrue(abs((ev.endSec!! - ev.tSec) - gap) < 0.1, "czas przerwy ${ev.endSec!! - ev.tSec}")
+            // statystyki nie są zaburzone przerwą
+            assertTrue(abs(r.hrMedian!! - 75) < 2.5)
+        }
+    }
+
+    @Test fun hugeAndOppositeBeatsAreBeatsNotArtifacts() {
+        val rrs = MutableList(40) { 0.8 }
+        rrs[12] = 0.5; rrs[13] = 1.1
+        val times = fromRr(rrs)
+        val tp = times[13]
+        for ((name, amp) in listOf("duże" to 2.0, "odwrócone" to -4.2)) {
+            val r = EcgAnalysis.analyze(ecg(times) { t -> g(t, tp, amp, 0.03) }, fs)
+            assertTrue("premature" in codes(r), "$name: ${codes(r)}")
+            assertTrue(r.events.none { it.code == "artifact" && tp >= it.tSec - 0.1 && tp <= (it.endSec ?: it.tSec) + 0.1 }, "$name uznane za zakłócenie")
+            assertTrue(r.beats.any { abs(it.tSec - tp) < 0.06 }, "$name: brak uderzenia")
+        }
+    }
+
+    @Test fun analysisWorksAtTheStoredRate() {
+        val rate = 250.0
+        val rrs = MutableList(40) { 0.8 }
+        rrs[12] = 0.5; rrs[13] = 1.1
+        val r = EcgAnalysis.analyze(ecg(fromRr(rrs), rate = rate), rate)
+        assertEquals(1, r.prematureAt.size)
+        assertTrue(abs(r.hrMedian!! - 75) < 2.5, "tętno ${r.hrMedian}")
+        val w = r.qrsWidthMs!!
+        assertTrue(w in 20.0..120.0, "QRS $w ms")
+        val reg = EcgAnalysis.analyze(ecg(regular(0.8), rate = rate), rate)
+        assertEquals(listOf("none"), codes(reg))
+    }
+
+    @Test fun corruptedVectorRecordIsRejectedNotThrown() {
+        fun varint(v: Long): List<Byte> { var x = v; val o = ArrayList<Byte>(); while (x >= 0x80) { o.add(((x and 0x7F) or 0x80).toByte()); x = x shr 7 }; o.add(x.toByte()); return o }
+        val bytes = (varint(100) + varint(3) + varint(0) + varint(0) + varint(5) + varint(0) + varint(2147483647L) + varint(0)).toByteArray()
+        assertEquals(null, EcgVector.unpack(java.util.Base64.getEncoder().encodeToString(bytes)))
+        // w kopii takie EKG jest pomijane, a reszta danych się wczytuje
+        val json = """{"v":3,"days":{},"ecgs":[{"id":"e1","date":"2025-03-01","time":"08:00","fs":250,"cmvp":"${java.util.Base64.getEncoder().encodeToString(bytes)}"}]}"""
+        assertTrue(Backup.parseState(json).ecgs.isEmpty())
+    }
+
+    @Test fun tinyRedMarksAreNotTreatedAsAStrip() {
+        val w = 1000; val h = 600
+        val m = ByteArray(w * h)
+        for (x in 50 until 950) { val y = 300 + (20 * sin(x / 15.0)).toInt(); m[y * w + x] = 1; m[(y + 1) * w + x] = 1 }
+        for (y in 50 until 65) for (x in 500 until 515) m[y * w + x] = 1        // ikona: 15 px (2,5 mm) nad przebiegiem
+        val d = assertNotNull(EcgDigitizer.digitizeMask(m, w, h, 6.0))
+        assertEquals(1, d.strips)
+        assertTrue(abs(d.mv.size - 900) <= 2, "próbek ${d.mv.size}")
     }
 }

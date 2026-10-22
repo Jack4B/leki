@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -84,6 +85,7 @@ import pl.asystent.leki.ui.rememberImporter
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Platform.clearShareCache(this)
         enableEdgeToEdge()
         val store = (application as LekiApp).store
         setContent { App(store) }
@@ -135,6 +137,8 @@ fun App(store: Store) {
             CompositionLocalProvider(LocalOverlayHost provides overlays) {
             Box(Modifier.fillMaxSize()) {
             Scaffold(
+                // pod pełnoekranowym edytorem czytnik ekranu nie ma czytać zasłoniętej aplikacji
+                modifier = if (overlays.entries.isNotEmpty()) Modifier.clearAndSetSemantics {} else Modifier,
                 containerColor = pal.bg,
                 snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
                 topBar = {
@@ -185,7 +189,7 @@ fun App(store: Store) {
             }
             OverlayLayer(overlays)
             // komunikaty muszą być widoczne także nad pełnoekranowym edytorem, który zasłania pasek główny
-            if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 88.dp)) { data ->
+            if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 88.dp)) { data ->
                 Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape)
             }
             }

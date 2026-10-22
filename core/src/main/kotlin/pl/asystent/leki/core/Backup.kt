@@ -228,11 +228,14 @@ object Backup {
             val fs = o["fs"].number()?.let { Math.round(it).toInt() }?.takeIf { it in 50..1000 } ?: return@mapNotNull null
             // nowy zapis zwarty (cmvz) albo starszy, jako lista liczb (cmv)
             val vec = o["cmvp"].str(); val packed = o["cmvz"].str()
-            val raw = if (vec != null) EcgVector.unpack(vec) ?: return@mapNotNull null
-            else if (packed != null) EcgPacking.unpack(packed) ?: return@mapNotNull null
-            else o["cmv"].arr().orEmpty().take(200_000).mapNotNull { v -> v.number()?.let { Math.round(it).toInt().coerceIn(-1000, 1000) } }
+            // uszkodzony zapis jednego EKG nie może przerwać wczytywania całej kopii
+            val raw = runCatching {
+                if (vec != null) EcgVector.unpack(vec)
+                else if (packed != null) EcgPacking.unpack(packed)
+                else o["cmv"].arr().orEmpty().take(200_000).mapNotNull { v -> v.number()?.let { Math.round(it).toInt().coerceIn(-1000, 1000) } }
+            }.getOrNull() ?: return@mapNotNull null
             // przebieg w pamięci ma być dokładnie tym, co zapisze się do pliku (patrz EcgVector.normalize)
-            val cmv = EcgVector.normalize(raw)
+            val cmv = runCatching { EcgVector.normalize(raw) }.getOrNull() ?: return@mapNotNull null
             if (cmv.size < fs) return@mapNotNull null
             Ecg(id, date, time, o["source"].strOr("zegarek"), intOr(o["watchHr"], 0, 0, 300), o["watchNote"].strOr().take(200), fs, cmv, o["note"].strOr().take(500))
         }

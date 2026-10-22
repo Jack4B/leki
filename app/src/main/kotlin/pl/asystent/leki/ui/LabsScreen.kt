@@ -65,12 +65,15 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
     if (openId.isNotEmpty() && s.marker(openId) == null) openId = ""
     val open = s.marker(openId)
+    // „wstecz” w szczegółach parametru wraca do listy badań, a nie do innej zakładki
+    androidx.activity.compose.BackHandler(enabled = open != null) { openId = "" }
 
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         if (open == null) {
             item {
                 Text("Badania", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 12.dp, bottom = 12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+                // przyciski dotyczą wyników badań; w zakładce EKG ma być jeden, własny przycisk dodawania
+                if (mode != 2) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                     LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.4f), primary = true, icon = Ph.Scan)
                     LekiButton("Dodaj ręcznie", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, Modifier.weight(1f), tonal = true, icon = Ph.Plus)
                 }
