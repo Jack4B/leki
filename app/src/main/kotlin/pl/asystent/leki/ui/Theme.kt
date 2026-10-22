@@ -1,6 +1,7 @@
 package pl.asystent.leki.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -68,7 +69,8 @@ fun LekiTheme(mode: ThemeMode, content: @Composable () -> Unit) {
             surfaceContainerLow = p.surface, surfaceContainerLowest = p.surface, surfaceTint = p.accent,
         )
     }
-    val base = TextStyle(color = p.ink, fontSize = 15.sp, lineHeight = 21.sp)
+    // bez stałego koloru: tekst bierze kolor z kontenera (LocalContentColor), dzięki czemu np. komunikat na jasnym pasku w ciemnym motywie jest czytelny
+    val base = TextStyle(fontSize = 15.sp, lineHeight = 21.sp)
     val typography = Typography(
         bodyLarge = base, bodyMedium = base.copy(fontSize = 14.sp, lineHeight = 20.sp), bodySmall = base.copy(fontSize = 12.5.sp, lineHeight = 17.sp),
         titleLarge = base.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), titleMedium = base.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
@@ -76,7 +78,7 @@ fun LekiTheme(mode: ThemeMode, content: @Composable () -> Unit) {
         labelLarge = base.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), labelMedium = base.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
         labelSmall = base.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
     )
-    CompositionLocalProvider(LocalPalette provides p) {
+    CompositionLocalProvider(LocalPalette provides p, LocalContentColor provides p.ink) {
         MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }

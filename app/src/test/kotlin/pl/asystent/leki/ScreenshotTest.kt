@@ -29,7 +29,10 @@ import pl.asystent.leki.core.Bp
 import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.ThemeMode
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Text
 import pl.asystent.leki.ui.BpScreen
+import pl.asystent.leki.ui.CtlShape
 import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiTheme
 import pl.asystent.leki.ui.LocalToast
@@ -99,6 +102,17 @@ class ScreenshotTest {
 
     private val analysisState: AppState = state.copy(analyses = listOf(Analysis("a1", LocalDate.of(2026, 1, 15), "Analiza AI", "# Analiza\n\n## Podsumowanie\nPrzykładowy wniosek.\n\n## Szczegóły\nDługi opis.\n\n## Pytania do lekarza\n1. Przykładowe pytanie?", listOf("Szczegóły"))))
     @Test fun raportAnaliza() = slices("raport-analiza", 1) { ReportScreen(analysisState, store, listState = it, initialMode = 0) }
+
+    /** Komunikat (snackbar) na jasnym pasku w ciemnym motywie: tekst ma być ciemny i czytelny (regresja: biała belka bez tekstu). */
+    @Test fun komunikatCiemny() = shot("komunikat-ciemny", ThemeMode.Dark) {
+        Column(Modifier.padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+            Snackbar(containerColor = pal.ink, contentColor = pal.bg, shape = CtlShape) { Text("Wczytano kopię zapasową") }
+            Text("Tekst na tle ekranu", color = pal.ink)
+        }
+    }
+    @Test fun komunikatJasny() = shot("komunikat-jasny", ThemeMode.Light) {
+        Column(Modifier.padding(16.dp)) { Snackbar(containerColor = pal.ink, contentColor = pal.bg, shape = CtlShape) { Text("Wczytano kopię zapasową") } }
+    }
 
     @Test fun badania() = slices("badania", 1) { LabsScreen(state, store, onImport = {}, listState = it) }
     @Test fun badaniaPuste() = slices("badania-puste", 1) { LabsScreen(AppState(), store, onImport = {}, listState = it) }
