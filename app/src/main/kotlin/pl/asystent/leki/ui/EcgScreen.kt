@@ -80,6 +80,7 @@ import pl.asystent.leki.core.minutes
 import pl.asystent.leki.core.shortDate
 import pl.asystent.leki.core.LabScan
 import pl.asystent.leki.core.deleteEcg
+import pl.asystent.leki.core.ecgGroupSummary
 import pl.asystent.leki.core.hhmm
 import pl.asystent.leki.core.newId
 import pl.asystent.leki.core.plDate
@@ -94,7 +95,7 @@ private const val DPI = 300
 private const val DPI_FALLBACK = 200
 
 /** Lista zapisów EKG w zakładce Badania. */
-fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit, onDelete: (String) -> Unit = {}) {
+fun LazyListScope.ecgSection(s: AppState, hist: HistoryState, today: java.time.LocalDate, onAdd: () -> Unit, onOpen: (String) -> Unit, onDelete: (String) -> Unit = {}) {
     item {
         Column(Modifier.padding(top = 14.dp)) {
             BodyText("Zapisy EKG z zegarka lub opaski (jedno odprowadzenie). Wczytaj wydruk PDF z aplikacji zegarka: aplikacja odtworzy przebieg, policzy tętno i odstępy między uderzeniami oraz wskaże ewentualne nieregularności do omówienia z lekarzem.")
@@ -115,22 +116,30 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
     }
     item { EcgMethods() }
     if (s.ecgs.isEmpty()) item { EmptyBox("Brak zapisów EKG.", Modifier.padding(top = 16.dp)) }
-    else item {
-        LekiCard(Modifier.padding(top = 16.dp)) {
-            s.ecgs.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time }).forEachIndexed { i, e ->
-                if (i > 0) Divider()
-                val r = remember(e) { EcgAnalysis.analyze(e) }
-                val attention = r.flags.count { it.severity == EcgSeverity.Attention }
-                Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onOpen(e.id) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Text(plDate(e.date) + ", " + e.time.hhmm(), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        val hr = r.hrMedian?.let { "tętno ${Math.round(it)}/min" } ?: (if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "")
-                        Text(listOf(hr, e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" }, style = TextStyle(fontSize = 13.sp, color = pal.ink3))
-                        if (attention > 0) Text("Do omówienia z lekarzem: $attention", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 2.dp))
-                    }
-                    LekiButton("Usuń", { onDelete(e.id) }, danger = true, small = true)
-                }
+    else historyList(
+        "ecg", "Zapisy EKG", s.ecgs.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time }).let { l -> if (hist.flagOnly) l.filter { ecgAttention(it) > 0 } else l },
+        hist, today, { it.date }, "Tylko z oznaczeniami", "Pokaż wszystkie", "Brak zapisów z oznaczeniami do omówienia z lekarzem.",
+        { ecgGroupSummary(it) },
+    ) { rows -> EcgRows(rows, onOpen, onDelete) }
+}
+
+private fun ecgAttention(e: Ecg): Int = EcgAnalysis.analyze(e).flags.count { it.severity == EcgSeverity.Attention }
+
+/** Zapisy EKG jednego dnia: godzina, tętno, liczba oznaczeń; dotknięcie otwiera zapis, „Usuń” kasuje go po potwierdzeniu. */
+@Composable
+private fun EcgRows(rows: List<Ecg>, onOpen: (String) -> Unit, onDelete: (String) -> Unit) {
+    rows.forEachIndexed { i, e ->
+        if (i > 0) Divider()
+        val r = remember(e) { EcgAnalysis.analyze(e) }
+        val attention = r.flags.count { it.severity == EcgSeverity.Attention }
+        Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onOpen(e.id) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(plDate(e.date) + ", " + e.time.hhmm(), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                val hr = r.hrMedian?.let { "tętno ${Math.round(it)}/min" } ?: (if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "")
+                Text(listOf(hr, e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" }, style = TextStyle(fontSize = 13.sp, color = pal.ink3))
+                if (attention > 0) Text("Do omówienia z lekarzem: $attention", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 2.dp))
             }
+            LekiButton("Usuń", { onDelete(e.id) }, danger = true, small = true)
         }
     }
 }

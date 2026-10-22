@@ -63,6 +63,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     var ecgOpenId by rememberSaveable { mutableStateOf("") }
     val ecgImport = rememberEcgImporter { ecgDraft = it }
     var ecgDel by remember { mutableStateOf<String?>(null) }
+    val ecgHist = rememberHistoryState()
 
     val model = s.labsModel()
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
@@ -82,7 +83,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 }
                 SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
-            if (mode == 2) ecgSection(s, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
+            if (mode == 2) ecgSection(s, ecgHist, java.time.LocalDate.now(), onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
             else if (mode == 1) labsByDate(s) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
             if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {

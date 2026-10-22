@@ -9,7 +9,7 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 ## Funkcje
 
 - **Leki:** plan dnia z porami (śniadanie, obiad…), odhaczanie dawek z godziną, pomijanie dawek z powodem, zmiany dawkowania w czasie z zachowaniem historii, zamiana leku na inny, stoper po dawce, licznik wody, notatka dnia.
-- **Ciśnienie:** pomiary z tętnem i porą, **przewijany wykres w czasie** (7, 30, 90 dni, rok lub wszystko), średnie, oznaczenia progów ustawianych przez użytkownika. Szczegóły niżej.
+- **Ciśnienie:** pomiary z tętnem i porą, **przewijany wykres w czasie** (7, 30, 90 dni, rok lub wszystko), średnie, oznaczenia progów ustawianych przez użytkownika, historia podzielona na dni, tygodnie i miesiące (tak samo lista EKG). Szczegóły niżej.
 - **Badania:** dziennik wyników z zakresami odniesienia, wykresy, widok według parametrów i dat, kontrole z polem na wynik, import wyników z pliku JSON, **dodawanie wyników ze zdjęcia lub PDF (OCR)** oraz **analiza EKG z zegarka** (wydruk PDF).
 - **Raport dla lekarza:** wybór okresu i sekcji, podgląd, druk lub zapis do PDF z menu Androida. Do raportu można dołączyć **wklejoną odpowiedź AI** jako uzupełnienie.
 - **Raport dla AI:** gotowy tekst (Markdown) z poleceniem i danymi z aplikacji, do wklejenia w dowolny model AI. Szczegóły niżej.
@@ -80,6 +80,16 @@ Zapis wektorowy (punkt 9) nie pogarsza tego istotnie: błąd średniokwadratowy 
 - Odtworzenie z obrazu jest przybliżone (rozdzielczość czasowa około 5 ms). Przed zaufaniem analizie porównaj przebieg na ekranie z wydrukiem.
 - Algorytm sprawdzono na jednym prawdziwym wydruku z zegarka i na sygnałach syntetycznych. Inne marki i formaty wydruków mogą nie działać (aplikacja zgłosi, że nie znalazła przebiegu). Nie ma walidacji klinicznej.
 - Przy bólu w klatce piersiowej, duszności, omdleniu lub kołataniu serca nie czekaj na analizę: skontaktuj się z lekarzem lub zadzwoń pod 112.
+
+## Długie listy: dni, tygodnie, miesiące
+
+Lista **Zapisane pomiary** (Ciśnienie) i lista zapisów **EKG** (Badania → EKG) nie rosną w nieskończoność. Przełącznik nad listą ma trzy widoki:
+
+- **Dni:** ostatnie 7 dni rozwinięte dzień po dniu, starsze pozycje w zwiniętych kartach tygodniowych.
+- **Tygodnie** (od poniedziałku): same karty tygodni, najnowszy rozwinięty.
+- **Miesiące:** same karty miesięcy, wszystkie zwinięte.
+
+Karta okresu pokazuje podsumowanie (liczba pozycji, średnie ciśnienie i tętno albo zakres tętna z EKG, liczba pozycji do uwagi); dotknięcie rozwija ją i pokazuje pozycje pogrupowane dniami, z przyciskiem „Usuń”. Przycisk **Tylko podwyższone** (ciśnienie) albo **Tylko z oznaczeniami** (EKG) zostawia na liście pozycje na progu lub powyżej, albo z oznaczeniami do omówienia z lekarzem. Lista pokazuje wszystkie pomiary niezależnie od zakresu wykresu. Logika grupowania i podsumowań jest w `core/.../History.kt`.
 
 ## Wykres ciśnienia w czasie
 
@@ -232,6 +242,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Import EKG** z PDF w poziomie A4 (czy tętno z przebiegu zgadza się z zegarkiem), usuwanie EKG z listy, trend tętna, eksport PDF z numerowanymi zdarzeniami.
 - [ ] **Eksport CSV** (otwarcie w arkuszu: polskie znaki, przecinki dziesiętne).
 - [ ] **Wykres ciśnienia:** czerwone punkty powyżej progu; trend EKG po przewijaniu.
+- [ ] **Listy podzielone na okresy** (Ciśnienie i EKG): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
 
 ### Do zrobienia po testach
 

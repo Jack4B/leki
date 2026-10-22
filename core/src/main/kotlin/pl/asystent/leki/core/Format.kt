@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter
 object Pl {
     val dowShort = listOf("Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So")
     val dowFull = listOf("niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota")
+    val monthsNom = listOf("styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień")
     val monthsShort = listOf("sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru")
     val months = listOf("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia")
 }

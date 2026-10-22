@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.9.2-preview
+
+- **Długie listy dzielą się na okresy.** Lista „Zapisane pomiary” (Ciśnienie) i lista zapisów EKG (Badania → EKG) mają przełącznik **Dni | Tygodnie | Miesiące**. „Dni”: ostatnie 7 dni rozwinięte dzień po dniu, starsze pomiary w **zwiniętych kartach tygodniowych**. „Tygodnie” i „Miesiące”: same karty okresów (tydzień od poniedziałku), dotknięcie rozwija pozycje, a pozycje są pogrupowane dniami. W Tygodniach rozwinięty jest najnowszy tydzień, w Miesiącach wszystko zwinięte.
+- Karta okresu ma jednowierszowe podsumowanie, np. „42 pomiary · średnio 138/88 · tętno 71 · powyżej progu: 9” albo „12 zapisów · tętno 58–96/min · do omówienia: 2”; gdy w okresie są pomiary na progu lub powyżej (EKG: z oznaczeniami), podsumowanie jest pomarańczowe. Karty mają stan „rozwinięte/zwinięte” dla czytnika ekranu.
+- Filtr **„Tylko podwyższone”** (ciśnienie) i **„Tylko z oznaczeniami”** (EKG) pokazuje wyłącznie pozycje na progu lub powyżej, albo z oznaczeniami do omówienia z lekarzem. Wybór widoku i rozwinięte karty zostają po obrocie ekranu.
+- Historia pomiarów nie zależy już od zakresu 7/30/90 dni (ten zakres nadal wyznacza wykres i podsumowanie nad nią): lista zawsze obejmuje wszystkie pomiary, a jej długość ogranicza grupowanie. Wykres i eksport CSV bez zmian.
+- `core`: `History.kt` (grupowanie po dniach, tygodniach i miesiącach, polskie nazwy okresów, podsumowania), 3 nowe testy. Nowe zrzuty ekranu w CI: widok tygodni i miesięcy.
+
 ## 0.9.1-preview
 
 - **Odpowiedź AI w stałym formacie, ostylowana w raporcie.** Polecenie dla AI ma nową sekcję „Format odpowiedzi”: model ma odpowiedzieć w Markdown z **ustalonymi nagłówkami** (Podsumowanie, Sprawy pilne, Interakcje lek–lek, Interakcje z jedzeniem i napojami, Pory dnia i harmonogram, Duplikaty i dawki, Powiązania z wynikami (i EKG), Systematyczność, Pytania do lekarza), **tabelami** (kolumny podane w poleceniu), **ramkami** (`> **Pilne:** …`, `> **Do omówienia:** …`, `> **Informacja:** …`), **znacznikami** `[WYSOKIE]`, `[ŚREDNIE]`, `[NISKIE]` i limitem długości. Do polecenia dołączony jest krótki szkielet układu (treść zmyślona).

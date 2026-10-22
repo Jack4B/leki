@@ -237,4 +237,47 @@ class HousekeepingTest {
         // wyłączone ostrzeganie i brak prognozy: zielony
         assertEquals(StockLevel.Ok, stockLevel(f(0), 0)); assertEquals(StockLevel.Ok, stockLevel(f(null), 7))
     }
+
+    // ---------- historia pogrupowana w okresy ----------
+
+    private fun bpAt(d: LocalDate, sys: Int, dia: Int, id: String = "$d$sys") = Bp(id, d, LocalTime.of(8, 0), sys, dia, pulse = 60 + (sys % 10))
+
+    @Test fun groupsByWeekAndMonthNewestFirst() {
+        val list = listOf(bpAt(LocalDate.of(2026, 10, 21), 150, 95), bpAt(LocalDate.of(2026, 10, 20), 120, 80), bpAt(LocalDate.of(2026, 10, 14), 130, 82), bpAt(LocalDate.of(2026, 9, 30), 118, 76), bpAt(LocalDate.of(2026, 9, 2), 125, 80))
+        val weeks = groupByPeriod(list, HistoryView.Weeks) { it.date }
+        assertEquals(listOf("2026-10-19", "2026-10-12", "2026-09-28", "2026-08-31"), weeks.map { it.key })   // tygodnie od poniedziałku
+        assertEquals(listOf(2, 1, 1, 1), weeks.map { it.items.size })
+        val months = groupByPeriod(list, HistoryView.Months) { it.date }
+        assertEquals(listOf("2026-10-01", "2026-09-01"), months.map { it.key })
+        assertEquals(listOf(3, 2), months.map { it.items.size })
+        assertEquals(5, groupByPeriod(list, HistoryView.Days) { it.date }.size)
+        assertTrue(groupByPeriod(emptyList<Bp>(), HistoryView.Weeks) { it.date }.isEmpty())
+    }
+
+    @Test fun periodLabelsArePolish() {
+        assertEquals("Październik 2026", periodLabel(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), HistoryView.Months))
+        assertEquals("Styczeń 2027", periodLabel(LocalDate.of(2027, 1, 1), LocalDate.of(2027, 1, 31), HistoryView.Months))
+        assertEquals("19–25 października 2026", periodLabel(LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 25), HistoryView.Weeks))
+        assertEquals("28 wrz – 4 paź 2026", periodLabel(LocalDate.of(2026, 9, 28), LocalDate.of(2026, 10, 4), HistoryView.Weeks))
+        assertEquals("28 gru 2026 – 3 sty 2027", periodLabel(LocalDate.of(2026, 12, 28), LocalDate.of(2027, 1, 3), HistoryView.Weeks))
+        assertEquals("Środa 21 października", periodLabel(LocalDate.of(2026, 10, 21), LocalDate.of(2026, 10, 21), HistoryView.Days))
+    }
+
+    @Test fun summariesCountThresholdsAndEcgFlags() {
+        val c = Settings(hiSys = 135, hiDia = 85)
+        val (text, warn) = bpGroupSummary(listOf(bpAt(LocalDate.of(2026, 10, 21), 150, 95), bpAt(LocalDate.of(2026, 10, 20), 120, 80)), c)
+        assertEquals("2 pomiary · średnio 135/88 · tętno 60 · powyżej progu: 1", text)
+        assertTrue(warn)
+        val (ok, noWarn) = bpGroupSummary(listOf(bpAt(LocalDate.of(2026, 10, 20), 120, 80)), c)
+        assertEquals("1 pomiar · średnio 120/80 · tętno 60", ok); assertFalse(noWarn)
+        assertEquals("brak pomiarów", bpGroupSummary(emptyList(), c).first)
+        fun e(id: String, hr: Int) = Ecg(id, LocalDate.of(2026, 10, 1), LocalTime.of(8, 0), watchHr = hr, fs = 125, cmv = List(125 * 2) { 0 })
+        val ecgs = listOf(e("a", 62), e("b", 80))
+        val (es, ew) = ecgGroupSummary(ecgs)
+        val flagged = EcgTrend.points(ecgs).count { it.attention > 0 }
+        assertTrue(es.startsWith("2 zapisy"), es)
+        assertEquals(flagged > 0, ew)
+        assertEquals(flagged > 0, es.contains("do omówienia: $flagged"), es)
+        assertEquals("brak zapisów", ecgGroupSummary(emptyList()).first)
+    }
 }

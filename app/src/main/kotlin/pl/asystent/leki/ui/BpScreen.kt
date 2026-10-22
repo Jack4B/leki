@@ -28,6 +28,7 @@ import pl.asystent.leki.core.Bp
 import pl.asystent.leki.core.addBp
 import pl.asystent.leki.core.Trend
 import pl.asystent.leki.core.bpFlag
+import pl.asystent.leki.core.bpGroupSummary
 import pl.asystent.leki.core.bpOrder
 import pl.asystent.leki.core.bpStats
 import pl.asystent.leki.core.deleteBp
@@ -42,7 +43,7 @@ private val RANGES = listOf(7, 30, 90, 365, 0)
 private val RANGE_LABELS = listOf("7 dni", "30 dni", "90 dni", "Rok", "Wszystko")
 
 @Composable
-fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), initialRange: Int = 7) {
+fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), initialRange: Int = 7, hist: HistoryState = rememberHistoryState()) {
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
@@ -60,6 +61,8 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
 
     val list = s.bp.sortedWith(bpOrder).let { all -> if (range == 0) all else all.filter { it.date >= today.minusDays((range - 1).toLong()) } }
     val st = bpStats(list)
+    // historia pokazuje wszystkie pomiary (zakres 7/30/90 dni dotyczy podsumowania i wykresu); długą listę dzieli widok Dni | Tygodnie | Miesiące
+    val all = s.bp.sortedWith(bpOrder).reversed()
 
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         item {
@@ -143,35 +146,32 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
             }
         }
         if (s.bp.isEmpty()) item { EmptyBox("Brak pomiarów. Wpisz pierwszy wynik w formularzu powyżej.", Modifier.padding(top = 24.dp)) }
-        else if (list.isNotEmpty()) {
-            val groups = list.reversed().groupBy { it.date }
-            item { Text("Zapisane pomiary", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 24.dp)) }
-            groups.forEach { (date, rows) ->
-                item(key = "g$date") {
-                    Column(Modifier.padding(top = 14.dp)) {
-                        Text(longDay(date), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                        LekiCard {
-                            rows.forEachIndexed { i, r ->
-                                if (i > 0) Divider()
-                                val f = s.settings.bpFlag(r)
-                                val meta = listOfNotNull(r.pulse?.let { "tętno $it" }, r.ctx, r.note.ifEmpty { null }).joinToString(", ")
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text(r.time.hhmm(), style = TextStyle(fontSize = 13.sp, fontFamily = Mono, color = pal.ink3), modifier = Modifier.padding(end = 2.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text("${r.sys}/${r.dia}", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
-                                        Text(buildString { append(meta); if (f.isNotEmpty()) { if (meta.isNotEmpty()) append(' '); append(f) } },
-                                            style = TextStyle(fontSize = 12.5.sp, color = if (f.isNotEmpty()) pal.warn else pal.ink3))
-                                    }
-                                    LekiButton("Usuń", { delId = r.id }, danger = true, small = true)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        if (s.bp.isNotEmpty()) historyList(
+            "bp", "Zapisane pomiary", all.let { a -> if (hist.flagOnly) a.filter { s.settings.bpFlag(it) == "podwyższone" } else a },
+            hist, today, { it.date }, "Tylko podwyższone", "Pokaż wszystkie", "Brak pomiarów na progu podwyższonego ciśnienia lub powyżej.",
+            { bpGroupSummary(it, s.settings) },
+        ) { rows -> BpRows(rows, s, onDelete = { delId = it }) }
     }
     delId?.let { id ->
         ConfirmDialog("Usunąć pomiar?", "Pomiar zniknie z listy, wykresu i raportów.", "Usuń", onConfirm = { store.update { it.deleteBp(id) }; toast("Usunięto pomiar") }, onDismiss = { delId = null }, danger = true)
+    }
+}
+
+/** Pomiary jednego dnia: godzina, wynik, tętno z notatką i przycisk usuwania; kreski między pozycjami. */
+@Composable
+private fun BpRows(rows: List<Bp>, s: AppState, onDelete: (String) -> Unit) {
+    rows.forEachIndexed { i, r ->
+        if (i > 0) Divider()
+        val f = s.settings.bpFlag(r)
+        val meta = listOfNotNull(r.pulse?.let { "tętno $it" }, r.ctx, r.note.ifEmpty { null }).joinToString(", ")
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(r.time.hhmm(), style = TextStyle(fontSize = 13.sp, fontFamily = Mono, color = pal.ink3), modifier = Modifier.padding(end = 2.dp))
+            Column(Modifier.weight(1f)) {
+                Text("${r.sys}/${r.dia}", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                Text(buildString { append(meta); if (f.isNotEmpty()) { if (meta.isNotEmpty()) append(' '); append(f) } },
+                    style = TextStyle(fontSize = 12.5.sp, color = if (f.isNotEmpty()) pal.warn else pal.ink3))
+            }
+            LekiButton("Usuń", { onDelete(r.id) }, danger = true, small = true)
+        }
     }
 }
