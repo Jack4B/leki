@@ -61,6 +61,9 @@ data class EcgResult(
  * To narzędzie pomocnicze do rozmowy z lekarzem, a nie diagnoza: nie mierzy odstępu QT ani przesunięć ST i nie rozpoznaje niedokrwienia.
  */
 object EcgAnalysis {
+    /** Liczba z jednym miejscem po przecinku, w polskim zapisie (11,0). */
+    private fun pl1(v: Double) = "%.1f".format(java.util.Locale.ROOT, v).replace('.', ',')
+
     private fun median(x: List<Double>): Double {
         val s = x.sorted(); val n = s.size
         return if (n == 0) 0.0 else if (n % 2 == 1) s[n / 2] else (s[n / 2 - 1] + s[n / 2]) / 2
@@ -186,11 +189,11 @@ object EcgAnalysis {
             flags.add(EcgFlag("irregular", "Rytm wyraźnie nieregularny", "${"%.0f".format(deviating * 100)}% odstępów między uderzeniami odbiega o ponad 15% od typowego. Przyczyną może być migotanie przedsionków albo częste pobudzenia dodatkowe. Aplikacja tego nie rozpoznaje: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
         } else {
             if (premature.size >= 3) flags.add(EcgFlag("premature_many", "Kilka przedwczesnych uderzeń (${premature.size})", "Po każdym następuje dłuższa przerwa. Mogą to być pobudzenia dodatkowe; omów z lekarzem, zwłaszcza gdy je czujesz.", EcgSeverity.Attention))
-            else if (premature.isNotEmpty()) flags.add(EcgFlag("premature", "Pojedyncze przedwczesne uderzenie", "Po nim następuje dłuższa przerwa (${premature.size} w zapisie, około ${premature.joinToString(", ") { "%.1f s".format(it) }}). Takie pobudzenia bywają u zdrowych osób, ale może to być też zakłócenie. Warto o nie zapytać lekarza.", EcgSeverity.Info))
+            else if (premature.isNotEmpty()) flags.add(EcgFlag("premature", "Pojedyncze przedwczesne uderzenie", "Po nim następuje dłuższa przerwa (${premature.size} w zapisie, około ${premature.joinToString(", ") { pl1(it) + " s" }}). Takie pobudzenia bywają u zdrowych osób, ale może to być też zakłócenie. Warto o nie zapytać lekarza.", EcgSeverity.Info))
         }
-        if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Przerwa w rytmie: ${"%.1f".format(longest)} s", "Najdłuższy odstęp między uderzeniami (typowo ${"%.1f".format(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
+        if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Przerwa w rytmie: ${pl1(longest)} s", "Najdłuższy odstęp między uderzeniami (typowo ${pl1(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
         if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
-        if (flags.none { it.severity == EcgSeverity.Attention }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
+        if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
 
         return EcgResult(
             dur, beats, rr, hrMean, hrMed, 60.0 / v.max(), 60.0 / v.min(), sd * 1000, rmssd, pnn, cv, artifactRatio, artifacts, flags, premature,

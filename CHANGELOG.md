@@ -7,6 +7,7 @@
 - **Pole „Ocena zegarka” zawiera już tylko ocenę rytmu** (OCR sklejał w nim kolumny nagłówka, np. „Rytm zatokowy Średnie tętno:73”).
 - **Opis obliczeń i algorytmów:** w aplikacji (rozwijane „Jak to jest liczone”), w README, w skrócie w raporcie dla lekarza i dla AI. Test pilnuje, żeby liczby w opisie zgadzały się ze stałymi w kodzie.
 - **EKG w raporcie dla AI:** nowa pigułka „EKG z zegarka” w zakładce Raport → Dla AI. Do raportu trafiają wskaźniki (tętno, zmienność RR, jakość, zakłócenia), wyniki analizy i kolejne odstępy RR w milisekundach, ale nie surowy przebieg. Polecenie dla modelu dostaje punkt o EKG (z zakazem oceny QT i ST oraz prośbą o wskazanie, kiedy potrzebne jest pełne EKG, szczególnie przy lekach wydłużających QT i zaburzeniach elektrolitów). Raport bez zapisów EKG jest identyczny jak wcześniej.
+- Komunikaty EKG używają polskiego przecinka dziesiętnego, a „Rytm regularny” nie pojawia się już obok wykrytego przedwczesnego uderzenia.
 - 4 nowe testy (czyszczenie oceny rytmu, raport AI z EKG i bez, kopia z flagą, zgodność opisu metody z kodem).
 
 ## 0.6.0-preview
