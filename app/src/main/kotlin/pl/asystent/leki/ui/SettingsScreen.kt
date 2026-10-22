@@ -40,6 +40,7 @@ import androidx.core.content.ContextCompat
 import pl.asystent.leki.BuildConfig
 import pl.asystent.leki.Platform
 import pl.asystent.leki.Store
+import pl.asystent.leki.core.Licenses
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.Event
@@ -214,6 +215,20 @@ fun SettingsScreen(
                             BodyText("Dane zostają na tym urządzeniu. Aplikacja nie ma dostępu do internetu, więc niczego nie wysyła, a rozpoznawanie tekstu ze zdjęć działa na telefonie.")
                             BodyText("Aplikacja tylko zapisuje i porządkuje dane wpisane przez użytkownika. Nie ocenia wyników i nie zastępuje lekarza.")
                             Hint("Ikony: Phosphor Icons (MIT). Rozpoznawanie tekstu: ML Kit Text Recognition (model dołączony do aplikacji).")
+                            var showLic by rememberSaveable { mutableStateOf(false) }
+                            LinkButton((if (showLic) "▾ " else "▸ ") + "Licencje i źródła algorytmów", { showLic = !showLic })
+                            if (showLic) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Licenses.included.forEach { n ->
+                                    Column {
+                                        Text(n.name, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                                        Text("${n.license}. ${n.role}. ${n.copyright}.", style = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = pal.ink2))
+                                        Text(n.url, style = TextStyle(fontSize = 12.sp, color = pal.ink3))
+                                    }
+                                }
+                                Text("Algorytmy własne, oparte na publikacjach (kod napisany od zera)", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                                Licenses.references.forEach { Text("• $it", style = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = pal.ink2)) }
+                                Hint("Pełne teksty licencji: plik THIRD-PARTY-NOTICES.md w repozytorium projektu.")
+                            }
                         }
                     }
                 }

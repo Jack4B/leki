@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.6.4-preview
+
+- **Podgląd EKG z powiększaniem.** W edytorze zapisu przycisk „Powiększ przebieg” otwiera jeden ciągły pas całego zapisu: przesuwasz go palcem, dwoma palcami powiększasz i zmniejszasz (od całego zapisu do 2 s na ekranie), a przyciski „Całość, 10 s, 5 s, 2 s” ustawiają skalę jednym ruchem. Siatka jak na papierze (mała kratka 0,04 s i 0,1 mV), trójkąty przy uderzeniach, szare tło przy zakłóceniach, podpisy sekund.
+- **Renderowanie PDF w 300 dpi** (wcześniej 200): według pomiaru błąd odtworzenia przebiegu spada z 0,12 do 0,05 mV (README). Gdy brakuje pamięci, aplikacja sama wraca do 200 dpi. OCR nagłówka działa na zmniejszonej kopii 200 dpi, żeby nie trzymać w pamięci kilku dużych bitmap.
+- **Licencje składników zewnętrznych.** Nowy plik `THIRD-PARTY-NOTICES.md` (pełne teksty i obowiązki) oraz sekcja „Licencje i źródła algorytmów” w O aplikacji: Phosphor Icons (MIT, z notą praw autorskich), Compose i AndroidX (Apache-2.0), Kotlin i biblioteki kotlinx (Apache-2.0), ML Kit (warunki Google), publikacje, na których oparto algorytmy. Zapisano też dane o HeartKit (BSD-3-Clause, Copyright (c) 2022 Ambiq) wraz z obowiązkami na wypadek jego dołączenia; **HeartKit nie jest dołączony do aplikacji**.
+- **Modele HeartKit (TensorFlow Lite) nie zostały dodane**: pliki modeli są w Model Zoo, który nie jest dostępny ze środowiska budowania, więc nie dało się sprawdzić formatu wejścia, normalizacji ani klas ani przetestować wnioskowania. Szczegóły i warunki w README (Plany).
+- 2 nowe testy (digitalizacja w skali 300 dpi w rozsądnym czasie, spójność danych o licencjach).
+
 ## 0.6.3-preview
 
 - **Zwarty zapis EKG w kopii zapasowej.** Przebieg był zapisywany jako czytelna lista liczb i jedno 30-sekundowe EKG zajmowało w kopii około 93 KB (100 zapisów to prawie 9 MB, a plik danych jest serializowany przy każdej zmianie, ok. pół sekundy). Teraz przebieg jest pakowany (różnice kolejnych próbek, zmienna długość, base64) i zajmuje około 8 KB, bez utraty dokładności. Zapisy w starym formacie wczytują się i przepakują przy następnym zapisie danych; uszkodzony zapis jest pomijany, a reszta kopii się wczytuje.

@@ -327,4 +327,27 @@ class EcgTest {
         val bad = """{"v":3,"days":{},"ecgs":[{"id":"x","date":"2026-10-13","time":"19:08","fs":100,"cmvz":"!!!"}]}"""
         assertTrue(Backup.parseState(bad).ecgs.isEmpty())
     }
+
+    @Test fun digitizesAtThreeHundredDpiScaleInReasonableTime() {
+        val mv = ecg(regular(0.8))
+        val img = render(mv, 300 / 25.4, true)
+        val t0 = System.nanoTime()
+        val d = assertNotNull(EcgDigitizer.digitize(img.px, img.w, img.h, 300 / 25.4))
+        val ms = (System.nanoTime() - t0) / 1_000_000
+        val r = EcgAnalysis.analyze(d.mv, d.fs)
+        assertTrue(abs(r.hrMedian!! - 75) < 2.5, "tętno ${r.hrMedian}")
+        assertTrue(abs(d.fs - 295.3) < 1.0, "fs ${d.fs}")
+        assertTrue(ms < 15_000, "digitalizacja trwała $ms ms")
+    }
+
+    @Test fun licenseNoticesAreCompleteAndConsistent() {
+        for (n in Licenses.included + Licenses.evaluated) {
+            assertTrue(n.name.isNotBlank() && n.license.isNotBlank() && n.role.isNotBlank() && n.copyright.isNotBlank() && n.url.startsWith("https://"), n.name)
+        }
+        assertTrue(Licenses.included.any { it.name.startsWith("Phosphor") && it.license == "MIT" && "2023" in it.copyright })
+        assertTrue(Licenses.included.none { "HeartKit" in it.name }, "HeartKit nie jest dołączony do aplikacji")
+        val hk = Licenses.evaluated.single { "HeartKit" in it.name }
+        assertEquals("BSD-3-Clause", hk.license); assertTrue("Ambiq" in hk.copyright)
+        assertTrue(Licenses.references.size >= 3)
+    }
 }

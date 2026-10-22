@@ -7,12 +7,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,7 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +73,9 @@ import pl.asystent.leki.ocr.ScanImages
 import java.time.LocalDate
 import java.time.LocalTime
 
-private const val DPI = 200
+/** Rozdzielczość renderowania strony PDF: 300 dpi daje ponad dwa razy mniejszy błąd odtworzenia niż 200 (patrz README); przy braku pamięci aplikacja wraca do 200. */
+private const val DPI = 300
+private const val DPI_FALLBACK = 200
 
 /** Lista zapisów EKG w zakładce Badania. */
 fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit) {
@@ -95,6 +107,31 @@ fun LazyListScope.ecgSection(s: AppState, onAdd: () -> Unit, onOpen: (String) ->
     }
 }
 
+/** Renderuje stronę, odtwarza przebieg i odczytuje nagłówek; null, gdy w pliku nie ma przebiegu EKG. */
+private suspend fun readPdfEcg(ctx: android.content.Context, uri: android.net.Uri, dpi: Int): Ecg? {
+    val bmp = ScanImages.renderFirstPdfPage(ctx, uri, dpi)
+    val w = bmp.width; val h = bmp.height
+    val dig = run {
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, 0, 0, w, h)
+        EcgDigitizer.digitize(px, w, h, dpi / 25.4)
+    }
+    if (dig == null) { bmp.recycle(); return null }
+    // nagłówek wydruku (data, tętno, ocena rytmu): OCR na kopii 200 dpi (sprawdzonej rozdzielczości), żeby nie trzymać w pamięci kilku dużych bitmap
+    val meta = runCatching {
+        val small = Bitmap.createScaledBitmap(bmp, w * DPI_FALLBACK / dpi, h * DPI_FALLBACK / dpi, true)
+        bmp.recycle()
+        val upright = if (dig.vertical) Bitmap.createBitmap(small, 0, 0, small.width, small.height, Matrix().apply { postRotate(-90f) }, true).also { small.recycle() } else small
+        OcrEngine().use { eng -> EcgMeta.parse(LabScan.rows(eng.recognize(upright))) }
+    }.getOrNull()
+    if (!bmp.isRecycled) bmp.recycle()
+    val now = java.time.LocalDateTime.now()
+    return Ecg(
+        newId(), meta?.date ?: now.toLocalDate(), meta?.time ?: now.toLocalTime().withSecond(0).withNano(0),
+        watchHr = meta?.hr ?: 0, watchNote = meta?.note.orEmpty(), fs = 125, cmv = EcgAnalysis.toRecord(dig.mv, dig.fs),
+    )
+}
+
 /** Wczytywanie PDF z zegarka: render strony, odtworzenie przebiegu, analiza i odczyt daty oraz tętna z nagłówka (OCR na urządzeniu). */
 @Composable
 fun rememberEcgImporter(onDraft: (Ecg) -> Unit): () -> Unit {
@@ -108,25 +145,7 @@ fun rememberEcgImporter(onDraft: (Ecg) -> Unit): () -> Unit {
         scope.launch {
             try {
                 val draft = withContext(Dispatchers.Default) {
-                    val bmp = ScanImages.renderFirstPdfPage(ctx, uri, DPI)
-                    val w = bmp.width; val h = bmp.height
-                    val px = IntArray(w * h)
-                    bmp.getPixels(px, 0, w, 0, 0, w, h)
-                    val dig = EcgDigitizer.digitize(px, w, h, DPI / 25.4)
-                    if (dig == null) { bmp.recycle(); null }
-                    else {
-                        // nagłówek wydruku: data, tętno i ocena rytmu zegarka (tekst jest obrócony razem ze stroną)
-                        val meta = runCatching {
-                            val upright = if (dig.vertical) Bitmap.createBitmap(bmp, 0, 0, w, h, Matrix().apply { postRotate(-90f) }, true) else bmp
-                            OcrEngine().use { eng -> EcgMeta.parse(LabScan.rows(eng.recognize(upright))) }
-                        }.getOrNull()
-                        bmp.recycle()
-                        val now = java.time.LocalDateTime.now()
-                        Ecg(
-                            newId(), meta?.date ?: now.toLocalDate(), meta?.time ?: now.toLocalTime().withSecond(0).withNano(0),
-                            watchHr = meta?.hr ?: 0, watchNote = meta?.note.orEmpty(), fs = 125, cmv = EcgAnalysis.toRecord(dig.mv, dig.fs),
-                        )
-                    }
+                    try { readPdfEcg(ctx, uri, DPI) } catch (e: OutOfMemoryError) { System.gc(); readPdfEcg(ctx, uri, DPI_FALLBACK) }
                 }
                 if (draft == null) toast("Nie znaleziono przebiegu EKG w tym pliku. Wczytaj PDF wyeksportowany z aplikacji zegarka.") else onDraft(draft)
             } catch (e: ScanImages.PdfException) {
@@ -191,6 +210,69 @@ fun EcgWaveView(e: Ecg, r: EcgResult, modifier: Modifier = Modifier) {
 }
 
 /** Wskaźniki i oznaczenia z analizy zapisu, w czytelnych blokach. */
+/**
+ * Podgląd z powiększaniem: jeden ciągły pas całego zapisu, przewijany palcem; dwa palce (lub przyciski) zmieniają, ile sekund mieści się na ekranie.
+ * Siatka jak na papierze: mała kratka to 0,04 s i 0,1 mV (1 mm przy 25 mm/s i 10 mm/mV), duża to 0,2 s i 0,5 mV.
+ */
+@Composable
+fun EcgZoomView(e: Ecg, r: EcgResult) {
+    val sig = remember(e) { e.signalMv() }
+    val total = e.durationS.toFloat().coerceAtLeast(2f)
+    var visibleSec by rememberSaveable { mutableStateOf(minOf(10f, total)) }
+    val scroll = rememberScrollState()
+    val grid = pal.line; val ink = pal.ink; val accent = pal.accent; val warn = pal.warn; val ink3 = pal.ink3
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Całość" to total, "10 s" to 10f, "5 s" to 5f, "2 s" to 2f).forEach { (label, v) ->
+                LekiButton(label, { visibleSec = v.coerceIn(2f, total) }, Modifier.weight(1f), small = true, tonal = Math.abs(visibleSec - v.coerceIn(2f, total)) < 0.05f)
+            }
+        }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val widthDp = (maxWidth.value * total / visibleSec).dp
+            Box(
+                Modifier.fillMaxWidth().horizontalScroll(scroll).pointerInput(Unit) {
+                    // ściśnięcie dwoma palcami zmienia skalę; jeden palec przewija (nie przechwytujemy go)
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val ev = awaitPointerEvent()
+                            if (ev.changes.size >= 2) {
+                                val z = ev.calculateZoom()
+                                if (z != 1f) { visibleSec = (visibleSec / z).coerceIn(2f, total); ev.changes.forEach { it.consume() } }
+                            }
+                        } while (ev.changes.any { it.pressed })
+                    }
+                },
+            ) {
+                Canvas(Modifier.width(widthDp).height(250.dp).semantics { contentDescription = "Przebieg EKG z powiększaniem, ${"%.0f".format(total)} sekund" }) {
+                    val k = density
+                    val pxSec = size.width / total
+                    val h = size.height; val base = h * 0.6f; val mvPx = h / 4.6f
+                    val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
+                    // siatka
+                    var t = 0.0
+                    while (t <= total + 1e-6) {
+                        val x = (t * pxSec).toFloat(); val major = Math.round(t / 0.2).let { Math.abs(t - it * 0.2) < 1e-6 && it % 1L == 0L }
+                        if (major) drawLine(grid.copy(alpha = .9f), Offset(x, 0f), Offset(x, h - 18f * k), strokeWidth = 1f)
+                        else if (pxSec * 0.04f >= 5f * k) drawLine(grid.copy(alpha = .4f), Offset(x, 0f), Offset(x, h - 18f * k), strokeWidth = 1f)
+                        t += 0.04
+                    }
+                    var mv = -1.9f
+                    while (mv <= 2.7f) { val y = base - mv * mvPx; val major = Math.abs(mv * 2 - Math.round(mv * 2)) < 0.01f; if (y in 0f..(h - 18f * k)) drawLine(grid.copy(alpha = if (major) .9f else .35f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1f); mv += 0.1f }
+                    for (a in r.artifacts) drawRect(warn.copy(alpha = .14f), Offset((a.start * pxSec).toFloat(), 0f), Size(((a.endInclusive - a.start) * pxSec).toFloat(), h - 18f * k))
+                    val path = Path()
+                    for (i in sig.indices) { val x = i.toFloat() / e.fs * pxSec; val y = base - sig[i].coerceIn(-1.9, 2.7).toFloat() * mvPx; if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
+                    drawPath(path, ink, style = Stroke(width = 1.8f * k))
+                    for (b in r.beats) { val x = (b.tSec * pxSec).toFloat(); drawPath(Path().apply { moveTo(x - 6f * k, 4f * k); lineTo(x + 6f * k, 4f * k); lineTo(x, 15f * k); close() }, accent) }
+                    var sec = 0
+                    while (sec <= total) { drawContext.canvas.nativeCanvas.drawText("$sec s", sec * pxSec + 3f * k, h - 4f * k, txt); sec += if (pxSec >= 60f * k) 1 else 2 }
+                }
+            }
+        }
+        Hint("Przesuwaj wykres palcem, a dwoma palcami powiększaj i zmniejszaj. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
+    }
+}
+
 @Composable
 fun EcgFindings(r: EcgResult) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -267,6 +349,7 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
     var watchNote by remember { mutableStateOf(initial.watchNote) }
     var note by remember { mutableStateOf(initial.note) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var zoom by remember { mutableStateOf(false) }
     val result = remember(initial) { EcgAnalysis.analyze(initial) }
     FullScreenDialog(
         if (isNew) "Nowe EKG z zegarka" else "EKG z ${plDate(initial.date)}",
@@ -283,6 +366,7 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
         },
     ) {
         EcgWaveView(initial, result)
+        LekiButton("Powiększ przebieg", { zoom = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Heartbeat)
         Hint("Przebieg odtworzony z wydruku. Sprawdź, czy wygląda tak jak na wydruku z zegarka; jeśli nie, nie opieraj się na analizie.")
         EcgFindings(result)
         EcgMethods()
@@ -296,6 +380,7 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
         LekiField("Notatka (opcjonalnie)", note, { note = it.take(500) }, singleLine = false, minLines = 2, placeholder = "np. po spacerze, odczuwane kołatanie")
         if (!isNew) LinkButton("Usuń to EKG", { confirmDelete = true }, danger = true)
     }
+    if (zoom) FullScreenDialog("Przebieg EKG", { zoom = false }) { EcgZoomView(initial, result) }
     if (confirmDelete) ConfirmDialog("Usunąć EKG?", "Zapis zniknie z aplikacji, raportów i przyszłych kopii zapasowych.", "Usuń",
         onConfirm = { store.update { it.deleteEcg(initial.id) }; toast("Usunięto EKG"); onClose() }, onDismiss = { confirmDelete = false }, danger = true)
 }

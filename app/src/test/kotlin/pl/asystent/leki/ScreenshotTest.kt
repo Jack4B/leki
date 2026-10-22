@@ -37,6 +37,7 @@ import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CtlShape
 import pl.asystent.leki.ui.EcgEditor
 import pl.asystent.leki.ui.EcgFindings
+import pl.asystent.leki.ui.EcgZoomView
 import pl.asystent.leki.ui.LocalOverlayHost
 import pl.asystent.leki.ui.OverlayHost
 import pl.asystent.leki.ui.OverlayLayer
@@ -138,6 +139,12 @@ class ScreenshotTest {
         state.copy(ecgs = listOf(Ecg("e1", LocalDate.of(2026, 10, 13), LocalTime.of(19, 8), watchHr = 73, watchNote = "Rytm zatokowy", fs = fs, cmv = EcgAnalysis.toRecord(mv, fs.toDouble(), fs))))
     }
     @Test fun badaniaEkg() = slices("badania-ekg", 1) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 2) }
+    @Test fun ekgPowiekszenie() = shot("ekg-powiekszenie") {
+        val e = ecgState.ecgs.single()
+        Column(Modifier.padding(16.dp)) { EcgZoomView(e, EcgAnalysis.analyze(e)) }
+    }
+    @Test fun oAplikacji() = slices("o-aplikacji", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "About") }
+
     @Test fun ekgSzczegoly() = shot("ekg-szczegoly") {
         val e = ecgState.ecgs.single(); val r = EcgAnalysis.analyze(e)
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {

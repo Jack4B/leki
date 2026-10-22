@@ -1,6 +1,6 @@
 # Asystent leków
 
-Wersja **0.6.3 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.6.4 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
 
 Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
 
@@ -36,10 +36,11 @@ W zakładce **Badania → EKG** przycisk **Dodaj EKG z pliku PDF** wczytuje wydr
 1. Aplikacja renderuje stronę na telefonie i odtwarza przebieg z obrazu: czerwona linia na siatce, wydruk w standardzie 25 mm/s i 10 mm/mV, strona pionowa (pasy obrócone o 90°) lub pozioma.
 2. Tekst nagłówka (OCR na urządzeniu) daje datę, godzinę, tętno i ocenę rytmu zegarka. Imię, płeć, wiek, wzrost i waga z wydruku **nie są odczytywane ani zapisywane**. Datę i resztę możesz poprawić przed zapisem.
 3. Z przebiegu aplikacja liczy tętno, odstępy RR i ich zmienność, rozpoznaje zakłócenia ruchowe (są pomijane) i wskazuje kandydatów do omówienia z lekarzem: tętno poniżej 50 lub powyżej 100/min, wyraźnie nieregularny rytm, przedwczesne uderzenia z dłuższą przerwą po nich, długie przerwy.
-4. Zapis (sam przebieg w 125 próbkach na sekundę, zapisany zwarcie: ok. 8 KB na 30 s) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
+4. W podglądzie można przebieg **powiększać i przewijać** (dwa palce, przyciski „Całość, 10 s, 5 s, 2 s”), z siatką jak na papierze.
+5. Zapis (sam przebieg w 125 próbkach na sekundę, zapisany zwarcie: ok. 8 KB na 30 s) jest w kopii zapasowej, a raport dla lekarza może zawierać sekcję „EKG z zegarka” z przebiegiem i wskaźnikami.
 
 **Jak to jest liczone (algorytmy).** Obliczenia robi sama aplikacja na telefonie, bez bibliotek zewnętrznych, internetu i modeli AI (kod: `core/.../Ecg.kt`, opis w `EcgInfo.kt` i w aplikacji pod „Jak to jest liczone”):
-1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV, potem zapis w 125 próbkach/s.
+1. **Odtworzenie przebiegu:** strona PDF jest renderowana do obrazu (300 dpi, a przy braku pamięci 200 dpi), piksele czerwonej linii zamieniane na przebieg (wiersz obrazu = chwila, odległość od mediany linii = napięcie), skala 25 mm/s i 10 mm/mV, potem zapis w 125 próbkach/s.
 2. **Dryf linii podstawowej** usuwany ruchomą medianą z okna 0,6 s.
 3. **Uderzenia (QRS):** metoda energii pochodnej w duchu algorytmu Pana i Tompkinsa (1985), uproszczona: kwadrat różnicy próbek wygładzony oknem 60 ms, próg 25% mediany maksimów z okien 1,5 s, odstęp refrakcji 250 ms, punkt R jako maksimum w ±70 ms, kierunek QRS według większości uderzeń.
 4. **Zakłócenia:** pomijane fragmenty ±0,35 s wokół wychyleń ponad 2,5 amplitudy R, wychyleń przeciwnych do QRS o amplitudzie co najmniej 0,9 R i skoków ponad 4 razy bardziej stromych niż QRS.
@@ -54,8 +55,8 @@ To zwykła heurystyka, a nie zatwierdzony algorytm medyczny; nie była walidowan
 
 | Rozdzielczość renderowania | Błąd średniokwadratowy | R (amplituda) | Tętno z odtworzenia |
 |---|---|---|---|
-| 200 dpi (obecnie w aplikacji) | 0,12 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
-| 300 dpi | 0,05 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
+| 200 dpi (do wersji 0.6.3) | 0,12 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
+| 300 dpi (obecnie w aplikacji) | 0,05 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
 | 400 dpi | 0,03–0,04 mV | o ok. 2–3% większa | różnica poniżej 0,3/min |
 
 Zapis w 125 próbkach na sekundę i z dokładnością 0,01 mV nie pogarsza tego istotnie (R wychodzi o ok. 1% niższe niż przed zapisem, bo próbki nie zawsze trafiają dokładnie w szczyt). Największe odchylenia (do ok. 1–2 mV) są w miejscach zakłóceń ruchowych, gdzie linia na wydruku ma strome skoki. Zawyżenie amplitudy R o 2–3% wynika z grubości linii na obrazie. Tętno, liczba uderzeń i odstępy RR zgadzają się z wzorcem, co jest najważniejsze dla analizy rytmu; **drobne szczegóły kształtu (np. początek i koniec załamków) nie są odwzorowane dokładnie** i nie nadają się do pomiarów.
@@ -187,6 +188,12 @@ scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Pho
 .github/       workflow budujący APK i publikujący go w Releases
 ```
 
+## Licencje i składniki zewnętrzne
+
+Lista składników dołączonych do aplikacji, ich licencje i noty praw autorskich są w pliku `THIRD-PARTY-NOTICES.md` i w aplikacji (O aplikacji → Licencje i źródła algorytmów); kod danych: `core/.../Licenses.kt`. Algorytmy EKG napisano od zera na podstawie publikacji, bez kopiowania kodu. Przy każdym dodaniu cudzego kodu, modelu, danych lub zależności aktualizuj ten plik, listę w aplikacji, README i CHANGELOG.
+
+**HeartKit (AmbiqAI), BSD-3-Clause:** oceniony, **niedołączony**. Licencja pozwala na użycie komercyjne i w zamkniętej aplikacji pod warunkiem zachowania noty i zastrzeżenia w dystrybucji (dla APK: w aplikacji i w `THIRD-PARTY-NOTICES.md`) oraz niewykorzystywania nazwy Ambiq do promocji. Przed dołączeniem trzeba jeszcze sprawdzić licencje modeli i zbiorów treningowych oraz zależności.
+
 ## Prywatność
 
 - Dane trafiają wyłącznie do pamięci aplikacji. Kopia zapasowa Androida do chmury Google i przenoszenie między telefonami są wyłączone.
@@ -202,6 +209,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 - Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
 - Podgląd zdjęcia obok wyników na ekranie sprawdzania.
+- **Modele HeartKit w TensorFlow Lite** (migotanie przedsionków, klasyfikacja uderzeń) jako drugi głos obok reguł: wstrzymane, bo pliki modeli (Model Zoo) są niedostępne ze środowiska budowania. Potrzebne: pliki `.tflite` z opisem wejścia (częstotliwość próbkowania, długość okna, normalizacja, klasy) i licencją, pobrane z Model Zoo i dołączone do projektu; wtedy można je sprawdzić na syntetycznych sygnałach i na zapisie z zegarka, przed dodaniem zależności TensorFlow Lite. Uwaga: modele były trenowane na EKG z plastra na klatce piersiowej, więc na odtworzonych zapisach z zegarka mogą działać gorzej.
 - Wykres ciśnienia: oznaczanie kolorem pomiarów powyżej progu.
 - Ręczne kadrowanie zdjęcia przed rozpoznaniem.
 
