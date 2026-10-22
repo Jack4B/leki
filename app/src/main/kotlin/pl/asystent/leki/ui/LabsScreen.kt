@@ -68,7 +68,8 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     val labHist = rememberHistoryState()
     val markerHist = rememberHistoryState()
 
-    val model = s.labsModel()
+    var labSort by rememberSaveable { mutableStateOf(0) }
+    val model = s.labsModel(pl.asystent.leki.core.LabSort.values()[labSort.coerceIn(0, 2)])
     fun openLab(l: Lab?, id: String) { if (s.markers.isEmpty()) toast("Najpierw dodaj parametr badania w Ustawieniach.") else labEdit = l to id }
     if (openId.isNotEmpty() && s.marker(openId) == null) openId = ""
     val open = s.marker(openId)
@@ -87,7 +88,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 SegRow(listOf("Parametry", "Według dat", "EKG"), mode, { mode = it })
             }
             if (mode == 2) ecgSection(s, ecgHist, java.time.LocalDate.now(), onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
-            else if (mode == 1) labsByDate(s, labHist, java.time.LocalDate.now()) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
+            else if (mode == 1) labsByDate(s, labHist, java.time.LocalDate.now()) { openLab(it, it.marker) } else overview(s, model, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) }, labSort, { labSort = it })
             if (mode != 2) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
@@ -163,6 +164,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
 
 private fun androidx.compose.foundation.lazy.LazyListScope.overview(
     s: AppState, model: pl.asystent.leki.core.LabsModel, showNone: Boolean, toggleNone: () -> Unit, onOpen: (String) -> Unit, onAddTo: (String) -> Unit,
+    sort: Int, onSort: (Int) -> Unit,
 ) {
     item {
         val lastDate = s.labs.maxByOrNull { it.date }?.date
@@ -172,14 +174,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overview(
             Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie badanie", Modifier.weight(1f))
         }
         if (model.withResults.isEmpty()) EmptyBox("Brak wyników. Zeskanuj wyniki ze zdjęcia lub pliku PDF albo dodaj pierwszy wynik ręcznie.", Modifier.padding(top = 16.dp))
+        else SegRow(listOf("Grupami", "A–Z", "Najnowsze"), sort, onSort, Modifier.padding(top = 14.dp))
     }
-    if (model.out.isNotEmpty()) item {
+    if (model.sort != pl.asystent.leki.core.LabSort.Groups) {
+        // jedna lista w wybranej kolejności; wyniki poza zakresem mają pomarańczową ocenę w wierszu, więc osobna karta z nimi jest zbędna
+        if (model.flat.isNotEmpty()) item(key = "flat") {
+            Column(Modifier.padding(top = 18.dp)) {
+                LekiCard { model.flat.forEachIndexed { i, x -> if (i > 0) Divider(); LabRowItem(x, showDate = true, spark = true) { onOpen(x.marker.id) } } }
+            }
+        }
+    } else if (model.out.isNotEmpty()) item {
         Column(Modifier.padding(top = 18.dp)) {
             Text("Ostatni wynik poza zakresem", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
             LekiCard { model.out.forEachIndexed { i, x -> if (i > 0) Divider(); LabRowItem(x, showDate = true, spark = true) { onOpen(x.marker.id) } } }
         }
     }
-    model.groups.forEach { g ->
+    if (model.sort == pl.asystent.leki.core.LabSort.Groups) model.groups.forEach { g ->
         item(key = "grp" + g.name) {
             Column(Modifier.padding(top = 18.dp)) {
                 Text(g.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))

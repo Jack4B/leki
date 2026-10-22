@@ -292,4 +292,15 @@ class HousekeepingTest {
         assertEquals("1 wynik", labGroupSummary(listOf(lab("1", 18, "k", 4.3)), listOf(k)).first)
         assertEquals("brak wyników", labGroupSummary(emptyList(), listOf(k)).first)
     }
+
+    @Test fun labsAreSortedInGroupsAlphabeticallyAndFlatByNameOrDate() {
+        val ms = listOf(Marker("z", "Żelazo", grp = "Morfologia"), Marker("a", "Albumina", grp = "Morfologia"), Marker("c", "Ćwiartka", grp = "Morfologia"), Marker("b", "Białko", grp = "Inne"))
+        fun lab(id: String, d: Int, m: String) = Lab(id, LocalDate.of(2026, 10, d), m, 1.0)
+        val st = AppState(markers = ms, labs = listOf(lab("1", 10, "z"), lab("2", 12, "a"), lab("3", 11, "c"), lab("4", 15, "b")))
+        val g = st.labsModel()
+        assertEquals(listOf("Albumina", "Ćwiartka", "Żelazo"), g.groups.first { it.name == "Morfologia" }.items.map { it.marker.name })   // polskie sortowanie: Ć po C, Ż na końcu
+        assertEquals(listOf("Albumina", "Białko", "Ćwiartka", "Żelazo"), st.labsModel(LabSort.Alpha).flat.map { it.marker.name })
+        assertEquals(listOf("Białko", "Albumina", "Ćwiartka", "Żelazo"), st.labsModel(LabSort.Recent).flat.map { it.marker.name })
+        assertEquals(listOf("b", "a", "c", "z"), st.labsModel(LabSort.Recent).order)
+    }
 }

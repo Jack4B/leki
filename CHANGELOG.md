@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.9.7-preview
+
+- **Badania → Parametry są posortowane.** Wewnątrz każdej grupy parametry są teraz **alfabetycznie** (polskie sortowanie: Ć po C, Ż na końcu), a nie w kolejności dodania. Nad listą jest przełącznik **Grupami | A–Z | Najnowsze**: „A–Z” to jedna lista wszystkich parametrów alfabetycznie, „Najnowsze” to jedna lista od ostatnio badanych. W listach płaskich wyniki poza zakresem mają pomarańczową ocenę w wierszu (osobna karta „poza zakresem” jest tylko w widoku Grupami). Strzałki „poprzedni/następny” w szczegółach parametru idą w wybranej kolejności.
+- `core`: `LabSort` i sortowanie w `labsModel`, test kolejności.
+
 ## 0.9.6-preview
 
 - **Badania dzielą się na okresy tak jak ciśnienie i EKG.** Zakładka **Według dat** ma przełącznik **Dni | Tygodnie | Miesiące**, zwijane karty okresów z podsumowaniem (np. „8 wyników · dni badań: 2 · poza zakresem: 1”) i filtr **„Tylko poza zakresem”**. W widoku „Dni” ostatnie 90 dni jest rozwinięte dzień po dniu (badania są rzadsze niż pomiary ciśnienia), starsze w zwiniętych kartach tygodniowych.

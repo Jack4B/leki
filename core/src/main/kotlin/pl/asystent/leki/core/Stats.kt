@@ -62,9 +62,18 @@ data class LabRow(val marker: Marker, val list: List<Lab>) {
 
 data class LabGroup(val name: String, val items: List<LabRow>)
 
-data class LabsModel(val out: List<LabRow>, val groups: List<LabGroup>, val none: List<Marker>, val order: List<String>, val withResults: List<LabRow>)
+/** Kolejność parametrów na liście: w grupach (z wynikami poza zakresem na górze), alfabetycznie albo od ostatnio badanych. */
+enum class LabSort { Groups, Alpha, Recent }
 
-fun AppState.labsModel(): LabsModel {
+/** Parametry z wynikami: [flat] to jedna lista w wybranej kolejności (dla A–Z i Najnowsze); [order] to kolejność do przechodzenia „poprzedni/następny” w szczegółach. */
+data class LabsModel(
+    val out: List<LabRow>, val groups: List<LabGroup>, val none: List<Marker>, val order: List<String>, val withResults: List<LabRow>,
+    val flat: List<LabRow> = emptyList(), val sort: LabSort = LabSort.Groups,
+)
+
+private val plCollator: java.text.Collator get() = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl"))
+
+fun AppState.labsModel(sort: LabSort = LabSort.Groups): LabsModel {
     val rows = markers.map { LabRow(it, labsOf(it.id)) }
     val with = rows.filter { it.last != null }
     val none = rows.filter { it.last == null }.map { it.marker }
@@ -77,9 +86,16 @@ fun AppState.labsModel(): LabsModel {
         val ia = idx(a); val ib = idx(b)
         if (ia != ib) ia - ib else java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl")).compare(a, b)
     }
-    val groups = names.map { LabGroup(it, map[it]!!) }
-    val order = out.map { it.marker.id } + groups.flatMap { g -> g.items.map { it.marker.id } }
-    return LabsModel(out, groups, none, order, with)
+    val col = plCollator
+    val byName = Comparator<LabRow> { a, b -> col.compare(a.marker.name, b.marker.name) }
+    val groups = names.map { LabGroup(it, map[it]!!.sortedWith(byName)) }
+    val flat = when (sort) {
+        LabSort.Groups -> emptyList()
+        LabSort.Alpha -> with.sortedWith(byName)
+        LabSort.Recent -> with.sortedWith(compareByDescending<LabRow> { it.last!!.date }.then(byName))
+    }
+    val order = if (sort == LabSort.Groups) out.map { it.marker.id } + groups.flatMap { g -> g.items.map { it.marker.id } } else flat.map { it.marker.id }
+    return LabsModel(out, groups, none, order, with, flat, sort)
 }
 
 // ---------- Zgodność z planem ----------
