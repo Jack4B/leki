@@ -433,4 +433,53 @@ class EcgTest {
         val sec = EcgReport.html(listOf(e))
         assertTrue("zamiast typowego" in sec && "width:257.5mm" !in sec)
     }
+
+    // ---------- okno podglądu: przejście do zdarzenia musi trafiać w zdarzenie ----------
+
+    @Test fun viewportJumpsToTheEvent() {
+        val total = 29.6f
+        val pre = EcgEvent(7.7, null, "premature", "t", "x", EcgSeverity.Info)
+        val w = EcgViewport.forEvent(pre, total)
+        assertEquals(4f, w.visible); assertEquals(5.7f, w.start, 0.001f)
+        assertTrue(w.contains(7.7) && abs((w.start + w.visible / 2) - 7.7f) < 0.01f)
+        val art = EcgEvent(25.3, 26.5, "artifact", "t", "x", EcgSeverity.Info)
+        val wa = EcgViewport.forEvent(art, total)
+        assertTrue(wa.contains(25.3) && wa.contains(26.5) && wa.end <= total + 0.001f)
+        // zdarzenia przy brzegach zapisu: okno nie wychodzi poza zapis, a zdarzenie jest w oknie
+        for (t in listOf(0.0, 0.2, 29.4, 29.6)) {
+            val ww = EcgViewport.forEvent(EcgEvent(t, null, "premature", "t", "x", EcgSeverity.Info), total)
+            assertTrue(ww.start >= 0f && ww.end <= total + 0.001f && ww.contains(t), "t=$t okno ${ww.start}..${ww.end}")
+        }
+        // wszystkie zdarzenia prawdziwej analizy są widoczne po przejściu do nich
+        val r = EcgAnalysis.analyze(ecg(regular(0.8)) { t -> if (t in 12.0..12.25) -2.6 * sin((t - 12.0) / 0.25 * PI) else 0.0 }, fs)
+        for (ev in r.events) assertTrue(EcgViewport.forEvent(ev, 30f).contains(ev.tSec) && EcgViewport.forEvent(ev, 30f).contains(ev.endSec ?: ev.tSec))
+    }
+
+    @Test fun viewportZoomKeepsTheSecondUnderTheFinger() {
+        val total = 30f
+        val w = EcgViewport.Window(10f, 10f)
+        val z = EcgViewport.zoom(w, 2f, 0.25f, total)
+        assertEquals(5f, z.visible)
+        assertEquals(w.start + 0.25f * w.visible, z.start + 0.25f * z.visible, 0.001f)
+        // zmniejszenie poza zapis jest ograniczone, a kolejne przybliżenia nie schodzą poniżej 2 s
+        val out = EcgViewport.zoom(w, 0.1f, 0.5f, total)
+        assertEquals(total, out.visible); assertEquals(0f, out.start)
+        assertEquals(2f, EcgViewport.zoom(w, 100f, 0.5f, total).visible)
+        // niepoprawny współczynnik nie psuje okna
+        assertEquals(w, EcgViewport.zoom(w, Float.NaN, 0.5f, total))
+        assertEquals(w, EcgViewport.zoom(w, 0f, 0.5f, total))
+    }
+
+    @Test fun viewportPanAndClampStayInsideTheRecord() {
+        val total = 30f
+        assertEquals(0f, EcgViewport.pan(EcgViewport.Window(1f, 10f), -5f, total).start)
+        assertEquals(20f, EcgViewport.pan(EcgViewport.Window(19f, 10f), 5f, total).start)
+        assertEquals(12f, EcgViewport.pan(EcgViewport.Window(10f, 10f), 0.2f, total).start, 0.001f)
+        assertEquals(EcgViewport.Window(0f, 3f), EcgViewport.clamp(EcgViewport.Window(-5f, 3f), total))
+        // krótki zapis: okno nigdy nie jest dłuższe niż zapis
+        val s = EcgViewport.clamp(EcgViewport.Window(3f, 10f), 2.5f)
+        assertEquals(2.5f, s.visible); assertEquals(0f, s.start)
+        assertEquals(EcgViewport.Window(0f, 30f), EcgViewport.whole(30f))
+        assertEquals(10f, EcgViewport.centerOn(15f, 10f, 30f).start)
+    }
 }

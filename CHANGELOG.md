@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.6.8-preview
+
+- **Poprawka: dotknięcie nieprawidłowości pokazywało zły fragment wykresu.** Podgląd EKG był przewijalnym paskiem, którego położenie zależało od chwilowego układu ekranu, więc przejście do zdarzenia bywało nietrafione (np. do zakłóceń na końcu zapisu zamiast do przedwczesnego uderzenia). Podgląd przepisano: położenie okna (sekunda przy lewej krawędzi i liczba widocznych sekund) jest teraz stanem, a rysowana jest tylko widoczna część. Dotknięcie karty zawsze ustawia zdarzenie na środku okna (co najmniej 4 s, dla dłuższych zdarzeń z zapasem) i zaznacza je pasem.
+- **Przeciąganie i powiększanie:** jeden palec przesuwa wykres poziomo (ruch pionowy nadal przewija ekran), dwa palce powiększają wokół punktu dotyku (od całego zapisu do 2 s). Przyciski „Całość, 10 s, 5 s, 2 s” zachowują środek bieżącego zdarzenia.
+- **Mapa zapisu** pod wykresem: pokazuje okno i zdarzenia (żółte: wymagające uwagi); dotknięcie przeskakuje do wskazanego miejsca.
+- Okno podglądu (`EcgViewport`) leży w module `core`: ograniczanie do zapisu, przejście do zdarzenia, powiększanie z zachowaniem sekundy pod palcem, przesuwanie.
+- 3 nowe testy (przejście do każdego zdarzenia, w tym przy brzegach zapisu; powiększanie; przesuwanie i krótkie zapisy).
+
 ## 0.6.7-preview
 
 - **Eksport EKG do PDF.** W edytorze zapisu przycisk „Eksport PDF” (obok „Powiększ przebieg”) i w zakładce Raport → Dla lekarza lista zapisów EKG z wybranego okresu z przyciskiem „PDF” przy każdym. Powstaje samodzielny dokument jednego zapisu: **A4 poziomo, przebieg w skali papieru** (25 mm/s i 10 mm/mV, 100% skali, więc 10 s to 250 mm), wskaźniki, wyniki ogólne i zdarzenia z czasem (przedwczesne uderzenia, przerwy, zakłócenia), notatka, opis metody i zastrzeżenie, że to nie jest badanie EKG ani diagnoza. Zapis do PDF lub druk przez okno systemowe, jak w raporcie dla lekarza. Do eksportu trafiają bieżące wartości z formularza (data, godzina, tętno, ocena, notatka), także dla zapisu jeszcze niezapisanego.

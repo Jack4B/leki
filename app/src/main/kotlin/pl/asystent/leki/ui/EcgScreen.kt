@@ -10,9 +10,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,14 +27,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +67,7 @@ import pl.asystent.leki.core.EcgEvent
 import pl.asystent.leki.core.EcgInfo
 import pl.asystent.leki.core.EcgMeta
 import pl.asystent.leki.core.EcgResult
+import pl.asystent.leki.core.EcgViewport
 import pl.asystent.leki.core.EcgReport
 import pl.asystent.leki.core.EcgVector
 import pl.asystent.leki.core.EcgSeverity
@@ -224,84 +224,106 @@ fun EcgWaveView(e: Ecg, r: EcgResult, modifier: Modifier = Modifier) {
 
 /** Wskaźniki i oznaczenia z analizy zapisu, w czytelnych blokach. */
 /**
- * Podgląd z powiększaniem: jeden ciągły pas całego zapisu, przewijany palcem; dwa palce (lub przyciski) zmieniają, ile sekund mieści się na ekranie.
- * Siatka jak na papierze: mała kratka to 0,04 s i 0,1 mV (1 mm przy 25 mm/s i 10 mm/mV), duża to 0,2 s i 0,5 mV.
+ * Podgląd z powiększaniem: ciągły pas całego zapisu. Okno ([EcgViewport]) to stan: przeciągnięcie palcem przesuwa je, dwa palce powiększają wokół punktu dotyku,
+ * a mapa zapisu pod wykresem pokazuje położenie okna i zdarzeń (dotknięcie mapy przesuwa okno). Rysowana jest tylko widoczna część.
+ * Siatka jak na papierze: mała kratka to 0,04 s i 0,1 mV (25 mm/s i 10 mm/mV), duża to 0,2 s i 0,5 mV.
  */
 @Composable
 fun EcgZoomView(e: Ecg, r: EcgResult) {
     val sig = remember(e) { e.signalMv() }
-    val total = e.durationS.toFloat().coerceAtLeast(2f)
+    val total = e.durationS.toFloat().coerceAtLeast(EcgViewport.MIN_VISIBLE)
+    var startSec by rememberSaveable { mutableStateOf(0f) }
     var visibleSec by rememberSaveable { mutableStateOf(minOf(10f, total)) }
     var focus by remember { mutableStateOf<EcgEvent?>(null) }
-    val scroll = rememberScrollState()
-    // przejście do zdarzenia: powiększenie tak, żeby było widać je z otoczeniem, a potem przewinięcie (robi to LaunchedEffect niżej)
-    fun jump(ev: EcgEvent) { visibleSec = (maxOf(4f, ((ev.endSec ?: ev.tSec) - ev.tSec).toFloat() + 2f)).coerceIn(2f, total); focus = ev }
+    fun window() = EcgViewport.Window(startSec, visibleSec)
+    fun show(w: EcgViewport.Window) { val c = EcgViewport.clamp(w, total); startSec = c.start; visibleSec = c.visible }
+    fun jump(ev: EcgEvent) { focus = ev; show(EcgViewport.forEvent(ev, total)) }
+    fun preset(sec: Float) {
+        val mid = focus?.let { ((it.tSec + (it.endSec ?: it.tSec)) / 2).toFloat() } ?: (window().start + window().visible / 2)
+        if (sec >= total) show(EcgViewport.whole(total)) else show(EcgViewport.centerOn(mid, sec, total))
+    }
     val grid = pal.line; val ink = pal.ink; val accent = pal.accent; val warn = pal.warn; val ink3 = pal.ink3
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Całość" to total, "10 s" to 10f, "5 s" to 5f, "2 s" to 2f).forEach { (label, v) ->
-                LekiButton(label, { visibleSec = v.coerceIn(2f, total) }, Modifier.weight(1f), small = true, tonal = Math.abs(visibleSec - v.coerceIn(2f, total)) < 0.05f)
+                val target = v.coerceIn(minOf(EcgViewport.MIN_VISIBLE, total), total)
+                LekiButton(label, { preset(v) }, Modifier.weight(1f), small = true, tonal = Math.abs(visibleSec - target) < 0.05f)
             }
         }
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val widthDp = (maxWidth.value * total / visibleSec).dp
-            val viewportPx = constraints.maxWidth
-            LaunchedEffect(focus, visibleSec) {
-                val f = focus ?: return@LaunchedEffect
-                val widthPx = viewportPx * total / visibleSec
-                val maxV = (widthPx - viewportPx).toInt().coerceAtLeast(0)
-                withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { Math.abs(it - maxV) <= 3 } }
-                val mid = (f.tSec + (f.endSec ?: f.tSec)) / 2
-                scroll.animateScrollTo(((mid / total) * widthPx - viewportPx / 2).toInt().coerceIn(0, maxV))
-            }
-            Box(
-                Modifier.fillMaxWidth().horizontalScroll(scroll).pointerInput(Unit) {
-                    // ściśnięcie dwoma palcami zmienia skalę; jeden palec przewija (nie przechwytujemy go)
+        Canvas(
+            Modifier.fillMaxWidth().height(250.dp)
+                .semantics { contentDescription = "Przebieg EKG, widoczne ${"%.1f".format(visibleSec)} sekund od ${"%.1f".format(startSec)} sekundy z ${"%.0f".format(total)}" }
+                .pointerInput(total) {
+                    // jeden detektor na jeden i dwa palce: przesuwanie poziome oraz powiększanie wokół punktu dotyku; ruch pionowy zostaje dla przewijania ekranu
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         do {
                             val ev = awaitPointerEvent()
-                            if (ev.changes.size >= 2) {
-                                val z = ev.calculateZoom()
-                                if (z != 1f) { visibleSec = (visibleSec / z).coerceIn(2f, total); ev.changes.forEach { it.consume() } }
+                            val z = ev.calculateZoom(); val pan = ev.calculatePan()
+                            val pinch = ev.changes.size >= 2
+                            if ((pinch && z != 1f) || Math.abs(pan.x) > Math.abs(pan.y)) {
+                                var win = window()
+                                if (pinch && z != 1f) win = EcgViewport.zoom(win, z, (ev.calculateCentroid(useCurrent = true).x / size.width).coerceIn(0f, 1f), total)
+                                show(EcgViewport.pan(win, -pan.x / size.width, total))
+                                ev.changes.forEach { it.consume() }
                             }
                         } while (ev.changes.any { it.pressed })
                     }
                 },
-            ) {
-                Canvas(Modifier.width(widthDp).height(250.dp).semantics { contentDescription = "Przebieg EKG z powiększaniem, ${"%.0f".format(total)} sekund" }) {
-                    val k = density
-                    val pxSec = size.width / total
-                    val h = size.height; val base = h * 0.6f; val mvPx = h / 4.6f
-                    val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
-                    // siatka
-                    var t = 0.0
-                    while (t <= total + 1e-6) {
-                        val x = (t * pxSec).toFloat(); val major = Math.round(t / 0.2).let { Math.abs(t - it * 0.2) < 1e-6 && it % 1L == 0L }
-                        if (major) drawLine(grid.copy(alpha = .9f), Offset(x, 0f), Offset(x, h - 18f * k), strokeWidth = 1f)
-                        else if (pxSec * 0.04f >= 5f * k) drawLine(grid.copy(alpha = .4f), Offset(x, 0f), Offset(x, h - 18f * k), strokeWidth = 1f)
-                        t += 0.04
-                    }
-                    var mv = -1.9f
-                    while (mv <= 2.7f) { val y = base - mv * mvPx; val major = Math.abs(mv * 2 - Math.round(mv * 2)) < 0.01f; if (y in 0f..(h - 18f * k)) drawLine(grid.copy(alpha = if (major) .9f else .35f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1f); mv += 0.1f }
-                    for (a in r.artifacts) drawRect(warn.copy(alpha = .14f), Offset((a.start * pxSec).toFloat(), 0f), Size(((a.endInclusive - a.start) * pxSec).toFloat(), h - 18f * k))
-                    focus?.let { f ->
-                        // zaznaczone zdarzenie: pas (dla punktowego +-0,3 s) z pionowymi liniami
-                        val fe = f.endSec
-                        val a0 = (if (fe == null) f.tSec - 0.3 else f.tSec).toFloat() * pxSec; val a1 = (fe ?: (f.tSec + 0.3)).toFloat() * pxSec
-                        drawRect(accent.copy(alpha = .16f), Offset(a0, 0f), Size(a1 - a0, h - 18f * k))
-                        drawLine(accent, Offset(a0, 0f), Offset(a0, h - 18f * k), strokeWidth = 2f * k); drawLine(accent, Offset(a1, 0f), Offset(a1, h - 18f * k), strokeWidth = 2f * k)
-                    }
-                    val path = Path()
-                    for (i in sig.indices) { val x = i.toFloat() / e.fs * pxSec; val y = base - sig[i].coerceIn(-1.9, 2.7).toFloat() * mvPx; if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
-                    drawPath(path, ink, style = Stroke(width = 1.8f * k))
-                    for (b in r.beats) { val x = (b.tSec * pxSec).toFloat(); drawPath(Path().apply { moveTo(x - 6f * k, 4f * k); lineTo(x + 6f * k, 4f * k); lineTo(x, 15f * k); close() }, accent) }
-                    var sec = 0
-                    while (sec <= total) { drawContext.canvas.nativeCanvas.drawText("$sec s", sec * pxSec + 3f * k, h - 4f * k, txt); sec += if (pxSec >= 60f * k) 1 else 2 }
-                }
+        ) {
+            val k = density
+            val w = size.width; val h = size.height
+            val secPx = w / visibleSec
+            val t0 = startSec.toDouble(); val t1 = (startSec + visibleSec).toDouble()
+            fun x(t: Double) = ((t - t0) * secPx).toFloat()
+            val plotH = h - 18f * k
+            val base = h * 0.6f; val mvPx = h / 4.6f
+            val txt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink3.toArgb(); textSize = 10f * k }
+            // siatka
+            var i = Math.floor(t0 / 0.04).toInt()
+            while (i * 0.04 <= t1) {
+                val gx = x(i * 0.04)
+                if (i % 5 == 0) drawLine(grid.copy(alpha = .9f), Offset(gx, 0f), Offset(gx, plotH), strokeWidth = 1f)
+                else if (secPx * 0.04f >= 5f * k) drawLine(grid.copy(alpha = .4f), Offset(gx, 0f), Offset(gx, plotH), strokeWidth = 1f)
+                i++
             }
+            var mvv = -19
+            while (mvv <= 27) { val y = base - mvv / 10f * mvPx; if (y in 0f..plotH) drawLine(grid.copy(alpha = if (mvv % 5 == 0) .9f else .35f), Offset(0f, y), Offset(w, y), strokeWidth = 1f); mvv++ }
+            for (a in r.artifacts) if (a.endInclusive >= t0 && a.start <= t1) drawRect(warn.copy(alpha = .14f), Offset(x(a.start), 0f), Size(((a.endInclusive - a.start) * secPx).toFloat(), plotH))
+            focus?.let { f ->
+                // zaznaczone zdarzenie: pas (dla punktowego +-0,3 s) z pionowymi liniami
+                val fe = f.endSec
+                val a0 = x(if (fe == null) f.tSec - 0.3 else f.tSec); val a1 = x(fe ?: (f.tSec + 0.3))
+                drawRect(accent.copy(alpha = .16f), Offset(a0, 0f), Size(a1 - a0, plotH))
+                drawLine(accent, Offset(a0, 0f), Offset(a0, plotH), strokeWidth = 2f * k); drawLine(accent, Offset(a1, 0f), Offset(a1, plotH), strokeWidth = 2f * k)
+            }
+            // przebieg: tylko widoczne próbki (plus jedna z każdej strony)
+            val path = Path()
+            val i0 = Math.max(0, Math.floor(t0 * e.fs).toInt() - 1); val i1 = Math.min(sig.size - 1, Math.ceil(t1 * e.fs).toInt() + 1)
+            for (n in i0..i1) { val px = x(n.toDouble() / e.fs); val py = base - sig[n].coerceIn(-1.9, 2.7).toFloat() * mvPx; if (n == i0) path.moveTo(px, py) else path.lineTo(px, py) }
+            drawPath(path, ink, style = Stroke(width = 1.8f * k))
+            for (b in r.beats) if (b.tSec >= t0 && b.tSec <= t1) { val bx = x(b.tSec); drawPath(Path().apply { moveTo(bx - 6f * k, 4f * k); lineTo(bx + 6f * k, 4f * k); lineTo(bx, 15f * k); close() }, accent) }
+            // podpisy sekund: krok dobrany tak, żeby podpisy nie nachodziły na siebie
+            val step = listOf(1, 2, 5, 10).firstOrNull { it * secPx >= 40f * k } ?: 10
+            var sec = (Math.ceil(t0 / step) * step).toInt()
+            while (sec <= t1) { drawContext.canvas.nativeCanvas.drawText("$sec s", x(sec.toDouble()) + 3f * k, h - 4f * k, txt); sec += step }
         }
-        Hint("Przesuwaj wykres palcem, a dwoma palcami powiększaj i zmniejszaj. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
+        // mapa zapisu: położenie okna i zdarzeń; dotknięcie przesuwa okno
+        Canvas(
+            Modifier.fillMaxWidth().height(26.dp).pointerInput(total) {
+                detectTapGestures { off -> show(EcgViewport.centerOn(off.x / size.width * total, visibleSec, total)) }
+            }.semantics { contentDescription = "Mapa zapisu: dotknij, aby przesunąć widok" },
+        ) {
+            val k = density; val w = size.width; val h = size.height
+            drawRect(grid.copy(alpha = .5f), Offset(0f, h * 0.3f), Size(w, h * 0.4f))
+            for (ev in r.events) {
+                val a = (ev.tSec / total * w).toFloat(); val b = ((ev.endSec ?: ev.tSec) / total * w).toFloat()
+                drawRect(if (ev.severity == EcgSeverity.Attention) warn else ink3, Offset(a - 1f * k, 0f), Size(Math.max(2f * k, b - a), h))
+            }
+            drawRect(accent.copy(alpha = .3f), Offset(startSec / total * w, 0f), Size(visibleSec / total * w, h))
+            drawRect(accent, Offset(startSec / total * w, 0f), Size(visibleSec / total * w, h), style = Stroke(width = 2f * k))
+        }
+        Hint("Przeciągnij wykres palcem, dwoma palcami powiększaj i zmniejszaj, a mapą pod nim przeskakuj po zapisie. Mała kratka to 0,04 s i 0,1 mV (jak na papierze 25 mm/s i 10 mm/mV). Trójkąty to wykryte uderzenia, szare tło to pominięte zakłócenia.")
 
         // lista nieprawidłowości: dotknięcie pozycji pokazuje to miejsce na wykresie
         val located = setOf("premature", "premature_many", "pause", "artifacts")
@@ -330,7 +352,7 @@ fun EcgZoomView(e: Ecg, r: EcgResult) {
                 val attention = f.severity == EcgSeverity.Attention
                 Row(
                     Modifier.fillMaxWidth().clip(CardShape).border(1.dp, pal.line, CardShape).background(pal.surface)
-                        .clickable(role = Role.Button) { visibleSec = total; focus = null }.padding(14.dp),
+                        .clickable(role = Role.Button) { focus = null; show(EcgViewport.whole(total)) }.padding(14.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     PhIcon(if (attention) Ph.Warning else Ph.Info, size = 22.dp, tint = if (attention) pal.warn else pal.accent)
