@@ -218,10 +218,36 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ## Plany
 
-- Dostrajanie rozpoznawania na prawdziwych układach wyników z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
-- Podgląd zdjęcia obok wyników na ekranie sprawdzania.
-- **Modele HeartKit (TensorFlow Lite): zrezygnowano.** Zostajemy przy własnych, jawnych algorytmach (opisanych wyżej i w aplikacji), bo modele trenowane na EKG z plastra na klatce piersiowej mogłyby dawać gorszy odczyt na odtworzonych zapisach z zegarka i byłyby czarną skrzynką bez możliwości wyjaśnienia wyniku. Nie dodajemy zależności TensorFlow Lite ani plików modeli.
+### Do sprawdzenia na telefonie (testy)
+
+- [ ] **Powiększony podgląd EKG:** czy dotknięcie karty nieprawidłowości zawsze ustawia wykres na zdarzeniu (przyczyny wcześniejszego przesuwania nie ustalono; wprowadzono zabezpieczenia i przycisk „Wróć do zdarzenia”).
+- [ ] **Blokada aplikacji:** włączenie, odblokowanie odciskiem i PIN-em, opóźnienia (zaraz, 30 s, 5 min), zachowanie po wyborze pliku lub zdjęcia, opcja blokady zrzutów ekranu.
+- [ ] **Zapas leków:** wpisanie liczby, odliczanie odhaczonych dawek, prognoza, kolory paska (zielony, pomarańczowy, czerwony), ostrzeżenie na ekranie Leki.
+- [ ] **Powiadomienia o zapasie i o kopii zapasowej** (9:00 i 10:00 w dniu, w którym stają się aktualne) oraz zgoda na powiadomienia.
+- [ ] **Widżet i skrót** „dodaj pomiar ciśnienia” (przytrzymanie ikony aplikacji, widżet z ekranu głównego).
+- [ ] **Dodawanie leku ze zdjęcia opakowania** na kilku różnych opakowaniach (nazwa, moc, substancja, jednostka, liczba sztuk).
+- [ ] **Import EKG** z PDF w poziomie A4 (czy tętno z przebiegu zgadza się z zegarkiem), usuwanie EKG z listy, trend tętna, eksport PDF z numerowanymi zdarzeniami.
+- [ ] **Eksport CSV** (otwarcie w arkuszu: polskie znaki, przecinki dziesiętne).
+- [ ] **Wykres ciśnienia:** czerwone punkty powyżej progu; trend EKG po przewijaniu.
+
+### Do zrobienia po testach
+
+- Poprawki z testów na telefonie.
+- Podgląd zdjęcia obok wyników na ekranie sprawdzania OCR.
 - Ręczne kadrowanie zdjęcia przed rozpoznaniem.
+- Dostrojenie rozpoznawania wyników na układach z różnych laboratoriów (potrzebne anonimowe próbki rozpoznanego tekstu z ekranu sprawdzania).
+- Numery zdarzeń także w podglądzie EKG na ekranie (na wydruku PDF już są).
+
+### Pomysły (do decyzji po testach)
+
+- Szyfrowanie samego pliku danych w telefonie (blokada aplikacji go nie szyfruje).
+- Wykres ciśnienia z podziałem na rano i wieczór.
+- Cotygodniowe podsumowanie zgodności z planem w powiadomieniu.
+- Odczyt dawkowania z recepty lub ulotki, jeśli odczyt opakowań się sprawdzi.
+
+### Rozstrzygnięte
+
+- **Modele HeartKit (TensorFlow Lite): zrezygnowano.** Zostajemy przy własnych, jawnych algorytmach EKG, bo modele trenowane na EKG z plastra mogłyby dawać gorszy odczyt na zapisach z zegarka i byłyby czarną skrzynką bez możliwości wyjaśnienia wyniku. Nie dodajemy zależności TensorFlow Lite ani plików modeli.
 
 ## Znane ograniczenia wersji preview
 

@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.8.4-preview
+
+- Dokumentacja: w README (sekcja Plany) lista kontrolna do testów na telefonie, rzeczy do zrobienia po testach, pomysły do decyzji i rozstrzygnięcia (HeartKit). Bez zmian w aplikacji.
+
 ## 0.8.3-preview
 
 - **Wydruk PDF EKG oznacza miejsca zdarzeń na przebiegu.** Każde zdarzenie z listy (przedwczesne uderzenie, przerwa w rytmie, zakłócenie) ma na wykresie **numer** w kółku, a przedwczesne uderzenia i przerwy także **pomarańczowy pas z przerywanymi brzegami** (przedwczesne: ±0,35 s wokół uderzenia; przerwa: od uderzenia przed nią do następnego); zakłócenia zostają na szarym tle z numerem. Te same numery są na liście zdarzeń nad wykresem (np. „1. Przedwczesne uderzenie, 10,6 s”), a pod wykresem jest objaśnienie. Zdarzenie przechodzące przez granicę pasa 10 s ma numer w obu pasach. Dotyczy zarówno osobnego dokumentu EKG (A4 poziomo), jak i sekcji EKG w raporcie dla lekarza. Czytelne także w druku czarno-białym (numery i przerywane brzegi).
