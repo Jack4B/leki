@@ -126,11 +126,12 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             ) { LinkButton("Sprawdź zapasy i uzupełnij ›", nav.showMeds) }
         }
         // najbliższe kontrole (do 14 dni): nie muszą być schowane w Ustawieniach
-        val upcoming = s.events.filter { it.date >= today && it.date <= today.plusDays(14) }.sortedBy { it.date }
-        if (upcoming.isNotEmpty()) item {
+        // bez kontroli, które i tak pokazuje blok „za 1–3 dni” pod wybranym dniem
+        val soonEvents = s.events.filter { it.date >= today && it.date <= today.plusDays(14) && daysBetween(sel, it.date) !in 1..3 }.sortedBy { it.date }
+        if (soonEvents.isNotEmpty()) item {
             Column(Modifier.padding(top = 8.dp)) {
                 LekiCard {
-                    upcoming.take(3).forEachIndexed { i, e ->
+                    soonEvents.take(3).forEachIndexed { i, e ->
                         if (i > 0) Divider()
                         val n = daysBetween(today, e.date)
                         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

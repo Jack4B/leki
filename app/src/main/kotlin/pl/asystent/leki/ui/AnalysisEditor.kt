@@ -38,7 +38,7 @@ private const val SEP = "\u0001"
  * wyłączając całe sekcje (nagłówki). Zapis trafia do kopii zapasowej razem z resztą danych.
  */
 @Composable
-fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: () -> Unit, prefill: IncomingAi? = null) {
+fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, prefill: IncomingAi? = null, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val undo = LocalUndo.current
