@@ -58,6 +58,12 @@ li{margin-bottom:6px}
 .chart .p-lab{fill:var(--accent);stroke:#fff;stroke-width:1.5}
 .chart .p-lab.out{fill:var(--danger)}
 .chart .vl{fill:#000;font:600 10px var(--mono)}
+.chart .bar{fill:var(--accent)}
+.chart .bar.out{fill:var(--danger)}
+.chart .zero{stroke:#555;stroke-width:1}
+.sw.bandsw{background:var(--accent-soft);border:1px solid var(--accent);border-radius:2px}
+.sw.barsw{background:var(--accent);border-radius:2px}
+.sw.outsw{background:var(--danger);border-radius:2px}
 .chart .ref{stroke:#b07000;stroke-width:1;stroke-dasharray:4 3;opacity:.8}
 .chart .rng-sys{stroke:var(--accent);opacity:.35}
 .chart .rng-dia{stroke:var(--ink-3);opacity:.35}
@@ -223,7 +229,9 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             h.append("</ul>")
         }
         if (P.cykl) Cykl.brief(s.cykl.db, today)?.let { b ->
-            h.append("<h3>Dziennik cyklu</h3><ul>")
+            h.append("<h3>Dziennik cyklu (opis, bez rozpoznania)</h3>")
+            CyklReport.html(s.cykl.db, today)?.let { h.append(it) }
+            h.append("<ul>")
             Cykl.briefLines(b).forEach { h.append("<li>${esc(it)}</li>") }
             h.append("</ul>")
         }

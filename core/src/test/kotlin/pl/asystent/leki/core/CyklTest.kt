@@ -227,4 +227,26 @@ class CyklTest {
         assertNull(Cykl.readIncoming("""[{"type":"a","date":"0999-01-01"},{"type":"a","date":"1.1.0500"}]"""))
         assertNotNull(Cykl.readIncoming("""[{"type":"a","date":"1000-01-01"}]"""))
     }
+
+    @Test fun doctorReportHasMedicalCyclesChartsAndTable() {
+        val today = LocalDate.of(2024, 10, 20)
+        val c = CyklReport.cycles(demo, today)
+        assertEquals(9, c.size)                          // 10 początków okresu = 9 cykli
+        assertEquals(listOf(31, 26, 35, 28, 33, 27, 30, 36, 29), c.map { it.days })
+        assertTrue(c.all { it.bleed == 5 })
+        val st = AppState(patient = "Osoba", settings = Settings(cyklOn = true, rp = ReportParts(cykl = true)), cykl = CyklData(demo))
+        val html = DoctorReport.html(st, Period(today.minusDays(29), today), today, java.time.LocalDateTime.of(2024, 10, 20, 12, 0))
+        assertEquals(3, Regex("<svg class=\"chart\"").findAll(html.substringAfter("Dziennik cyklu (opis")).count())
+        assertTrue("Długość cyklu (dni)" in html && "Czas krwawienia (dni)" in html && "Zmiana względem poprzedniego cyklu" in html)
+        assertTrue("24–38" in html && "FIGO" in html && "STRAW+10" in html)
+        assertTrue("<table>" in html && "Początek okresu" in html)
+        assertFalse(Regex("sex|protected|masturb|\\bhim\\b|stosun", RegexOption.IGNORE_CASE).containsMatchIn(html.substringAfter("Dziennik cyklu (opis")))
+        // poza zakresem są oznaczone
+        val odd = """{"entries":[{"type":"period_start","date":"2024-01-01"},{"type":"period_start","date":"2024-01-20"},{"type":"period_start","date":"2024-03-10"},{"type":"period_start","date":"2024-04-05"}],"cycles":{},"settings":{}}"""
+        val fragment = CyklReport.html(odd, LocalDate.of(2024, 4, 30))!!
+        assertTrue("poza 24–38" in fragment && "≥ 7" in fragment && "bd-hi" in fragment)
+        assertFalse("Czas krwawienia" in fragment)                 // brak dat końca okresu: bez wykresu krwawienia
+        assertNull(CyklReport.html(empty, today)); assertNull(CyklReport.html("""{"entries":[{"type":"period_start","date":"2024-01-01"}]}""", today))
+        assertEquals(0, CyklReport.cycles(odd, LocalDate.of(2023, 1, 1)).size)    // starty w przyszłości nie są cyklami
+    }
 }

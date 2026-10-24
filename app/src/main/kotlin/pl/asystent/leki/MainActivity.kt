@@ -263,7 +263,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)
                             TAB_CYKL -> CyklScreen(store)
-                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false })
+                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false }, onOpenCyklReport = { store.update { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(cykl = true))) }; setTab(3) })
                         }
                     } }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },

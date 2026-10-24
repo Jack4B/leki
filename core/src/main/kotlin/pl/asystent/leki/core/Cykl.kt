@@ -231,6 +231,17 @@ object Cykl {
 
     // ---------- Podsumowanie do raportów (opisowe, bez wpisów intymnych i bez rozpoznań) ----------
 
+    /** Daty początków i końców okresu z bazy (posortowane, bez powtórzeń); null, gdy to nie baza. Typy intymne nie są czytane. */
+    internal fun periodDates(db: String): Pair<List<LocalDate>, List<LocalDate>>? {
+        val entries = (parse(db)?.get("entries") as? JsonArray) ?: return null
+        fun dates(type: String): List<LocalDate> = entries.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            if (prim(o["type"]) != type) return@mapNotNull null
+            prim(o["date"])?.takeIf { isoRe.containsMatchIn(it) }?.take(10)?.let { d -> runCatching { LocalDate.parse(d) }.getOrNull() }
+        }.distinct().sorted()
+        return dates("period_start") to dates("period_end")
+    }
+
     /** Długości cykli (dni między kolejnymi początkami okresu), ostatni początek i wpisy zdrowotne wpisane w module. */
     class Brief(
         val cycles: List<Int>, val totalCycles: Int, val lastStart: LocalDate?, val daysSinceStart: Int?,

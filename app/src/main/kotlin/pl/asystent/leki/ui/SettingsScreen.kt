@@ -94,7 +94,7 @@ fun SettingsScreen(
     s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
     showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {}, onOpenCykl: () -> Unit = {},
-    showPeopleRequest: Boolean = false, onShowPeopleHandled: () -> Unit = {},
+    showPeopleRequest: Boolean = false, onShowPeopleHandled: () -> Unit = {}, onOpenCyklReport: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
@@ -205,7 +205,7 @@ fun SettingsScreen(
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
                 Page.Security -> item { SecuritySection() }
-                Page.Cykl -> item { CyklSection(s, store, onOpenCykl) }
+                Page.Cykl -> item { CyklSection(s, store, onOpenCykl, onOpenCyklReport) }
                 Page.People -> item { PeopleSection(s, store) }
                 Page.Data -> item {
                     LekiCard {
@@ -376,7 +376,7 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
 
 /** Moduł „Cykl”: pokazanie i ukrycie zakładki, wczytanie i zapis pliku z całą bazą, podsumowanie danych i ich usunięcie. Ukrycie niczego nie kasuje. */
 @Composable
-private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
+private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit, onOpenReport: () -> Unit) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val undo = LocalUndo.current
@@ -423,6 +423,7 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
             SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> store.update { it.copy(settings = it.settings.copy(cyklOn = i == 1)) } })
             Hint(if (on) "Zakładka „Cykl” jest na dolnym pasku, przed Raportem." else "Zakładka jest ukryta. Wpisane dane zostają w aplikacji i wchodzą do kopii zapasowej.")
             if (on) LekiButton("Otwórz moduł", onOpen, Modifier.fillMaxWidth(), primary = true, icon = Ph.CalendarBlank)
+            if (!store.cyklOf(store.activeId.value).isEmpty) LekiButton("Raport dla lekarza z wykresami cyklu", onOpenReport, Modifier.fillMaxWidth(), tonal = true, icon = Ph.FileText)
         }
     }
     if (people.size > 1) {
