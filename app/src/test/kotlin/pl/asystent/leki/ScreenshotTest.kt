@@ -205,6 +205,11 @@ class ScreenshotTest {
 
     @Test fun badania() = slices("badania", 1) { LabsScreen(state, store, onImport = {}, listState = it) }
     @Test fun badaniaPuste() = slices("badania-puste", 1) { LabsScreen(AppState(), store, onImport = {}, listState = it) }
+    // puste ekrany (bez żadnych danych) do README
+    @Test fun cisnieniePuste() = slices("cisnienie-puste", 1) { BpScreen(AppState(), store, listState = it) }
+    @Test fun raportPuste() = slices("raport-puste", 1) { ReportScreen(AppState(), store, listState = it, initialMode = 0) }
+    @Test fun ustawieniaPuste() = slices("ustawienia-puste", 1) { SettingsScreen(AppState(), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it) }
+    @Test fun ustawieniaModulyPuste() = slices("ustawienia-moduly-puste", 1) { SettingsScreen(AppState(), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Modules") }
     @Test fun raportLekarz() = slices("raport-lekarz", 1) { ReportScreen(state, store, listState = it, initialMode = 0) }
     @Test fun raportAi() = slices("raport-ai", 2) { ReportScreen(state, store, listState = it, initialMode = 1) }
     @Test fun ustawienia() = slices("ustawienia", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it) }

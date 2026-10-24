@@ -31,6 +31,7 @@
 - Zabezpieczenia WebView (`CyklScreen.kt`, CSP w `Cykl.page`): brak sieci, brak dostępu do plików, wąski most `LekiHost`. Nie dodawaj zewnętrznych skryptów, fontów ani odnośników.
 - Kryptografia (`Crypto.kt`: PBKDF2-HMAC-SHA256 600 000 iteracji, AES-GCM) i zapis atomowy w `Store`.
 - Progi i teksty medyczne (ciśnienie 135/85 i 180/110, FIGO, STRAW+10, okno płodne, EKG): zmieniaj tylko ze źródłem i testem; nie dodawaj diagnoz ani zaleceń leczenia.
+- Pliki w `przyklady/` generuje test `SampleDataTest` (nie edytuj ręcznie; odtwarzanie: `WRITE_SAMPLES=1 ./gradlew :core:test --tests '*SampleDataTest*'`); README ma początek ze zrzutami (z wydania `zrzuty-ekranow`) i opisem plików, więc zmieniając nazwy testów zrzutów, popraw linki.
 - Dane w testach i przykładach tylko zmyślone (np. „Jan Testowy”, „Lek A”, daty 2030–2031 w Cyklu). Nigdy nie wklejaj prawdziwych plików użytkownika ani ich fragmentów do repo, testów, README ani wiadomości commitów.
 
 ## Co wymaga testów na telefonie (CI i JVM tego nie sprawdzą)

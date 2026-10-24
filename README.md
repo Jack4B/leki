@@ -1,10 +1,56 @@
 # Asystent leków
 
-Wersja **0.6.7 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.14 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose), bez internetu, kont i analityki.
 
-Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
+Dziennik **leków, ciśnienia, wyników badań, EKG z zegarka i (opcjonalnie) cyklu** dla jednej lub kilku osób. Dane zostają **tylko na telefonie**: w manifeście nie ma uprawnienia INTERNET (sprawdza to CI), a kopie zapasowe są plikami, które zapisujesz sam, najlepiej zaszyfrowanymi hasłem. Aplikacja zapisuje i porządkuje to, co wpiszesz, oznacza wartości poza zakresem i przygotowuje raport dla lekarza. **Nie stawia diagnoz, nie leczy i nie zastępuje lekarza.**
 
-Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia. Wszystko dodajesz sam w Ustawieniach albo wczytujesz z kopii zapasowej.
+Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia. Dodajesz je w Ustawieniach, wczytujesz z kopii zapasowej albo z plików przykładowych (patrz niżej).
+
+## W skrócie
+
+| Obszar | Do czego służy | Jak liczy / co oznacza |
+|---|---|---|
+| **Leki** | plan dnia z porami, odhaczanie z godziną, pominięcia z powodem, zapas, przypomnienia | zapas liczony z odhaczonych dawek i planu (ostrzeżenie przy ≤7 dniach), zgodność z planem w raporcie, przypomnienia alarmami (także po restarcie) |
+| **Ciśnienie** | pomiary z tętnem i porą, wykres 7 dni – rok, średnie, historia | progi „podwyższone” 135/85 i „niskie” 90/60 (zmienisz w Ustawieniach); stałe ostrzeżenie od **180/110** i dla bardzo niskiego z wskazówką, kiedy dzwonić pod 112 |
+| **Badania** | wyniki z zakresami odniesienia, wykresy, mapa, porównanie dni, skan zdjęcia lub PDF (OCR na telefonie) | flaga „poza zakresem” według zakresu z wyniku lub parametru; zmiana „istotna” od 10% zakresu, tendencja od 3 wyników; odczyt OCR zawsze do sprawdzenia |
+| **EKG z zegarka** | odczyt wydruku PDF/obrazu (25 mm/s, 10 mm/mV), tętno, odstępy RR, trend | wykrywanie załamków R, tętno, RMSSD/SDNN/pNN50, wskazówki o nieregularności, przerwach i przedwczesnych uderzeniach; **bez oceny QT i ST**; zapis słabej jakości nie jest oceniany |
+| **Raport** | PDF dla lekarza, tekst dla AI, „Przygotuj na wizytę” | sekcje do wyboru, ukryte moduły nie wchodzą do raportu; wpisy intymne tylko na życzenie |
+| **Cykl** (opcjonalny) | dziennik cyklu, kalendarz, prognoza, wykresy, raport | okno płodne z prawdopodobieństwa (Wilcox 1995) i metody kalendarzowej od 6 cykli (najkrótszy − 18 do najdłuższy − 11); FIGO 2018 (24–38 dni, ≤8 dni krwawienia, regularność wg wieku), STRAW+10, pasma wieku do 50+ i tryby prognoz; **nie jest antykoncepcją** |
+| **Kilka osób** | do 8 osób, osobne dane, wspólny motyw i blokada | kopia całości lub wybranych osób, dopisywanie z pliku, moduły do ukrycia per osoba |
+
+**Prywatność i bezpieczeństwo:** blokada biometryczna (opcjonalna), kopie szyfrowane (PBKDF2-HMAC-SHA256 600 000 iteracji, AES-GCM), brak kopii do chmury Google, moduł Cykl w WebView bez sieci. Szczegóły: sekcja „Prywatność”.
+
+## Zrzuty ekranów (puste ekrany)
+
+Zrzuty pochodzą z automatycznych testów renderowania (wydanie [zrzuty-ekranow](https://github.com/Jack4B/leki/releases/tag/zrzuty-ekranow), odświeżane przy każdym buildzie) i pokazują aplikację bez żadnych danych.
+
+<table>
+<tr>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_lekiPuste_leki-puste-1.png" width="190" alt="Leki"><br><sub>Leki</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_cisnieniePuste_cisnienie-puste-1.png" width="190" alt="Ciśnienie"><br><sub>Ciśnienie</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_badaniaPuste_badania-puste-1.png" width="190" alt="Badania"><br><sub>Badania</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_raportPuste_raport-puste-1.png" width="190" alt="Raport"><br><sub>Raport</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_ustawieniaPuste_ustawienia-puste-1.png" width="190" alt="Ustawienia"><br><sub>Ustawienia</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_ustawieniaModulyPuste_ustawienia-moduly-puste-1.png" width="190" alt="Moduły aplikacji"><br><sub>Moduły aplikacji</sub></td>
+<td align="center"><img src="docs/zrzuty/cykl-dzis-puste-jasny.png" width="190" alt="Cykl, jasny"><br><sub>Cykl (jasny)</sub></td>
+<td align="center"><img src="docs/zrzuty/cykl-dzis-puste-ciemny.png" width="190" alt="Cykl, ciemny"><br><sub>Cykl (ciemny)</sub></td>
+</tr>
+</table>
+
+## Dane przykładowe do wczytania
+
+W katalogu [`przyklady/`](przyklady) są **zmyślone** pliki do wypróbowania aplikacji (osoby „Jan Przykładowy” i „Ola Przykładowa”, leki „Lek A/B/C”, dane z okresu 02–10.2026). Ściągnij plik na telefon i wczytaj go w Ustawienia → Kopie zapasowe i dane → **Wczytaj kopię z pliku** (okno zapyta, czy dopisać osoby, czy zastąpić dane; na pustej aplikacji wystarczy „Wczytaj kopię”). W raporcie wybierz okres obejmujący dane (np. „Wszystko”).
+
+| Plik | Zawartość |
+|---|---|
+| `przyklad-jedna-osoba.json` | pełna kopia jednej osoby: 3 leki (w tym zmiana dawki i zapas), ok. 84 dni odhaczeń i pominięć, ~80 pomiarów ciśnienia (z jednym wysokim po wysiłku), wyniki badań w trzech terminach, kontrole |
+| `przyklad-dwie-osoby.json` | dwie osoby: druga ma włączony moduł Cykl z dziennikiem (9 cykli), ukryte Ciśnienie, własne leki i wyniki |
+| `przyklad-dziennik-cyklu.json` | sam dziennik cyklu do importu w module (Ustawienia → Moduł Cykl → Wczytaj plik z dziennikiem) |
+| `przyklad-wyniki-badan.json` | plik wyników badań do dołączenia (Badania → import wyników) |
+
+Pliki generuje test `SampleDataTest` (zmiana generatora wymaga odtworzenia plików: `WRITE_SAMPLES=1 ./gradlew :core:test --tests '*SampleDataTest*'`), więc zawsze zgadzają się z formatem kopii.
 
 ## Funkcje
 
@@ -253,6 +299,8 @@ Dziś dystrybucja jest prywatna: GitHub Releases i Obtainium (opis wyżej). Do p
 core/          logika bez zależności od Androida (Kotlin/JVM): model danych, harmonogram, statystyki,
                raporty (lekarz, AI), kopie zapasowe i szyfrowanie, analiza EKG (odtworzenie przebiegu z obrazu, wykrywanie uderzeń, odstępy RR), geometria wykresów (w tym przewijany wykres ciśnienia), czyszczenie Markdown i LaTeX z odpowiedzi AI, przypomnienia,
                odczyt wyników z tekstu OCR (LabScan)
+przyklady/     zmyślone dane przykładowe do wczytania w aplikacji (generuje je test SampleDataTest)
+docs/zrzuty/   zrzuty modułu Cykl (pusty ekran) do README
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
                ocr/ (ML Kit, wczytywanie zdjęć i PDF), Lock.kt (blokada biometryczna), BpWidget.kt (widżet)
