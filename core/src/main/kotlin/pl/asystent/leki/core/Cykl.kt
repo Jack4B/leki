@@ -51,6 +51,15 @@ object Cykl {
 
     private val isoRe = Regex("""^\d{4}-\d\d-\d\d""")
 
+    /** Kodowanie bez wyjątków: liczby spoza zakresu (1e999) i bardzo głębokie zagnieżdżenia dają null zamiast awarii. */
+    private fun enc(e: JsonElement, p: Json = Json): String? = try {
+        p.encodeToString(JsonElement.serializer(), e)
+    } catch (x: Exception) {
+        null
+    } catch (x: StackOverflowError) {
+        null
+    }
+
     private fun parse(text: String): JsonObject? = try {
         Json.parseToJsonElement(text) as? JsonObject
     } catch (e: Exception) {
@@ -89,7 +98,7 @@ object Cykl {
         fun part(k: String): String {
             val v = o[k] as? JsonObject ?: return ""
             if (v["entries"] !is JsonArray) return ""
-            val text = Json.encodeToString(JsonElement.serializer(), v)
+            val text = enc(v) ?: return ""
             return if (text.length <= MAX_CHARS) text else ""
         }
         return CyklData(part("db"), part("prev"))
@@ -138,7 +147,8 @@ object Cykl {
         val d = if (isoRe.containsMatchIn(t)) t.take(10) else dmyRe.find(t)?.let { m ->
             "%04d-%02d-%02d".format(java.util.Locale.ROOT, m.groupValues[3].toInt(), m.groupValues[2].toInt(), m.groupValues[1].toInt())
         } ?: return null
-        return d.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }
+        // lata przed 1000 odrzuca też moduł (JS), więc wynik wczytania jest taki sam po obu stronach
+        return d.takeIf { runCatching { LocalDate.parse(it).year in 1000..9999 }.getOrDefault(false) }
     }
 
     private fun prim(e: JsonElement?): String? = (e as? JsonPrimitive)?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.content
@@ -171,7 +181,7 @@ object Cykl {
         val cycles = obj?.get("cycles") as? JsonObject ?: JsonObject(emptyMap())
         val settings = obj?.get("settings") as? JsonObject ?: JsonObject(emptyMap())
         val db = JsonObject(mapOf("entries" to JsonArray(out), "cycles" to cycles, "settings" to settings))
-        val encoded = Json.encodeToString(JsonElement.serializer(), db)
+        val encoded = enc(db) ?: return null
         return if (encoded.length > MAX_CHARS) null else Incoming(encoded, out.size, skipped)
     }
 
@@ -211,13 +221,13 @@ object Cykl {
             "cycles" to JsonObject(obj(b, "cycles") + obj(a, "cycles")),
             "settings" to JsonObject(obj(b, "settings") + obj(a, "settings")),
         ))
-        return Merged(Json.encodeToString(JsonElement.serializer(), db), add.size)
+        return Merged(enc(db) ?: return null, add.size)
     }
 
     private val pretty = Json { prettyPrint = true }
 
     /** Cała baza do pliku (czytelny zapis, ten sam format co „Pobierz kopię” w module). */
-    fun exportText(db: String): String = parse(db)?.let { pretty.encodeToString(JsonElement.serializer(), it) + "\n" } ?: db
+    fun exportText(db: String): String = parse(db)?.let { j -> enc(j, pretty)?.let { it + "\n" } } ?: db
 
     // ---------- Podsumowanie do raportów (opisowe, bez wpisów intymnych i bez rozpoznań) ----------
 

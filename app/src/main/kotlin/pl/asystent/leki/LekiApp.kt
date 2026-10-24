@@ -13,7 +13,7 @@ class LekiApp : Application() {
             Reminders.reschedule(this, Reminders.people(st))
             runCatching { BpWidget.refresh(this, st.state.value) }
             // automatyczna kopia do wybranego folderu (gdy włączona i należna): obejmuje wszystkie osoby; po sukcesie oznaczamy datę ostatniej kopii
-            runCatching { AutoBackup.maybeRun(this, st.allStates().map { it.second }) { d -> st.markBackup(d) } }
+            runCatching { AutoBackup.maybeRun(this, st.exportStates()) { d -> st.markBackup(d) } }
         }
         runCatching { Reminders.ensureChannel(this) }
         // błąd alarmów (np. cofnięta zgoda, limit alarmów) nie może uniemożliwiać uruchomienia aplikacji

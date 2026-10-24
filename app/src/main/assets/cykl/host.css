@@ -84,3 +84,4 @@ body{padding-top:calc(84px + env(safe-area-inset-top,0px))}
 .sl,.ov,.lane-l,.ax{font-size:11px}.val{font-size:12px}
 .card,.stat{border-radius:18px}
 .tabs svg{flex:0 0 18px;min-width:18px}
+:root[data-theme="dark"] .pill.ok{color:#a8ecd9}

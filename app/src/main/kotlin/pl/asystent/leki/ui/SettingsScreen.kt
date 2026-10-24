@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -158,7 +159,7 @@ fun SettingsScreen(
                     Divider()
                     NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
                     Divider()
-                    NavRow(Ph.CalendarBlank, "Moduł Cykl", if (!c.cyklOn) "Ukryty" else Cykl.summary(s.cykl.db)?.let { "Widoczny, ${it.entries} ${plN(it.entries, "wpis", "wpisy", "wpisów")}" } ?: "Widoczny, brak danych") { pageName = Page.Cykl.name }
+                    NavRow(Ph.CalendarBlank, "Moduł Cykl", if (!c.cyklOn) "Ukryty" else Cykl.summary(store.cyklOf(store.activeId.value).db)?.let { "Widoczny, ${it.entries} ${plN(it.entries, "wpis", "wpisy", "wpisów")}" } ?: "Widoczny, brak danych") { pageName = Page.Cykl.name }
                     Divider()
                     NavRow(Ph.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME}") { pageName = Page.About.name }
                 }
@@ -383,7 +384,14 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     var incoming by remember { mutableStateOf<Cykl.Incoming?>(null) }
     val on = s.settings.cyklOn
-    val sum = remember(s.cykl.db) { Cykl.summary(s.cykl.db) }
+    // dziennik może być własny albo wspólny z inną osobą; zmiany cudzego dziennika odświeżają ekran przez revision
+    val rev by store.revision.collectAsStateWithLifecycle()
+    val activeId = store.activeId.value
+    val ownerId = store.cyklOwner(activeId)
+    val shared = ownerId != activeId
+    val people = store.profiles.value
+    val cy = remember(rev, s, activeId) { store.cyklOf(activeId) }
+    val sum = remember(cy.db) { Cykl.summary(cy.db) }
     val here = sum?.entries ?: 0
 
     // wczytanie pliku po stronie aplikacji: nie zależy od okna modułu (WebView), a robi to samo co jego „Import”
@@ -403,7 +411,7 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
     }
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
-            val ok = runCatching { Platform.writeToUri(ctx, uri, Cykl.exportText(store.state.value.cykl.db)) }.isSuccess
+            val ok = runCatching { Platform.writeToUri(ctx, uri, Cykl.exportText(store.cyklOf(store.activeId.value).db)) }.isSuccess
             toast(if (ok) "Zapisano dziennik cyklu" else "Nie udało się zapisać pliku.")
         }
     }
@@ -411,10 +419,32 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BodyText("Dziennik cyklu z prognozą okna płodnego, trendem długości cykli i raportem dla lekarza. Działa w całości na telefonie, bez internetu.")
-            store.profiles.value.let { ps -> if (ps.size > 1) Hint("Dotyczy osoby: ${ps.firstOrNull { it.id == store.activeId.value }?.name ?: ""}. Każda osoba ma własny dziennik.") }
+            if (people.size > 1) Hint("Dotyczy osoby: ${people.firstOrNull { it.id == activeId }?.name ?: ""}.")
             SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> store.update { it.copy(settings = it.settings.copy(cyklOn = i == 1)) } })
             Hint(if (on) "Zakładka „Cykl” jest na dolnym pasku, przed Raportem." else "Zakładka jest ukryta. Wpisane dane zostają w aplikacji i wchodzą do kopii zapasowej.")
             if (on) LekiButton("Otwórz moduł", onOpen, Modifier.fillMaxWidth(), primary = true, icon = Ph.CalendarBlank)
+        }
+    }
+    if (people.size > 1) {
+        Spacer(Modifier.height(18.dp))
+        Overline("Czyj dziennik")
+        LekiCard {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val pickedByOthers = people.any { p -> p.id != activeId && store.profileState(p.id)?.settings?.cyklFrom == activeId }
+                fun pick(id: String) {
+                    when {
+                        id.isNotEmpty() && store.profileState(id)?.settings?.cyklFrom?.isNotEmpty() == true -> toast("Ta osoba sama korzysta z cudzego dziennika.")
+                        id.isNotEmpty() && pickedByOthers -> toast("Z dziennika tej osoby korzysta ktoś inny. Najpierw tamta osoba musi przejść na własny dziennik.")
+                        else -> store.update { it.copy(settings = it.settings.copy(cyklFrom = id)) }
+                    }
+                }
+                BodyText("Wspólny dziennik oznacza, że obie osoby widzą i zmieniają te same wpisy (np. gdy dziennik prowadzi jedna z nich). Dane są wtedy zapisane u osoby, od której pochodzą.")
+                LekiButton("Własny dziennik tej osoby", { pick("") }, Modifier.fillMaxWidth(), primary = !shared, tonal = shared)
+                people.filter { it.id != activeId }.forEach { p ->
+                    LekiButton("Wspólny z osobą: ${p.name}", { pick(p.id) }, Modifier.fillMaxWidth(), primary = shared && ownerId == p.id, tonal = !(shared && ownerId == p.id))
+                }
+                if (shared) Hint("Teraz ten dziennik jest wspólny z osobą: ${people.firstOrNull { it.id == ownerId }?.name ?: ""}. Wpisy, import, eksport i raporty dotyczą jednego dziennika.")
+            }
         }
     }
     Spacer(Modifier.height(18.dp))
@@ -431,12 +461,12 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
             Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić." + if (!on) " Po wczytaniu włącz widoczność modułu powyżej." else "")
             Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu.")
             Hint("Eksport CSV nie zawiera dziennika cyklu. Raporty zawierają tylko opcjonalne, opisowe „Podsumowanie cyklu” (domyślnie wyłączone), nigdy wpisów intymnych.")
-            if (s.cykl.prev.isNotEmpty()) LekiButton("Przywróć poprzednią wersję dziennika", {
-                val old = s.cykl
-                store.update { it.copy(cykl = it.cykl.copy(db = it.cykl.prev, prev = it.cykl.db)) }
-                undo("Przywrócono poprzednią wersję dziennika") { store.update { it.copy(cykl = old) } }
+            if (cy.prev.isNotEmpty()) LekiButton("Przywróć poprzednią wersję dziennika", {
+                val old = store.cyklOf(activeId)
+                store.updateCykl(activeId) { c -> c.copy(db = c.prev, prev = c.db) }
+                undo("Przywrócono poprzednią wersję dziennika") { store.updateCykl(activeId) { old } }
             }, Modifier.fillMaxWidth(), tonal = true)
-            if (!s.cykl.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
+            if (!cy.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
         }
     }
     incoming?.let { inc ->
@@ -448,21 +478,21 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
                     BodyText("Teraz w aplikacji: $here ${plN(here, "wpis", "wpisy", "wpisów")}." + if (inc.skipped > 0) " Pominięto ${inc.skipped} ${plN(inc.skipped, "wpis", "wpisy", "wpisów")} ze złą datą lub bez typu." else "")
                     LekiButton("Połącz (dodaj brakujące)", {
                         if (incoming == null) return@LekiButton            // drugie dotknięcie przed zamknięciem okna nic nie robi
-                        val old = store.state.value.cykl
+                        val old = store.cyklOf(activeId)
                         val m = Cykl.merge(old.db, inc.db)
                         incoming = null
                         if (m == null || m.db.length > Cykl.MAX_CHARS) toast("Nie udało się połączyć danych (po połączeniu baza byłaby za duża).") else {
-                            store.update { st -> Cykl.merge(st.cykl.db, inc.db)?.let { r -> st.copy(cykl = st.cykl.copy(db = r.db)) } ?: st }
-                            undo("Dodano ${m.added} ${plN(m.added, "nowy wpis", "nowe wpisy", "nowych wpisów")}") { store.update { it.copy(cykl = old) } }
+                            store.updateCykl(activeId) { c -> Cykl.merge(c.db, inc.db)?.let { r -> c.copy(db = r.db) } ?: c }
+                            undo("Dodano ${m.added} ${plN(m.added, "nowy wpis", "nowe wpisy", "nowych wpisów")}") { store.updateCykl(activeId) { old } }
                         }
                     }, Modifier.fillMaxWidth(), primary = true)
                     LekiButton("Zastąp wszystko", {
                         if (incoming == null) return@LekiButton
-                        val old = store.state.value.cykl
+                        val old = store.cyklOf(activeId)
                         incoming = null
                         // poprzednia baza zostaje jako zapas, tak jak w module
-                        store.update { st -> st.copy(cykl = CyklData(db = inc.db, prev = st.cykl.db.ifEmpty { st.cykl.prev })) }
-                        undo("Wczytano ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}") { store.update { it.copy(cykl = old) } }
+                        store.updateCykl(activeId) { c -> CyklData(db = inc.db, prev = c.db.ifEmpty { c.prev }) }
+                        undo("Wczytano ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}") { store.updateCykl(activeId) { old } }
                     }, Modifier.fillMaxWidth(), tonal = true)
                     LinkButton("Anuluj", { incoming = null })
                 }
@@ -472,8 +502,8 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
         )
     }
     if (confirm) ConfirmDialog(
-        "Usunąć dane modułu Cykl?", "Znikną wszystkie wpisy dziennika cyklu z tego urządzenia, także poprzednia wersja bazy. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
-        "Usuń dane", onConfirm = { store.update { it.copy(cykl = CyklData()) }; toast("Usunięto dane modułu Cykl") }, onDismiss = { confirm = false }, danger = true,
+        "Usunąć dane modułu Cykl?", (if (shared) "Dziennik jest wspólny z inną osobą, więc zniknie także u niej. " else "") + "Znikną wszystkie wpisy dziennika cyklu z tego urządzenia, także poprzednia wersja bazy. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
+        "Usuń dane", onConfirm = { store.updateCykl(activeId) { CyklData() }; toast("Usunięto dane modułu Cykl") }, onDismiss = { confirm = false }, danger = true,
     )
 }
 

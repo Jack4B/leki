@@ -58,6 +58,7 @@ export const lanesOf = (a: Analysis): LaneRow[] => {
   h.starts.forEach((start, i) => {
     const next = h.starts[i + 1] ?? null;
     const length = next ? diffDays(start, next) : diffDays(start, a.today) + 1;
+    if (length < 1) return;                      // start okresu w przyszłości: bez rzędu (ujemna szerokość)
     if (next && length < 10) return;
     const ep = h.eps[i]!;
     const bleed = ep.days ?? h.bleedLen;

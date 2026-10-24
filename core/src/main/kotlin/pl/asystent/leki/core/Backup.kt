@@ -129,6 +129,7 @@ object Backup {
             stockWarnDays = intOr(rmIn["stock"], D.stockWarnDays, 0, 60),
             backupRemindDays = intOr(rmIn["backup"], D.backupRemindDays, 0, 365),
             cyklOn = st["cyklOn"].bool(false),
+            cyklFrom = st["cyklFrom"].str()?.takeIf { Regex("p\\d{1,2}|#\\d").matches(it) } ?: "",
         )
 
         val slots = d["slots"].arr().orEmpty().mapNotNull { x ->
@@ -298,6 +299,7 @@ object Backup {
             put("theme", c.theme.id); put("reportNote", c.reportNote)
             putJsonObject("remind") { put("on", c.remindOn); put("lead", c.remindLead); put("stock", c.stockWarnDays); put("backup", c.backupRemindDays) }
             if (c.cyklOn) put("cyklOn", true)
+            if (c.cyklFrom.isNotEmpty()) put("cyklFrom", c.cyklFrom)
         }
         put("rules", s.rules)
         putJsonArray("slots") { s.slots.forEach { add(buildJsonObject { put("id", it.id); put("name", it.name); put("time", it.time.hhmm()) }) } }

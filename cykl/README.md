@@ -2,7 +2,7 @@
 
 Dziennik cyklu w jednym pliku HTML. Bez zależności, bez sieci, dane tylko w przeglądarce.
 
-    npm test        # build + 66 testów (node:test, TypeScript uruchamiany natywnie)
+    npm test        # build + 78 testów (node:test, TypeScript uruchamiany natywnie)
     npm run build   # dist/cykl.html
 
 Wymaga Node >= 22.18 (natywne wykonywanie TypeScript).

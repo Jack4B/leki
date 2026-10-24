@@ -67,17 +67,17 @@ private class CyklBridge(
 
     @JavascriptInterface fun theme(): String = if (dark) "dark" else "light"
 
-    @JavascriptInterface fun get(key: String): String = store.profileState(pid)?.cykl?.get(key) ?: ""
+    @JavascriptInterface fun get(key: String): String = store.cyklOf(pid).get(key) ?: ""
 
     @JavascriptInterface fun set(key: String, value: String): Boolean {
         if (CyklData().put(key, value) == null) return false
-        store.updateProfile(pid) { st -> st.cykl.put(key, value)?.let { st.copy(cykl = it) } ?: st }
+        store.updateCykl(pid) { c -> c.put(key, value) ?: c }
         return true
     }
 
     @JavascriptInterface fun remove(key: String): Boolean {
         if (CyklData().remove(key) == null) return false
-        store.updateProfile(pid) { st -> st.cykl.remove(key)?.let { st.copy(cykl = it) } ?: st }
+        store.updateCykl(pid) { c -> c.remove(key) ?: c }
         return true
     }
 

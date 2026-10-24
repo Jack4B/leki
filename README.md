@@ -118,6 +118,7 @@ Pod nazwą aplikacji w nagłówku jest wybór osoby (kółko z inicjałem i imi�
 
 - **Kopie zapasowe** (zwykła, zaszyfrowana hasłem, „Kopiuj JSON”, automatyczna do folderu) zawierają wszystkie osoby. Starsza wersja aplikacji wczyta z nich pierwszą osobę.
 - **Przypomnienia** działają dla wszystkich osób; przy więcej niż jednej osobie tytuł powiadomienia zaczyna się od imienia.
+- **Wspólny dziennik cyklu:** Ustawienia → Moduł Cykl → „Czyj dziennik”: osoby mogą współdzielić jeden dziennik (wpisy zmieniane przez jedną są widoczne u drugiej). Dane są zapisane u osoby-właściciela; raporty i „Podsumowanie cyklu” korzystają z dziennika wspólnego. Działa w jednej aplikacji na jednym telefonie; między dwoma telefonami nie ma synchronizacji (aplikacja nie ma sieci), można przenosić plik dziennika lub kopię zapasową.
 - **Przeniesienie dziennika cyklu:** Ustawienia → Osoby → „Przenieś do: …” (gdy wybrana osoba ma dziennik, a inna go nie ma).
 - **Widżet ciśnienia** pokazuje ostatni pomiar wybranej w tej chwili osoby. **Powrót do starszej wersji aplikacji** (sprzed obsługi osób) pokazuje tylko pierwszą osobę (plik `state.json`); dane pozostałych osób zostają w plikach i wracają po ponownej aktualizacji.
 - **Pamięć:** dane każdej osoby w osobnym pliku w pamięci aplikacji (`state.json` dla pierwszej, `state-p2.json`… dla kolejnych, lista w `profiles.json`); przy pierwszym uruchomieniu powstaje zapas `state.przed-osobami.json`.

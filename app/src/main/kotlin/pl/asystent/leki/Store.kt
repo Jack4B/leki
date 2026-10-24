@@ -60,6 +60,9 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     val activeId: StateFlow<String> get() = _activeId.asStateFlow()
 
     private val _saveFailed = MutableStateFlow(false)
+    private val _rev = MutableStateFlow(0)
+    /** Zmienia się po każdej zmianie danych któregokolwiek profilu (także nieaktywnego), żeby ekrany pokazujące cudze dane mogły się odświeżyć. */
+    val revision: StateFlow<Int> get() = _rev.asStateFlow()
 
     /** Prawda, gdy ostatni zapis na dysk się nie udał (np. brak miejsca). Interfejs pokazuje wtedy ostrzeżenie. */
     val saveFailed: StateFlow<Boolean> get() = _saveFailed.asStateFlow()
@@ -79,7 +82,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         }
     }
 
-    private fun publishProfiles() { synchronized(lock) { _profiles.value = infos() } }
+    private fun publishProfiles() { synchronized(lock) { _profiles.value = infos() }; _rev.update { it + 1 } }
 
     private fun infos(): List<ProfileInfo> = synchronized(lock) {
         states.entries.mapIndexed { i, e -> ProfileInfo(e.key, e.value.patient.trim().ifEmpty { "Osoba ${i + 1}" }) }
@@ -126,8 +129,38 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
 
     fun profileState(id: String): AppState? = synchronized(lock) { states[id] }
 
+    /** Osoba, od której osoba [id] bierze dziennik cyklu: ona sama albo wskazana (gdy istnieje i sama nie korzysta z cudzego dziennika). */
+    fun cyklOwner(id: String): String = synchronized(lock) {
+        val link = states[id]?.settings?.cyklFrom.orEmpty()
+        if (link.isNotEmpty() && link != id && states[link]?.settings?.cyklFrom.isNullOrEmpty() && link in states) link else id
+    }
+
+    /** Dziennik cyklu osoby [id] (własny albo wspólny z inną osobą). */
+    fun cyklOf(id: String): pl.asystent.leki.core.CyklData = synchronized(lock) { states[cyklOwner(id)]?.cykl ?: pl.asystent.leki.core.CyklData() }
+
+    /** Zmiana dziennika cyklu widzianego przez osobę [id]: trafia do osoby, której dziennik to jest. */
+    fun updateCykl(id: String, f: (pl.asystent.leki.core.CyklData) -> pl.asystent.leki.core.CyklData) {
+        updateProfile(cyklOwner(id)) { it.copy(cykl = f(it.cykl)) }
+    }
+
+    /** Stan osoby z jej widocznym dziennikiem cyklu (do raportów). */
+    fun withSharedCykl(s: AppState, id: String): AppState = s.copy(cykl = cyklOf(id))
+
+    /**
+     * Stany wszystkich osób do zapisu w kopii zapasowej, z datą ostatniej kopii; wspólny dziennik cyklu jest zapisany jako „#numer osoby”
+     * (numer w kopii), bo identyfikatory osób po wczytaniu kopii są nadawane od nowa.
+     */
+    fun exportStates(today: java.time.LocalDate = java.time.LocalDate.now()): List<AppState> = synchronized(lock) {
+        val ids = states.keys.toList()
+        states.map { (id, st) ->
+            val link = st.settings.cyklFrom
+            val idx = if (link.isNotEmpty() && cyklOwner(id) == link) ids.indexOf(link) else -1
+            st.copy(lastBackup = today, settings = st.settings.copy(cyklFrom = if (idx >= 0) "#$idx" else ""))
+        }
+    }
+
     /** Kopia wszystkich osób jako tekst (z dzisiejszą datą ostatniej kopii); starsze wersje aplikacji wczytają z niej pierwszą osobę. */
-    fun backupText(today: java.time.LocalDate = java.time.LocalDate.now()): String = Backup.exportAll(allStates().map { it.second.copy(lastBackup = today) })
+    fun backupText(today: java.time.LocalDate = java.time.LocalDate.now()): String = Backup.exportAll(exportStates(today))
 
     /** Oznacza, że kopia wszystkich osób została zrobiona. */
     fun markBackup(day: java.time.LocalDate) = updateAll { it.copy(lastBackup = day) }
@@ -194,7 +227,13 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             states.clear(); dirty.clear()
             // wygląd (motyw) jest wspólny: wszystkie osoby z kopii dostają motyw pierwszej
             val theme = list.first().settings.theme
-            list.take(Backup.MAX_PROFILES).forEachIndexed { i, s -> val id = "p${i + 1}"; states[id] = s.copy(settings = s.settings.copy(theme = theme)); dirty.add(id) }
+            val n = minOf(list.size, Backup.MAX_PROFILES)
+            list.take(n).forEachIndexed { i, s ->
+                val id = "p${i + 1}"
+                // „#numer” z kopii wskazuje osobę o tym numerze; wszystko inne czyści powiązanie
+                val link = s.settings.cyklFrom.takeIf { it.startsWith("#") }?.drop(1)?.toIntOrNull()?.takeIf { it in 0 until n && it != i }?.let { "p${it + 1}" } ?: ""
+                states[id] = s.copy(settings = s.settings.copy(theme = theme, cyklFrom = link)); dirty.add(id)
+            }
             old.filter { it !in states }.forEach { gone.add(fileOf(it)); gone.add(fileOf(it) + ".bak"); gone.add(sideFile(it)) }
             active = "p1"
             _state.value = states.getValue(active)

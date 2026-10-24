@@ -205,4 +205,26 @@ class CyklTest {
         assertNull(Cykl.brief(empty, today)); assertNull(Cykl.brief("{}", today))
         assertEquals(0, Cykl.brief("""{"entries":[{"type":"period_start","date":"2031-10-01"}]}""", today)!!.cycles.size)
     }
+
+    @Test fun sharedCycleLinkSurvivesBackupAndIsSanitised() {
+        val a = AppState(patient = "A", cykl = CyklData(demo), settings = Settings(cyklOn = true))
+        val b = AppState(patient = "B", settings = Settings(cyklOn = true, cyklFrom = "#0"))
+        val back = Backup.parseAll(Backup.exportAll(listOf(a, b)))
+        assertEquals("#0", back[1].settings.cyklFrom); assertEquals("", back[0].settings.cyklFrom)
+        assertFalse("cyklFrom" in Backup.export(a))
+        // śmieci w polu są odrzucane
+        val bad = Backup.exportAll(listOf(a, b.copy(settings = b.settings.copy(cyklFrom = "p1"))))
+        assertEquals("p1", Backup.parseAll(bad)[1].settings.cyklFrom)
+        val evil = bad.replace("\"cyklFrom\": \"p1\"", "\"cyklFrom\": \"../../x\"")
+        assertEquals("", Backup.parseAll(evil)[1].settings.cyklFrom)
+    }
+
+    @Test fun hostileFilesNeverThrow() {
+        assertNull(Cykl.readIncoming("""[{"type":"flow","date":"2026-01-01","value":1e999}]"""))
+        val deep = "{\"a\":".repeat(5000) + "1" + "}".repeat(5000)
+        assertNull(Cykl.readIncoming("""{"entries":[{"type":"a","date":"2026-01-01"}],"cycles":$deep}"""))
+        assertEquals("x", Cykl.exportText("x"))
+        assertNull(Cykl.readIncoming("""[{"type":"a","date":"0999-01-01"},{"type":"a","date":"1.1.0500"}]"""))
+        assertNotNull(Cykl.readIncoming("""[{"type":"a","date":"1000-01-01"}]"""))
+    }
 }

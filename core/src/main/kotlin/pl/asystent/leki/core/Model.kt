@@ -136,6 +136,8 @@ data class Settings(
     val backupRemindDays: Int = 30,
     /** Moduł „Cykl” (dziennik cyklu) jest opcjonalny: domyślnie ukryty, dane zostają po jego ukryciu. */
     val cyklOn: Boolean = false,
+    /** Dziennik cyklu wspólny z inną osobą: jej identyfikator w aplikacji (w pliku kopii: „#numer” osoby); puste = własny dziennik. */
+    val cyklFrom: String = "",
 )
 
 data class AppState(

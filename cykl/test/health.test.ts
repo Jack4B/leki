@@ -69,6 +69,10 @@ describe("raporty", () => {
     const i = intimacyOf(a);
     assert.equal(i.sex, 2); assert.equal(i.protected, 1); assert.equal(i.solo, 1); assert.equal(i.pct, 50);
   });
+  test("oś cykli: start okresu w przyszłości nie daje rzędu z ujemną szerokością", () => {
+    const fut = analyze(makeDb("2030-09-14", PERI, [{ type: "period_start", date: "2031-12-01" }]), "2031-10-22");
+    assert.ok(lanesOf(fut).every((r) => r.length >= 1));
+  });
   test("raport tekstowy nigdy nie zawiera wpisów solo, także z datami", () => {
     const withDates = buildBrief(a, db, true);
     assert.ok(!/solo|masturb|him\b/i.test(withDates), "wpisy solo wyciekły do raportu");
