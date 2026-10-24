@@ -12,8 +12,9 @@ class LekiApp : Application() {
         store = Store(filesDir) { st ->
             Reminders.reschedule(this, Reminders.people(st))
             runCatching { BpWidget.refresh(this, st.state.value) }
-            // automatyczna kopia do wybranego folderu (gdy włączona i należna): obejmuje wszystkie osoby; po sukcesie oznaczamy datę ostatniej kopii
-            runCatching { AutoBackup.maybeRun(this, st.exportStates()) { d -> st.markBackup(d) } }
+            // automatyczna kopia do wybranego folderu (gdy włączona i należna): obejmuje wszystkie osoby; po sukcesie oznaczamy datę ostatniej kopii;
+            // wstrzymana, gdy któraś osoba została odtworzona po uszkodzonym pliku (pusta osoba wyparłaby rotacją dobre kopie)
+            if (!st.hasRecovery) runCatching { AutoBackup.maybeRun(this, st.exportStates()) { d -> st.markBackup(d) } }
         }
         runCatching { Reminders.ensureChannel(this) }
         // błąd alarmów (np. cofnięta zgoda, limit alarmów) nie może uniemożliwiać uruchomienia aplikacji

@@ -41,8 +41,19 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     /** Osobna blokada zapisu listy osób, żeby przełączanie osoby z interfejsu nie czekało na zapis wszystkich plików danych. */
     private val indexLock = Any()
 
-    /** Gdy któryś plik danych był uszkodzony: nazwa kopii, do której go przeniesiono. */
-    val recoveredFrom: String?
+    private val _recovered: MutableStateFlow<Map<String, String>>
+    /**
+     * Osoby, których plik danych był uszkodzony: identyfikator osoby → nazwa kopii, do której plik przeniesiono. Osoba startuje pusta, ale
+     * dopóki nie zapadnie decyzja ([acknowledgeRecovery], wczytanie kopii, usunięcie osoby), automatyczne zmiany (kopia zapasowa, motyw) nie
+     * zapisują jej pustego stanu na dysk, a automatyczna kopia jest wstrzymana (pusta osoba wyparłaby rotacją dobre kopie).
+     */
+    val recovered: StateFlow<Map<String, String>> get() = _recovered.asStateFlow()
+
+    /** Prawda, gdy któraś osoba została odtworzona po uszkodzonym pliku i użytkownik jeszcze nie zdecydował, co dalej. */
+    val hasRecovery: Boolean get() = _recovered.value.isNotEmpty()
+
+    /** Użytkownik świadomie zaczyna od nowa (albo ma już kopię): koniec wstrzymania zapisów automatycznych i kopii. Uszkodzone pliki zostają obok. */
+    fun acknowledgeRecovery() { _recovered.value = emptyMap() }
 
     private val states = LinkedHashMap<String, AppState>()
     private val dirty = HashSet<String>()
@@ -71,7 +82,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val loaded = readAll(dir)
         loaded.states.forEach { states[it.first] = it.second }
         active = loaded.active
-        recoveredFrom = loaded.recovered
+        _recovered = MutableStateFlow(loaded.recovered.toMap())
         _state = MutableStateFlow(states.getValue(active))
         _profiles = MutableStateFlow(infos())
         _activeId = MutableStateFlow(active)
@@ -120,7 +131,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     /** Zmiana wspólna dla wszystkich osób (np. motyw wyglądu). */
     fun updateAll(f: (AppState) -> AppState) {
         synchronized(lock) {
-            states.keys.toList().forEach { id -> states[id] = f(states.getValue(id)); dirty.add(id) }
+            states.keys.toList().forEach { id -> states[id] = f(states.getValue(id)); if (id !in _recovered.value) dirty.add(id) }
             _state.value = states.getValue(active)
         }
         publishProfiles()
@@ -160,8 +171,16 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
 
     /** Oznacza, że kopia została zrobiona: dla wybranych osób ([only]) albo wszystkich. */
     fun markBackup(day: java.time.LocalDate, only: Set<String>? = null) {
-        if (only == null) updateAll { it.copy(lastBackup = day) }
-        else only.forEach { id -> updateProfile(id) { it.copy(lastBackup = day) } }
+        synchronized(lock) {
+            (only ?: states.keys.toSet()).forEach { id ->
+                val cur = states[id] ?: return@forEach
+                states[id] = cur.copy(lastBackup = day)
+                if (id !in _recovered.value) dirty.add(id)      // data kopii nie może zapisać pustego stanu osoby po uszkodzonym pliku
+            }
+            _state.value = states.getValue(active)
+        }
+        publishProfiles()
+        scheduleSave()
     }
 
     /** Stan wszystkich osób (pierwsza to `p1`), np. do kopii zapasowej i przypomnień. */
@@ -204,7 +223,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val gone: List<String>
         synchronized(lock) {
             if (states.size <= 1 || id !in states) return false
-            states.remove(id); dirty.remove(id)
+            states.remove(id); dirty.remove(id); _recovered.update { it - id }
             // osoby, które korzystały z dziennika usuwanej osoby, wracają do własnego (inaczej nowa osoba o tym samym id przejęłaby ten wskaźnik)
             states.keys.toList().forEach { k ->
                 val st = states.getValue(k)
@@ -230,7 +249,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val gone = ArrayList<String>()
         synchronized(lock) {
             val old = states.keys.toList()
-            states.clear(); dirty.clear()
+            states.clear(); dirty.clear(); _recovered.value = emptyMap()
             // wygląd (motyw) jest wspólny: wszystkie osoby z kopii dostają motyw pierwszej
             val theme = list.first().settings.theme
             val n = minOf(list.size, Backup.MAX_PROFILES)
@@ -244,11 +263,13 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             active = "p1"
             _state.value = states.getValue(active)
         }
-        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } }; runCatching { File(dir, "state.przed-osobami.json").delete() } }
         publishProfiles()
         _activeId.value = active
-        writeIndex()
-        writeDirty()     // od razu: zabicie procesu w oknie opóźnionego zapisu nie może zostawić nowego indeksu przy starych danych
+        // kolejność chroni dane przy zabiciu procesu w dowolnym momencie: najpierw nowe pliki, potem lista osób, dopiero na końcu
+        // kasowanie starych plików (i zapasu sprzed osób); jeśli zapis się nie udał, nic nie jest kasowane
+        val saved = writeDirty()
+        val indexed = writeIndex()
+        if (saved && indexed) synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } }; runCatching { File(dir, "state.przed-osobami.json").delete() } }
         scheduleSave()
     }
 
@@ -308,8 +329,9 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         runCatching { onSaved(this) }
     }
 
+    /** Zapisuje zmienione osoby; zwraca prawdę, gdy wszystkie zapisy się udały (albo nie było czego zapisywać). */
     @Synchronized
-    private fun writeDirty() {
+    private fun writeDirty(): Boolean {
         val todo: List<Pair<String, AppState>> = synchronized(lock) {
             val l = dirty.mapNotNull { id -> states[id]?.let { id to it } }
             dirty.clear()
@@ -318,6 +340,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         var ok = true
         todo.forEach { (id, s) -> if (!write(id, s)) ok = false }
         if (todo.isNotEmpty()) _saveFailed.value = !ok     // ostrzeżenie znika dopiero, gdy cała partia się zapisała
+        return ok
     }
 
     private fun write(id: String, s: AppState): Boolean {
@@ -337,7 +360,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         }
     }
 
-    private fun writeIndex() = synchronized(indexLock) {
+    private fun writeIndex(): Boolean = synchronized(indexLock) {
         val (ids, act) = synchronized(lock) { states.keys.toList() to active }
         val atomic = android.util.AtomicFile(File(dir, INDEX))
         var out: java.io.FileOutputStream? = null
@@ -347,13 +370,16 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             val json = JsonObject(mapOf("active" to JsonPrimitive(act), "ids" to JsonArray(ids.map { JsonPrimitive(it) })))
             out.write(json.toString().toByteArray(Charsets.UTF_8))
             atomic.finishWrite(out)
+            true
         } catch (e: Exception) {
             out?.let { atomic.failWrite(it) }
             android.util.Log.e("Store", "Nie udało się zapisać listy osób", e)
+            false
         }
     }
 
-    class Loaded(val states: List<Pair<String, AppState>>, val active: String, val recovered: String?)
+    /** [recovered]: pary (identyfikator osoby, nazwa kopii uszkodzonego pliku) dla wszystkich osób odtworzonych po uszkodzeniu. */
+    class Loaded(val states: List<Pair<String, AppState>>, val active: String, val recovered: List<Pair<String, String>>)
 
     companion object {
         const val FILE_NAME = "state.json"
@@ -399,15 +425,15 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
                 ids = (listOf("p1") + found).distinct().take(Backup.MAX_PROFILES)
                 act = "p1"
             }
-            var recovered: String? = null
-            val list = ids.map { id -> val (s, bad) = readOne(dir, id); if (bad != null) recovered = bad; id to s }
+            val recovered = ArrayList<Pair<String, String>>()
+            val list = ids.map { id -> val (s, bad) = readOne(dir, id); if (bad != null) recovered.add(id to bad); id to s }
             return Loaded(list, act, recovered)
         }
 
         /** Dane aktywnej osoby bez uruchamiania całego magazynu (widżet, odbiorniki, gdy aplikacja nie działa). */
         fun read(dir: File): Pair<AppState, String?> {
             val l = readAll(dir)
-            return l.states.first { it.first == l.active }.second to l.recovered
+            return l.states.first { it.first == l.active }.second to l.recovered.firstOrNull { it.first == l.active }?.second
         }
     }
 }

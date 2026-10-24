@@ -268,7 +268,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                     // po zmianie osoby ekrany startują od nowa (formularze i wersje robocze nie mogą przenieść danych jednej osoby do drugiej)
                     androidx.compose.runtime.key(activeId) { saveable.SaveableStateProvider("$activeId:$tab") {
                         when (tab) {
-                            0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) }, recoveredFrom = store.recoveredFrom)
+                            0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) })
                             1 -> BpScreen(s, store)
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)

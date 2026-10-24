@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.14.4-preview
+
+Poprawki P1 z review PR #1 (Nexus), oba dotyczą ochrony danych w `Store`.
+
+- **Uszkodzony plik osoby:** osoba odtworzona po uszkodzonym pliku (pusty stan) nie jest już oznaczana do zapisu przy zmianach automatycznych (data kopii zapasowej, wspólny motyw), więc jej pusty stan nie nadpisuje oryginału. Automatyczna kopia zapasowa jest **wstrzymana**, dopóki nie zapadnie decyzja (wczytanie kopii, usunięcie osoby albo przycisk „Zaczynam od nowa”), bo pusta osoba wypierałaby rotacją dobre kopie. Wszystkie odtworzone osoby są zbierane w liście (wcześniej zapamiętywana była tylko ostatnia), a komunikat na ekranie Leki wymienia pliki i ma przycisk „Zaczynam od nowa”. Uszkodzone pliki zostają obok danych (`*.uszkodzony.json`).
+- **Wczytanie kopii „Zastąp wszystkie dane”:** kolejność zapisu to teraz nowe pliki, potem lista osób, dopiero na końcu kasowanie starych plików osób i zapasu sprzed osób (`state.przed-osobami.json`); kasowanie jest pomijane, gdy zapis się nie udał. Zabicie procesu w trakcie nie traci danych (zostają stare albo nowe).
+- Testy `Store` (w module `app`, wymagają wyciągnięcia logiki do `core` albo atrap Androida) są zaplanowane w osobnym PR `fix/store-tests`; zmiany sprawdza CI (kompilacja i zrzuty ekranów), zachowania nie sprawdzono na telefonie.
+
 ## 0.14.3-preview
 
 Finałowy przegląd części medycznej (EKG, ciśnienie, badania, leki, raporty), kodu i dostępności. Poprawki najważniejsze dla bezpieczeństwa.

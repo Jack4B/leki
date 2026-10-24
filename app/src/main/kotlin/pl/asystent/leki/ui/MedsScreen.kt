@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,7 +88,8 @@ private val SKIP_REASONS = listOf("Zapomniano o dawce", "Złe samopoczucie", "Br
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recoveredFrom: String?, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState()) {
+fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState()) {
+    val recovered by store.recovered.collectAsState()
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
@@ -110,11 +112,13 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
     }
 
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
-        if (recoveredFrom != null) item {
+        if (recovered.isNotEmpty()) item {
             AlertBox(
                 "Plik danych był uszkodzony",
-                body = "Aplikacja wystartowała pusta, a uszkodzony plik zachowano jako $recoveredFrom w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach.",
+                body = "Uszkodzone pliki zachowano w pamięci aplikacji jako ${recovered.values.joinToString(", ")}; dotknięte osoby startują puste. " +
+                    "Do czasu decyzji automatyczna kopia zapasowa jest wstrzymana. Wczytaj ostatnią kopię w Ustawieniach albo zacznij od nowa.",
                 modifier = Modifier.padding(top = 8.dp),
+                content = { LinkButton("Zaczynam od nowa", onClick = { store.acknowledgeRecovery() }) },
             )
         }
         val low = s.lowStock(today)
