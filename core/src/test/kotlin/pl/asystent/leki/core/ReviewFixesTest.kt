@@ -60,4 +60,25 @@ class ReviewFixesTest {
         val secs = Markdown.sections("## A\ntekst\n```\n## B\n```\n## C\nx")
         assertEquals(listOf("A", "C"), secs.map { it.heading })
     }
+
+    @Test fun notificationActionsMarkOnlyOpenDosesOfTheSlot() {
+        val today = LocalDate.of(2026, 10, 24)
+        val m1 = Med(id = "a", name = "A", phases = listOf(Phase(today.minusDays(5), mapOf("morning" to 1.0, "lunch" to 1.0), Defaults.allDow)))
+        val m2 = Med(id = "b", name = "B", phases = listOf(Phase(today.minusDays(5), mapOf("morning" to 2.0), Defaults.allDow)))
+        var st = AppState(meds = listOf(m1, m2), settings = Settings(remindOn = true))
+        st = st.skipDose(today, Item.key("b", "morning"), "Zapomniałem", "")
+        assertEquals(listOf("a"), st.openDoses(today, "morning").map { it.med.id })      // pominięta dawka nie jest otwarta
+        val now = today.atTime(8, 20, 33)
+        val after = st.markSlot(today, "morning", today, now)
+        assertTrue(Item.key("a", "morning") in after.day(today).taken)
+        assertEquals(LocalTime.of(8, 20), after.day(today).times[Item.key("a", "morning")])
+        assertTrue(Item.key("a", "lunch") !in after.day(today).taken)                      // inna pora nietknięta
+        assertTrue(Item.key("b", "morning") in after.day(today).skipped)                  // pominięcie zostaje
+        assertTrue(after.openDoses(today, "morning").isEmpty())
+        // przypomnienia o dawkach niosą dzień i porę (do przycisków „Wzięte” / „Odłóż”)
+        val zone = java.time.ZoneId.of("Europe/Warsaw")
+        val r = st.reminders(zone, today.atTime(6, 0).atZone(zone).toInstant().toEpochMilli(), today).filter { it.slotId != null }
+        assertTrue(r.isNotEmpty() && r.all { it.date != null })
+        assertTrue(r.any { it.date == today && it.slotId == "morning" })
+    }
 }

@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.10.0-preview
+
+Sześć zmian ułatwiających codzienne użycie (propozycje z przeglądu interfejsu).
+
+- **Odpowiedź AI prosto z innej aplikacji.** „Udostępnij → Asystent leków” (tekst albo plik z aplikacji AI, przeglądarki, menedżera plików) i „Otwórz w” dla pliku Markdown (.md) otwierają edytor analizy z wczytanym tekstem; zapis nadal wymaga Twojego potwierdzenia. Ta sama kontrola co przy imporcie z pliku (kodowanie, rozmiar, odrzucanie kopii zapasowych i plików binarnych).
+- **Przyciski w powiadomieniu o dawkach: „Wzięte” i „Odłóż o 15 min”.** „Wzięte” odhacza jednym ruchem wszystkie jeszcze otwarte dawki z tej pory (z godziną teraz; pominięte zostają pominięte), bez otwierania aplikacji. „Odłóż” ponawia przypomnienie za 15 minut. W chwili dzwonka aplikacja sprawdza, co jeszcze zostało do wzięcia: dawki odhaczone w międzyczasie nie wywołują już powiadomienia, a lista w treści jest aktualna. (`openDoses`, `markSlot` w `core` z testem.)
+- **„Cofnij” zamiast okien potwierdzenia** przy usuwaniu pojedynczych pozycji: pomiaru ciśnienia, zapisu EKG (z listy i z edytora), wyniku badania, analizy AI i kontroli. Pozycja znika od razu, a komunikat przez kilka sekund ma przycisk „Cofnij”. Okna potwierdzenia zostają przy poważniejszych rzeczach (usunięcie leku, pory dnia, wczytanie kopii, usunięcie wszystkich danych).
+- **„Przygotuj na wizytę”** (Raport → Dla lekarza): jeden przycisk ustawia ostatnie 30 dni, ciśnienie, całą historię wyników, przyjmowanie i listę leków, kontrole, EKG i analizę AI (jeśli jest) i od razu otwiera podgląd do druku lub zapisu PDF.
+- **Odchudzone Ustawienia.** **Parametry badań** są teraz w Badaniach (link „Parametry badań: nazwy, jednostki, zakresy ›” pod listą, z dodawaniem, edycją i przypinaniem). **Najbliższe kontrole** (do 14 dni) są na ekranie Leki, z odnośnikiem do wszystkich. Ustawienia zawierają już tylko leki, pory dnia, kontrole i ustawienia aplikacji.
+- **Automatyczna kopia do folderu** (Ustawienia → Kopie zapasowe i dane): wybierasz folder (systemowy wybór, bez uprawnień do pamięci; np. folder synchronizowany z chmurą przez inną aplikację), a aplikacja w tle po zmianie danych zapisuje plik z datą, codziennie albo raz w tygodniu, i zostawia 7 ostatnich. Zalecane **szyfrowanie hasłem** (to samo co w ręcznej zaszyfrowanej kopii, więc wczytasz ją tak samo); hasło jest przechowywane zaszyfrowane kluczem z Android Keystore, poza kopią i plikiem. Ekran pokazuje datę ostatniej kopii i ewentualny błąd, jest przycisk „Zrób teraz” i „Wyłącz”. Aplikacja nadal nie ma uprawnienia INTERNET. Po udanej kopii data „ostatnia kopia” w aplikacji się aktualizuje (więc przypomnienia o kopii milkną).
+
 ## 0.9.10-preview
 
 - **Import odpowiedzi AI z pliku.** W edytorze analizy (Raport → Dla lekarza → Analiza AI) obok „Wklej ze schowka” jest **„Wczytaj z pliku”**: plik Markdown (.md) albo tekstowy (.txt), do 1 MB. Rozpoznawane jest kodowanie (UTF-8 z BOM i bez, UTF-16, awaryjnie Windows-1250), ujednolicane są znaki końca linii, a tytuł jest podpowiadany z pierwszego nagłówka `# …` albo z nazwy pliku (tylko gdy nie zmieniono go ręcznie). Plik binarny, pusty, za duży albo będący kopią zapasową aplikacji jest odrzucany z wyjaśnieniem. Gdy w polu jest już tekst, aplikacja pyta o zastąpienie (dotyczy też wklejania). Nowy `AiImport` w `core` z 5 testami.

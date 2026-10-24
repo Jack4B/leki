@@ -32,7 +32,9 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,7 +62,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.asystent.leki.core.clearTimer
+import pl.asystent.leki.ui.AnalysisEditor
 import pl.asystent.leki.ui.BodyText
+import pl.asystent.leki.ui.IncomingAi
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CardShape
 import pl.asystent.leki.ui.CtlShape
@@ -70,6 +74,7 @@ import pl.asystent.leki.ui.LabsScreen
 import pl.asystent.leki.ui.LekiButton
 import pl.asystent.leki.ui.LekiTheme
 import pl.asystent.leki.ui.LocalToast
+import pl.asystent.leki.ui.LocalUndo
 import pl.asystent.leki.ui.OverlayLayer
 import pl.asystent.leki.ui.OverlayHost
 import pl.asystent.leki.ui.LocalOverlayHost
@@ -88,6 +93,8 @@ class MainActivity : FragmentActivity() {
     private lateinit var lock: LockController
     /** Zakładka, którą ma otworzyć skrót lub widżet (null = bez prośby). */
     private var requestedTab by mutableStateOf<Int?>(null)
+    /** Odpowiedź AI udostępniona z innej aplikacji albo otwarty plik .md (czeka na wyświetlenie w edytorze analizy). */
+    private var incoming by mutableStateOf<IncomingAi?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,7 +103,7 @@ class MainActivity : FragmentActivity() {
         val store = (application as LekiApp).store
         lock = LockController(this)
         if (savedInstanceState == null) handleIntent(intent)
-        setContent { App(store, lock, requestedTab) { requestedTab = null } }
+        setContent { App(store, lock, requestedTab, { requestedTab = null }, incoming) { incoming = null } }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -106,7 +113,15 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleIntent(i: Intent?) {
-        if (i?.action == ACTION_ADD_BP) requestedTab = 1
+        when (i?.action) {
+            ACTION_ADD_BP -> requestedTab = 1
+            Intent.ACTION_SEND -> {
+                val text = i.getStringExtra(Intent.EXTRA_TEXT)
+                val uri = androidx.core.content.IntentCompat.getParcelableExtra(i, Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                if (!text.isNullOrBlank() || uri != null) { incoming = IncomingAi(text?.takeIf { it.isNotBlank() }, if (text.isNullOrBlank()) uri else null); requestedTab = 3 }
+            }
+            Intent.ACTION_VIEW -> i.data?.let { incoming = IncomingAi(null, it); requestedTab = 3 }
+        }
     }
 
     override fun onStart() {
@@ -135,7 +150,7 @@ class MainActivity : FragmentActivity() {
 private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia")
 
 @Composable
-fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}) {
+fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}, incoming: IncomingAi? = null, onIncomingHandled: () -> Unit = {}) {
     val s by store.state.collectAsStateWithLifecycle()
     LekiTheme(s.settings.theme) {
         val view = LocalView.current
@@ -155,12 +170,20 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
         LaunchedEffect(saveFailed) {
             if (saveFailed) toast("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.")
         }
-        CompositionLocalProvider(LocalToast provides toast, LocalLock provides lock) {
+        // usunięcie pojedynczej pozycji: bez okna potwierdzenia, za to z komunikatem i przyciskiem „Cofnij” (długo widocznym)
+        val undo: (String, () -> Unit) -> Unit = { msg, restore ->
+            scope.launch {
+                snackbar.currentSnackbarData?.dismiss()
+                if (snackbar.showSnackbar(msg, actionLabel = "Cofnij", duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) restore()
+            }
+        }
+        CompositionLocalProvider(LocalToast provides toast, LocalUndo provides undo, LocalLock provides lock) {
             var tab by rememberSaveable { mutableIntStateOf(0) }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
             LaunchedEffect(requestedTab) { requestedTab?.let { tab = it; onTabHandled() } }
             var newMed by remember { mutableStateOf(false) }
             var showMeds by remember { mutableStateOf(false) }
+            var showEvents by remember { mutableStateOf(false) }
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
             BackHandler(enabled = tab != 0) { tab = 0 }
@@ -207,7 +230,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             ) { padding ->
                 // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true }, showMeds = { tab = 4; showMeds = true })
+                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true }, showMeds = { tab = 4; showMeds = true }, showEvents = { tab = 4; showEvents = true })
                     // stan każdej zakładki (wybrany dzień, zakres, widok, przewinięcie) przeżywa przełączanie zakładek, a nie tylko obrót ekranu
                     saveable.SaveableStateProvider(tab) {
                         when (tab) {
@@ -215,13 +238,15 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                             1 -> BpScreen(s, store)
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)
-                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false })
+                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false })
                         }
                     }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
                         modifier = Modifier.align(Alignment.BottomCenter))
                 }
             }
+            // odpowiedź AI udostępniona z innej aplikacji: edytor analizy otwiera się od razu z wczytanym tekstem
+            if (incoming != null) AnalysisEditor(null, store, java.time.LocalDate.now(), onClose = onIncomingHandled, prefill = incoming)
             OverlayLayer(overlays)
             // komunikaty muszą być widoczne także nad pełnoekranowym edytorem, który zasłania pasek główny
             if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 88.dp)) { data ->

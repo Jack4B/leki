@@ -125,6 +125,26 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
                 modifier = Modifier.padding(top = 8.dp),
             ) { LinkButton("Sprawdź zapasy i uzupełnij ›", nav.showMeds) }
         }
+        // najbliższe kontrole (do 14 dni): nie muszą być schowane w Ustawieniach
+        val upcoming = s.events.filter { it.date >= today && it.date <= today.plusDays(14) }.sortedBy { it.date }
+        if (upcoming.isNotEmpty()) item {
+            Column(Modifier.padding(top = 8.dp)) {
+                LekiCard {
+                    upcoming.take(3).forEachIndexed { i, e ->
+                        if (i > 0) Divider()
+                        val n = daysBetween(today, e.date)
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PhIcon(Ph.Stethoscope, tint = pal.accent)
+                            Column(Modifier.weight(1f)) {
+                                Text(e.title, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                                Text(if (n == 0) "dziś" else if (n == 1) "jutro" else "za $n ${plN(n, "dzień", "dni", "dni")}, " + plDate(e.date), style = TextStyle(fontSize = 12.5.sp, color = pal.ink3))
+                            }
+                        }
+                    }
+                }
+                LinkButton("Wszystkie kontrole ›", nav.showEvents)
+            }
+        }
         item {
             val stripState = rememberLazyListState()
             LaunchedEffect(selStr, strip.size) {

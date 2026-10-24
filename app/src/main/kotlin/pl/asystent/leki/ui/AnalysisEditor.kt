@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,9 @@ import pl.asystent.leki.core.newId
 import pl.asystent.leki.core.saveAnalysis
 import java.time.LocalDate
 
+/** Treść przekazana do edytora z zewnątrz („Udostępnij → Asystent leków” albo otwarcie pliku .md): tekst i/lub adres pliku. */
+class IncomingAi(val text: String?, val uri: android.net.Uri?)
+
 private const val LONG_TEXT = 2500
 private const val SEP = "\u0001"
 
@@ -34,9 +38,10 @@ private const val SEP = "\u0001"
  * wyłączając całe sekcje (nagłówki). Zapis trafia do kopii zapasowej razem z resztą danych.
  */
 @Composable
-fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: () -> Unit) {
+fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: () -> Unit, prefill: IncomingAi? = null) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     var title by rememberSaveable { mutableStateOf(initial?.title ?: "Analiza AI") }
     var dateStr by rememberSaveable { mutableStateOf((initial?.date ?: today).toString()) }
     var text by rememberSaveable { mutableStateOf(initial?.text.orEmpty()) }
@@ -44,7 +49,6 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
     var exclStr by rememberSaveable { mutableStateOf(initial?.excluded.orEmpty().joinToString(SEP)) }
     val excluded = if (exclStr.isEmpty()) emptyList() else exclStr.split(SEP)
     fun setExcluded(l: List<String>) { exclStr = l.joinToString(SEP) }
-    var confirmDelete by remember { mutableStateOf(false) }
 
     val sections = remember(text) { Markdown.sections(text) }
     val shown = remember(text, excluded) { Markdown.selected(text, excluded) }
@@ -70,19 +74,30 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
         offer(t, "Ze schowka", null)
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun handle(res: Result<AiImport.Result>, source: String) {
+        res.onSuccess { r ->
+            offer(r.text, source, r.title)
+            if (r.fallbackCharset) toast("Plik nie był w UTF-8; odczytano go jako Windows-1250. Sprawdź polskie znaki.")
+        }.onFailure { e -> toast(if (e is AiImport.ImportException) e.message.orEmpty() else "Nie udało się wczytać pliku.") }
+    }
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             val res = withContext(Dispatchers.IO) {
-                runCatching {
-                    val bytes = Platform.readBytesLimited(ctx, uri, AiImport.MAX_BYTES)
-                    AiImport.decode(bytes, Platform.displayName(ctx, uri))
-                }
+                runCatching { AiImport.decode(Platform.readBytesLimited(ctx, uri, AiImport.MAX_BYTES), Platform.displayName(ctx, uri)) }
             }
-            res.onSuccess { r ->
-                offer(r.text, "Z pliku", r.title)
-                if (r.fallbackCharset) toast("Plik nie był w UTF-8; odczytano go jako Windows-1250. Sprawdź polskie znaki.")
-            }.onFailure { e -> toast(if (e is AiImport.ImportException) e.message.orEmpty() else "Nie udało się wczytać pliku.") }
+            handle(res, "Z pliku")
         }
+    }
+    // treść udostępniona z innej aplikacji: wczytujemy raz po otwarciu edytora (zapis i tak wymaga potwierdzenia przez użytkownika)
+    LaunchedEffect(prefill) {
+        if (prefill == null) return@LaunchedEffect
+        val res = withContext(Dispatchers.IO) {
+            runCatching {
+                val bytes = prefill.text?.toByteArray(Charsets.UTF_8) ?: Platform.readBytesLimited(ctx, prefill.uri ?: error("Brak treści"), AiImport.MAX_BYTES)
+                AiImport.decode(bytes, prefill.uri?.let { Platform.displayName(ctx, it) })
+            }
+        }
+        handle(res, "Udostępniono")
     }
 
     FullScreenDialog(
@@ -123,13 +138,14 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
             }
         }
         if (text.isNotBlank()) Hint("W raporcie: ${shown.length} z ${text.length} znaków.")
-        if (initial != null) LinkButton("Usuń tę analizę", { confirmDelete = true }, danger = true)
+        if (initial != null) LinkButton("Usuń tę analizę", {
+            store.update { it.deleteAnalysis(initial.id) }
+            undo("Usunięto analizę") { store.update { it.saveAnalysis(initial) } }
+            onClose()
+        }, danger = true)
     }
     incoming?.let { (t, source, suggested) ->
         ConfirmDialog("Zastąpić wpisaną treść?", "W polu jest już tekst (${text.length} znaków). Nowy tekst ($source) ma ${t.length} znaków i go zastąpi.", "Zastąp",
             onConfirm = { acceptText(t, source, suggested); incoming = null }, onDismiss = { incoming = null })
-    }
-    if (confirmDelete && initial != null) {
-        ConfirmDialog("Usunąć analizę?", "Zniknie z aplikacji i z przyszłych kopii zapasowych.", "Usuń", onConfirm = { store.update { it.deleteAnalysis(initial.id) }; toast("Usunięto analizę"); onClose() }, onDismiss = { confirmDelete = false }, danger = true)
     }
 }

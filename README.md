@@ -20,6 +20,7 @@ Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia.
 - **Przypomnienie o kopii zapasowej:** powiadomienie, gdy ostatnia kopia jest starsza niż 30 dni (próg do zmiany lub wyłączenia). Działa niezależnie od przypomnień o dawkach.
 - **Blokada aplikacji:** odcisk palca, twarz albo blokada ekranu telefonu (system pyta o PIN, wzór lub hasło; aplikacja ich nie widzi). Ustawienia → Blokada aplikacji: włączenie wymaga potwierdzenia, można wybrać opóźnienie (zaraz, 30 s, 5 min) i opcjonalnie ukryć aplikację w ostatnich aplikacjach oraz zablokować zrzuty ekranu. Ustawienia blokady są tylko na tym telefonie i **nie trafiają do kopii zapasowej**.
 - **Eksport CSV** do arkusza (Ustawienia → Kopie zapasowe i dane): ciśnienie, wyniki badań, dawki z ostatnich 90 dni, podsumowanie EKG. Format polski: separator średnik, przecinek dziesiętny, UTF-8 z BOM; tekst zaczynający się od `=`, `+`, `-`, `@` dostaje apostrof (ochrona przed wykonaniem jako formuły).
+- **Szybsza obsługa:** przyciski **„Wzięte” i „Odłóż o 15 min” w powiadomieniu** o dawkach, **„Cofnij”** po usunięciu pojedynczej pozycji (pomiar, EKG, wynik, analiza, kontrola), **„Przygotuj na wizytę”** w raporcie, **udostępnianie odpowiedzi AI do aplikacji** („Udostępnij → Asystent leków”, „Otwórz w” dla .md) oraz **automatyczna kopia do wybranego folderu** (opcjonalnie szyfrowana hasłem).
 - **Szybkie dodanie pomiaru ciśnienia:** skrót na ikonie aplikacji (przytrzymaj ikonę) oraz widżet na ekran główny; oba otwierają ekran dodawania pomiaru. Widżet pokazuje tylko, kiedy był ostatni pomiar (bez wartości, bo ekran główny widzą też inni).
 - **Trend tętna z zapisów EKG** nad listą zapisów (od dwóch zapisów; zakres 30 dni, 90 dni, rok lub wszystko, przewijany w bok jak wykres ciśnienia) i **czerwone punkty na wykresie ciśnienia** dla pomiarów na progu podwyższonego ciśnienia lub powyżej.
 - **Kopie zapasowe:** plik JSON albo plik zaszyfrowany hasłem (AES-256-GCM, PBKDF2), zapis do pliku lub przez systemowe „Udostępnij”.
@@ -111,10 +112,15 @@ Wykres ma stałą skalę czasu, więc przy długim okresie nie zlewa się w kres
 - **Powyżej 45 dni:** dla każdego dnia pionowy słupek od najniższego do najwyższego pomiaru i linia średnich dziennych. Podpisy to tygodnie (do ok. 4 miesięcy) albo początki miesięcy (rok i dłużej).
 - **W raporcie do druku** wykres jest cięty na kawałki po 91 dni, a pod nim jest zestawienie tygodniowe (powyżej ok. 6 miesięcy: miesięczne) ze średnimi, zakresami, tętnem i liczbą pomiarów podwyższonych i niskich. Pełna lista każdego pomiaru jest tylko w raportach do 45 dni, żeby roczny wydruk miał kilka stron, a nie kilkadziesiąt.
 
+## Automatyczna kopia do folderu
+
+Ustawienia → Kopie zapasowe i dane → **Automatyczna kopia do folderu**. Wybierasz folder przez systemowe okno (aplikacja nie dostaje uprawnień do całej pamięci, a nadal nie ma uprawnienia INTERNET). Po zmianie danych, gdy minął wybrany odstęp (codziennie albo co tydzień), w tle powstaje plik `asystent-lekow-kopia-RRRR-MM-DD.json` (z szyfrowaniem: `….zaszyfrowana.json`); zostaje 7 ostatnich. Zalecane jest szyfrowanie hasłem: w folderze synchronizowanym z chmurą leżą dane zdrowotne. Hasło jest przechowywane na telefonie zaszyfrowane kluczem z Android Keystore (poza kopią i plikiem); jeśli je zgubisz, plik nie otworzy się nigdzie. Plik wczytujesz tak jak każdą inną kopię (Wczytaj kopię z pliku). Ustawienia tej funkcji są tylko na tym telefonie i nie trafiają do kopii. Gdy zapis się nie powiedzie (np. folder usunięty, brak miejsca), ekran pokazuje komunikat, a przycisk „Zrób teraz” próbuje jeszcze raz.
+
 ## Analiza AI jako uzupełnienie raportu dla lekarza
 
 Odpowiedź modelu AI na „Raport dla AI” (patrz wyżej) możesz wkleić do aplikacji i dołączyć do raportu dla lekarza.
 
+0. Najkrócej: w aplikacji AI wybierz **Udostępnij → Asystent leków** (albo otwórz zapisany plik `.md` przez „Otwórz w”), a edytor analizy otworzy się z gotowym tekstem.
 1. W zakładce **Raport → Dla lekarza** włącz pigułkę **Analiza AI** i wybierz **Wklej odpowiedź AI** (albo link pod raportem w karcie „Dla AI”). Przycisk **Wklej ze schowka** wstawia tekst, a **Wczytaj z pliku** wczytuje odpowiedź zapisaną jako plik **Markdown (.md)** albo tekstowy (.txt), do 1 MB. Aplikacja rozpoznaje kodowanie (UTF-8 z BOM lub bez, UTF-16, a w razie potrzeby Windows-1250 ze starszych edytorów), ujednolica znaki końca linii i podpowiada tytuł (pierwszy nagłówek `# …` albo nazwa pliku). Pliki binarne i kopie zapasowe są odrzucane z wyjaśnieniem, a gdy w polu jest już tekst, aplikacja pyta, czy go zastąpić. Tekst można też wpisać lub poprawić ręcznie.
 2. Wzory LaTeX i Markdown (nagłówki, listy, tabele, pogrubienia, cytaty) są w raporcie porządkowane do zwykłego tekstu, np. `$2{,}8\text{ mmol/l}$` wychodzi jako „2,8 mmol/l”.
 3. **Skracanie:** tekst jest dzielony na sekcje według nagłówków; każdą można wyłączyć. Przy długim tekście aplikacja od razu zostawia tylko sekcje o podsumowaniu, sprawach pilnych, wnioskach, zaleceniach i pytaniach do lekarza. Przyciski „Tylko podsumowanie i pytania” oraz „Całość” przełączają to jednym ruchem.
@@ -257,6 +263,9 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Wąski ekran i duża czcionka** (Ustawienia systemu → Wyświetlanie → rozmiar czcionki): czy etykiety przełączników i przycisków nie są ucięte ani łamane w środku słowa.
 - [ ] **Badania (przebudowa 0.9.9):** Przegląd (poprzedni wynik, zmiana, tendencja po 3 wynikach, filtry, przypinanie), Mapa (przewijanie w bok, kolory, dotknięcie otwiera parametr), skróty porównania, „Nałóż rok temu” i okno Rok | 3 lata | Wszystko po roku danych, własny zakres w edycji wyniku, widok Lata na listach.
 - [ ] **Badania → Parametry:** wybór dnia („Wyniki z dnia”, „Tylko wyniki z tego dnia”), tabela „Porównaj dni” (2–4 dni, wąski ekran), przełącznik Grupami | A–Z | Najnowsze, alfabetyczna kolejność w grupach (polskie znaki), strzałki w szczegółach parametru.
+- [ ] **Powiadomienie o dawkach:** przyciski „Wzięte” (odhacza dawki tej pory) i „Odłóż o 15 min”; po odhaczeniu w aplikacji powiadomienie nie wraca.
+- [ ] **„Cofnij”** po usunięciu pomiaru, EKG, wyniku, analizy i kontroli.
+- [ ] **„Przygotuj na wizytę”** w Raporcie, **udostępnianie odpowiedzi AI** do aplikacji i otwarcie pliku .md, **automatyczna kopia do folderu** (wybór folderu, hasło, „Zrób teraz”, wczytanie powstałego pliku), Parametry badań w Badaniach i najbliższe kontrole na Lekach.
 - [ ] **Listy podzielone na okresy** (Ciśnienie, EKG, Badania → Według dat i historia parametru): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
 
 ### Do zrobienia po testach

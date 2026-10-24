@@ -85,6 +85,9 @@ import java.time.ZoneOffset
 /** Komunikat chwilowy (snackbar); dostarczany przez MainActivity. */
 val LocalToast = staticCompositionLocalOf<(String) -> Unit> { {} }
 
+/** Komunikat z przyciskiem „Cofnij” po usunięciu pojedynczej pozycji: pierwszy argument to treść, drugi przywraca usuniętą pozycję. */
+val LocalUndo = staticCompositionLocalOf<(String, () -> Unit) -> Unit> { { _, _ -> } }
+
 val CardShape = RoundedCornerShape(18.dp)
 val CtlShape = RoundedCornerShape(12.dp)
 

@@ -186,7 +186,8 @@ fun AppState.adherence(from: LocalDate, to: LocalDate, today: LocalDate, nowMinu
 
 // ---------- Przypomnienia ----------
 
-data class Reminder(val id: Int, val title: String, val body: String, val atMillis: Long)
+/** [date] i [slotId] ma przypomnienie o dawkach (z nich aplikacja sprawdza w chwili dzwonka, co jeszcze zostało do wzięcia, i wykonuje „Wzięte” oraz „Odłóż”). */
+data class Reminder(val id: Int, val title: String, val body: String, val atMillis: Long, val date: LocalDate? = null, val slotId: String? = null)
 
 private fun reminderId(d: LocalDate, slotIndex: Int): Int = (Math.floorMod(d.toEpochDay(), 20000L).toInt()) * 100 + slotIndex + 10
 
@@ -205,7 +206,7 @@ fun AppState.reminders(zone: java.time.ZoneId, nowMillis: Long, today: LocalDate
             if (open.isEmpty()) return@forEachIndexed
             val at = d.atTime(sl.time).minusMinutes(settings.remindLead.toLong()).atZone(zone).toInstant().toEpochMilli()
             if (at <= nowMillis + 5000) return@forEachIndexed
-            out.add(Reminder(reminderId(d, si), "Pora na leki: " + sl.name, open.joinToString(", ") { it.med.name + " " + num(it.dose) + " " + it.med.unit }, at))
+            out.add(Reminder(reminderId(d, si), "Pora na leki: " + sl.name, open.joinToString(", ") { it.med.name + " " + num(it.dose) + " " + it.med.unit }, at, d, sl.id))
         }
     }
     if (timerEnd > nowMillis + 5000) out.add(Reminder(1, "Minął czas po: " + timerMed.ifEmpty { "leku" }, timerNote.ifEmpty { "Możesz przejść do kolejnego kroku." }, timerEnd))

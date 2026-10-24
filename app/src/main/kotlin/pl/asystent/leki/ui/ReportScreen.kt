@@ -83,6 +83,20 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp)) {
         item {
             Text("Raport", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(bottom = 14.dp))
+            if (mode == 0) {
+                // jedno dotknięcie na wizytę: ostatnie 30 dni, ciśnienie, cała historia wyników, leki, kontrole, EKG i analiza AI (jeśli jest), od razu podgląd
+                LekiCard(Modifier.padding(bottom = 16.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Wizyta u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        BodyText("Ustawia raport na ostatnie 30 dni z ciśnieniem, całą historią wyników, przyjmowaniem i listą leków, kontrolami, EKG" + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
+                        LekiButton("Przygotuj na wizytę", {
+                            preset = 30; fromStr = ""; toStr = ""; customRange = false
+                            setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true) }
+                            preview = true
+                        }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Stethoscope)
+                    }
+                }
+            }
             LekiCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Overline("Okres", Modifier.padding(bottom = 0.dp))

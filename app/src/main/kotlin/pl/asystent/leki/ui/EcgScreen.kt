@@ -488,13 +488,13 @@ fun EcgMethods() {
 @Composable
 fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     val ctx = LocalContext.current
     var date by remember { mutableStateOf(initial.date) }
     var time by remember { mutableStateOf(initial.time) }
     var hr by remember { mutableStateOf(if (initial.watchHr > 0) initial.watchHr.toString() else "") }
     var watchNote by remember { mutableStateOf(initial.watchNote) }
     var note by remember { mutableStateOf(initial.note) }
-    var confirmDelete by remember { mutableStateOf(false) }
     var zoom by remember { mutableStateOf(false) }
     val result = remember(initial) { EcgAnalysis.analyze(initial) }
     FullScreenDialog(
@@ -539,11 +539,13 @@ fun EcgEditor(initial: Ecg, isNew: Boolean, store: Store, onClose: () -> Unit) {
         LekiField("Tętno wg zegarka, /min (opcjonalnie)", hr, { hr = it.filter { c -> c.isDigit() }.take(3) }, keyboard = KeyboardType.Number, mono = true)
         LekiField("Ocena zegarka (opcjonalnie)", watchNote, { watchNote = it.take(120) }, placeholder = "np. Rytm zatokowy")
         LekiField("Notatka (opcjonalnie)", note, { note = it.take(500) }, singleLine = false, minLines = 2, placeholder = "np. po spacerze, odczuwane kołatanie")
-        if (!isNew) LinkButton("Usuń to EKG", { confirmDelete = true }, danger = true)
+        if (!isNew) LinkButton("Usuń to EKG", {
+            store.update { it.deleteEcg(initial.id) }
+            undo("Usunięto EKG") { store.update { it.saveEcg(initial) } }
+            onClose()
+        }, danger = true)
     }
     if (zoom) FullScreenDialog("Przebieg EKG", { zoom = false }) { EcgZoomView(initial, result) }
-    if (confirmDelete) ConfirmDialog("Usunąć EKG?", "Zapis zniknie z aplikacji, raportów i przyszłych kopii zapasowych.", "Usuń",
-        onConfirm = { store.update { it.deleteEcg(initial.id) }; toast("Usunięto EKG"); onClose() }, onDismiss = { confirmDelete = false }, danger = true)
 }
 
 

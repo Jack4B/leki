@@ -79,7 +79,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 private enum class Page(val title: String) {
-    Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"), Markers("Parametry badań"),
+    Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"),
     General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
 }
 
@@ -87,10 +87,11 @@ private enum class Page(val title: String) {
 fun SettingsScreen(
     s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
-    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {},
+    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     val today = LocalDate.now()
     var pageName by rememberSaveable { mutableStateOf(initialPage) }
     val page = Page.values().firstOrNull { it.name == pageName } ?: Page.Home
@@ -102,16 +103,14 @@ fun SettingsScreen(
     var slotNew by remember { mutableStateOf(false) }
     var eventEdit by remember { mutableStateOf<Event?>(null) }
     var eventNew by remember { mutableStateOf(false) }
-    var markerEdit by remember { mutableStateOf<Marker?>(null) }
-    var markerNew by remember { mutableStateOf(false) }
     var encrypt by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var showEnded by rememberSaveable { mutableStateOf(false) }
-    var showAllMarkers by rememberSaveable { mutableStateOf(false) }
     val saveJson = rememberJsonSaver(s, store)
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
     LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
+    LaunchedEffect(showEventsRequest) { if (showEventsRequest) { pageName = Page.Events.name; onShowEventsHandled() } }
     LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
 
     val active = s.meds.filter { m -> m.end.let { e -> e == null || e >= today } }
@@ -135,11 +134,6 @@ fun SettingsScreen(
                     NavRow(Ph.Clock, "Pory dnia", s.sortedSlots().joinToString(", ") { it.name }) { pageName = Page.Slots.name }
                     Divider()
                     NavRow(Ph.Stethoscope, "Kontrole i przypomnienia", if (upcomingEvents == 0) "Brak zaplanowanych" else "$upcomingEvents ${plN(upcomingEvents, "zaplanowana", "zaplanowane", "zaplanowanych")}") { pageName = Page.Events.name }
-                }
-                Spacer(Modifier.height(22.dp))
-                Overline("Badania")
-                LekiCard {
-                    NavRow(Ph.Flask, "Parametry badań", "${s.markers.size} ${plN(s.markers.size, "parametr", "parametry", "parametrów")}, zakresy odniesienia") { pageName = Page.Markers.name }
                 }
                 Spacer(Modifier.height(22.dp))
                 Overline("Aplikacja")
@@ -167,7 +161,6 @@ fun SettingsScreen(
                         }
                         Page.Slots -> LekiButton("Dodaj", { slotNew = true }, small = true, tonal = true, icon = Ph.Plus)
                         Page.Events -> LekiButton("Dodaj", { eventNew = true }, small = true, tonal = true, icon = Ph.Plus)
-                        Page.Markers -> LekiButton("Dodaj", { markerNew = true }, small = true, tonal = true, icon = Ph.Plus)
                         else -> {}
                     }
                 }
@@ -194,17 +187,6 @@ fun SettingsScreen(
                     if (evs.isEmpty()) EmptyBox("Brak kontroli. Dodaj np. badanie krwi lub wizytę u lekarza, a pojawi się w danym dniu.", action = { LekiButton("Dodaj kontrolę", { eventNew = true }, primary = true, icon = Ph.Plus) })
                     else LekiCard { evs.forEachIndexed { i, e -> if (i > 0) Divider(); SettingRow(e.title, plDate(e.date) + if (e.field.isNotEmpty()) ", pole: ${e.field}" else "") { eventEdit = e } } }
                 }
-                Page.Markers -> item {
-                    val shown = if (s.markers.size > 8 && !showAllMarkers) s.markers.take(8) else s.markers
-                    LekiCard {
-                        shown.forEachIndexed { i, m ->
-                            if (i > 0) Divider()
-                            SettingRow(m.name, listOf(m.unit, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres odniesienia $it" } ?: "bez zakresu").filter { it.isNotEmpty() }.joinToString(", ")) { markerEdit = m }
-                        }
-                    }
-                    if (s.markers.size > 8) LinkButton(if (showAllMarkers) "Pokaż mniej" else "Pokaż wszystkie (${s.markers.size})", { showAllMarkers = !showAllMarkers })
-                    Hint("Zakresy są orientacyjne. Wpisz te z wyników swojego laboratorium.", Modifier.padding(top = 8.dp))
-                }
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
                 Page.Security -> item { SecuritySection() }
@@ -225,6 +207,8 @@ fun SettingsScreen(
                             LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
                         }
                     }
+                    Spacer(Modifier.height(18.dp))
+                    AutoBackupSection(s, store)
                     Spacer(Modifier.height(18.dp))
                     CsvSection(s)
                     Spacer(Modifier.height(18.dp))
@@ -274,9 +258,10 @@ fun SettingsScreen(
             slotEdit = null; slotNew = false
         }, onDismiss = { slotEdit = null; slotNew = false })
     if (eventEdit != null || eventNew) EventEditor(s, eventEdit, onSave = { store.update { st -> st.saveEvent(it) }; eventEdit = null; eventNew = false; toast("Zapisano kontrolę") },
-        onDelete = { id -> store.update { it.deleteEvent(id) }; eventEdit = null; eventNew = false; toast("Usunięto kontrolę") }, onDismiss = { eventEdit = null; eventNew = false })
-    if (markerEdit != null || markerNew) MarkerEditor(s, markerEdit, onSave = { store.update { st -> st.saveMarker(it) }; markerEdit = null; markerNew = false; toast("Zapisano parametr") },
-        onDelete = { id -> store.update { it.deleteMarker(id) }; markerEdit = null; markerNew = false; toast("Usunięto parametr") }, onDismiss = { markerEdit = null; markerNew = false })
+        onDelete = { id ->
+            s.event(id)?.let { ev -> store.update { it.deleteEvent(id) }; undo("Usunięto kontrolę: ${ev.title}") { store.update { it.saveEvent(ev) } } }
+            eventEdit = null; eventNew = false
+        }, onDismiss = { eventEdit = null; eventNew = false })
     if (encrypt) EncryptBackupDialog(s, store) { encrypt = false }
     if (confirmClear) ConfirmDialog(
         "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
@@ -497,9 +482,8 @@ private fun EventEditor(s: AppState, e: Event?, onSave: (Event) -> Unit, onDelet
                 else onSave(Event(e?.id ?: newId(), date, title.trim(), note.trim(), field.trim(), if (s.marker(marker) != null) marker else ""))
             }, Modifier.weight(1f), primary = true)
         }
-        if (e != null) LinkButton("Usuń kontrolę", { confirm = true }, danger = true)
+        if (e != null) LinkButton("Usuń kontrolę", { onDelete(e.id) }, danger = true)
     }
-    if (confirm && e != null) ConfirmDialog("Usunąć kontrolę?", "Zniknie przypomnienie. Wpisane wcześniej wyniki zostają w danych dnia.", "Usuń", onConfirm = { onDelete(e.id) }, onDismiss = { confirm = false }, danger = true)
 }
 
 

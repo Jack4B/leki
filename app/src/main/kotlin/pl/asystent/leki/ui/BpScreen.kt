@@ -47,6 +47,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     var sys by rememberSaveable { mutableStateOf("") }
     var dia by rememberSaveable { mutableStateOf("") }
     var pulse by rememberSaveable { mutableStateOf("") }
@@ -60,7 +61,6 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
     val ctxIdx = if (ctxSel >= 0) ctxSel else if (now.hour < 11) 0 else if (now.hour >= 17) 1 else 2
     var err by remember { mutableStateOf("") }
     var range by rememberSaveable { mutableStateOf(initialRange) }
-    var delId by remember { mutableStateOf<String?>(null) }
     val ctxNames = listOf("rano", "wieczór", "inne")
 
     val list = s.bp.sortedWith(bpOrder).let { all -> if (range == 0) all else all.filter { it.date >= today.minusDays((range - 1).toLong()) } }
@@ -154,10 +154,14 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
             "bp", "Zapisane pomiary", all.let { a -> if (hist.flagOnly) a.filter { s.settings.bpFlag(it) == "podwyższone" } else a },
             hist, today, { it.date }, "Tylko podwyższone", "Pokaż wszystkie", "Brak pomiarów na progu podwyższonego ciśnienia lub powyżej.",
             { bpGroupSummary(it, s.settings) },
-        ) { rows -> BpRows(rows, s, onDelete = { delId = it }) }
-    }
-    delId?.let { id ->
-        ConfirmDialog("Usunąć pomiar?", "Pomiar zniknie z listy, wykresu i raportów.", "Usuń", onConfirm = { store.update { it.deleteBp(id) }; toast("Usunięto pomiar") }, onDismiss = { delId = null }, danger = true)
+        ) { rows ->
+            BpRows(rows, s, onDelete = { id ->
+                s.bp.firstOrNull { it.id == id }?.let { b ->
+                    store.update { it.deleteBp(id) }
+                    undo("Usunięto pomiar ${b.sys}/${b.dia}") { store.update { it.addBp(b) } }
+                }
+            })
+        }
     }
 }
 

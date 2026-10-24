@@ -54,6 +54,7 @@ import pl.asystent.leki.core.hhmm
 import pl.asystent.leki.core.deleteEcg
 import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.rangeText
+import pl.asystent.leki.core.saveEcg
 import pl.asystent.leki.core.saveLab
 import pl.asystent.leki.core.saveMarker
 import pl.asystent.leki.core.shortDate
@@ -62,17 +63,18 @@ import java.time.LocalDate
 @Composable
 fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifier = Modifier, listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), initialMode: Int = 0, ui: LabsUi = rememberLabsUi()) {
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     var openId by rememberSaveable { mutableStateOf("") }
     var mode by rememberSaveable { mutableStateOf(initialMode) }
     var labEdit by remember { mutableStateOf<Pair<Lab?, String>?>(null) } // (wynik do edycji lub null, id parametru)
     var markerEdit by remember { mutableStateOf<Marker?>(null) }
     var markerNew by remember { mutableStateOf(false) }
     var showNone by rememberSaveable { mutableStateOf(false) }
+    var markersOpen by rememberSaveable { mutableStateOf(false) }
     var scan by remember { mutableStateOf(false) }
     var ecgDraft by remember { mutableStateOf<pl.asystent.leki.core.Ecg?>(null) }
     var ecgOpenId by rememberSaveable { mutableStateOf("") }
     val ecgImport = rememberEcgImporter { ecgDraft = it }
-    var ecgDel by remember { mutableStateOf<String?>(null) }
     val ecgHist = rememberHistoryState()
     val labHist = rememberHistoryState()
     val markerHist = rememberHistoryState()
@@ -99,12 +101,13 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 }
                 SegRow(listOf("Przegląd", "Mapa", "Daty", "EKG"), mode, { mode = it })
             }
-            if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { ecgDel = it })
+            if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { id -> s.ecg(id)?.let { e -> store.update { it.deleteEcg(id) }; undo("Usunięto EKG z ${plDate(e.date)}") { store.update { it.saveEcg(e) } } } })
             else if (mode == 2) labsByDate(s, labHist, today) { openLab(it, it.marker) }
             else if (mode == 1) item { LabMap(s, ui) { openId = it } }
             else overview(s, model, ui, labDays, asOf?.toString().orEmpty(), today, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
             if (mode != 3) item {
                 Column(Modifier.padding(top = 18.dp)) {
+                    LinkButton("Parametry badań: nazwy, jednostki, zakresy ›", { markersOpen = true })
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
                 }
             }
@@ -176,16 +179,16 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     if (scan) ScanDialog(s, store, onClose = { scan = false })
     ecgDraft?.let { EcgEditor(it, true, store) { ecgDraft = null } }
     s.ecg(ecgOpenId)?.let { EcgEditor(it, false, store) { ecgOpenId = "" } }
-    ecgDel?.let { id ->
-        s.ecg(id)?.let { e ->
-            ConfirmDialog("Usunąć EKG?", "Zapis z ${plDate(e.date)} ${e.time.hhmm()} zniknie z aplikacji, raportów i przyszłych kopii zapasowych.", "Usuń",
-                onConfirm = { store.update { it.deleteEcg(id) }; ecgDel = null; toast("Usunięto EKG") }, onDismiss = { ecgDel = null }, danger = true)
-        } ?: run { ecgDel = null }
-    }
     labEdit?.let { (lab, markerId) ->
         LabEditor(s, lab, markerId, onSave = { store.update { st -> st.saveLab(it) }; labEdit = null; toast("Zapisano wynik") },
-            onDelete = { id -> store.update { it.deleteLab(id) }; labEdit = null; toast("Usunięto wynik") }, onDismiss = { labEdit = null })
+            onDelete = { id ->
+                s.labs.firstOrNull { it.id == id }?.let { l ->
+                    store.update { it.deleteLab(id) }; labEdit = null
+                    undo("Usunięto wynik z ${plDate(l.date)}") { store.update { it.saveLab(l) } }
+                }
+            }, onDismiss = { labEdit = null })
     }
+    if (markersOpen) MarkersDialog(s, onEdit = { markerEdit = it }, onNew = { markerNew = true }, onClose = { markersOpen = false })
     if (markerEdit != null || markerNew) MarkerEditor(s, markerEdit, onSave = { store.update { st -> st.saveMarker(it) }; markerEdit = null; markerNew = false; toast("Zapisano parametr") },
         onDelete = { id -> store.update { it.deleteMarker(id) }; markerEdit = null; markerNew = false; toast("Usunięto parametr") }, onDismiss = { markerEdit = null; markerNew = false })
 }
@@ -199,7 +202,6 @@ private fun LabEditor(s: AppState, lab: Lab?, markerId: String, onSave: (Lab) ->
     var lo by remember { mutableStateOf(lab?.lo?.let { lnum(it) } ?: "") }
     var hi by remember { mutableStateOf(lab?.hi?.let { lnum(it) } ?: "") }
     var err by remember { mutableStateOf("") }
-    var confirmDel by remember { mutableStateOf(false) }
     val m = s.marker(marker)
     FullScreenDialog(if (lab != null) "Edycja wyniku" else "Nowy wynik", onDismiss) {
         DropdownField("Parametr", s.markers.map { it.id to it.name }, marker, { marker = it })
@@ -232,9 +234,8 @@ private fun LabEditor(s: AppState, lab: Lab?, markerId: String, onSave: (Lab) ->
                 if (err.isEmpty()) onSave(Lab(lab?.id ?: newId(), date, marker, n!!, note.trim(), l, h))
             }, Modifier.weight(1f), primary = true)
         }
-        if (lab != null) LinkButton("Usuń wynik", { confirmDel = true }, danger = true)
+        if (lab != null) LinkButton("Usuń wynik", { onDelete(lab.id) }, danger = true)
     }
-    if (confirmDel && lab != null) ConfirmDialog("Usunąć ten wynik?", "Wynik zniknie z dziennika i raportu.", "Usuń", onConfirm = { onDelete(lab.id) }, onDismiss = { confirmDel = false }, danger = true)
 }
 
 @Composable
@@ -277,6 +278,27 @@ fun MarkerEditor(s: AppState, m: Marker?, onSave: (Marker) -> Unit, onDelete: (S
         }
         if (m != null) {
             if (used) BodyText("Parametr ma wyniki lub kontrole, więc nie można go usunąć.") else LinkButton("Usuń parametr", { onDelete(m.id) }, danger = true)
+        }
+    }
+}
+
+/** Lista parametrów badań (nazwa, jednostka, zakres, przypięcie) z dodawaniem i edycją; dawniej w Ustawieniach, teraz tam, gdzie się z nich korzysta. */
+@Composable
+private fun MarkersDialog(s: AppState, onEdit: (Marker) -> Unit, onNew: () -> Unit, onClose: () -> Unit) {
+    FullScreenDialog("Parametry badań", onClose, footer = { LekiButton("Dodaj parametr", onNew, Modifier.fillMaxWidth(), primary = true, icon = Ph.Plus) }) {
+        BodyText("Nazwy, jednostki i zakresy odniesienia parametrów. Zakresy są orientacyjne: wpisz te z wyników swojego laboratorium. Dotknij parametru, żeby go zmienić albo przypiąć na górze Przeglądu.")
+        LekiCard {
+            s.markers.forEachIndexed { i, m ->
+                if (i > 0) Divider()
+                Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onEdit(m) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(m.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        Hint(listOf(m.unit, rangeText(m).takeIf { it.isNotEmpty() }?.let { "zakres odniesienia $it" } ?: "bez zakresu", m.grp).filter { it.isNotEmpty() }.joinToString(", "))
+                    }
+                    if (m.pin) Text("★", style = TextStyle(fontSize = 15.sp, color = pal.accent))
+                    Text("Edytuj", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
+                }
+            }
         }
     }
 }

@@ -35,6 +35,22 @@ fun AppState.markAll(d: LocalDate, today: LocalDate, now: LocalDateTime): AppSta
     return s
 }
 
+/** Dawki z pory [slotId] w dniu [d], które nie są ani odhaczone, ani pominięte (to, o czym przypomina powiadomienie). */
+fun AppState.openDoses(d: LocalDate, slotId: String): List<Item> {
+    val r = day(d)
+    return scheduleFor(d).filter { it.slot.id == slotId && it.key !in r.taken && it.key !in r.skipped }
+}
+
+/** Odhacza jednym ruchem wszystkie jeszcze otwarte dawki pory (przycisk „Wzięte” w powiadomieniu); godzina przyjęcia to teraz (dla dzisiaj) albo pora z planu. */
+fun AppState.markSlot(d: LocalDate, slotId: String, today: LocalDate, now: LocalDateTime): AppState {
+    var s = this
+    for (x in openDoses(d, slotId)) {
+        val t = if (d == today) now.toLocalTime().withSecond(0).withNano(0) else x.slot.time
+        s = s.updateDay(d) { it.copy(taken = it.taken + x.key, times = it.times + (x.key to t), skipped = it.skipped - x.key) }
+    }
+    return s
+}
+
 fun AppState.setDoseTime(d: LocalDate, key: String, t: LocalTime): AppState = updateDay(d) { it.copy(times = it.times + (key to t)) }
 
 fun AppState.skipDose(d: LocalDate, key: String, reason: String, note: String): AppState = updateDay(d) {
