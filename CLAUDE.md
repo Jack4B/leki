@@ -31,3 +31,25 @@
 - `abiFilters` bez x86_64: OCR (ML Kit) nie zadziała na emulatorze x86_64. Do testów dodać x86_64 w debug.
 - Testy: `app` ma tylko zrzuty Paparazzi (`continue-on-error`). Brak testów `Store` (zapis atomowy, uszkodzony plik), `AutoBackup` (seal/open, rotacja), `Reminders.reschedule`, intencji SEND/VIEW. CI nie uruchamia `lint`.
 - Gałąź domyślna ma nazwę wygenerowaną (`ccr-…`), a `cykl-modul` ma nowsze, niescalone commity. Ustalić `main` i scalić przez PR.
+
+## Tryb pracy (wydajność, tokeny, testy)
+
+- Czytaj tylko potrzebne pliki. Najpierw `rg`/`grep` (np. `rg -n "fun parseState" core/src/main`), potem otwórz konkretny fragment. Nie czytaj `build/`, `.gradle/`, `app/src/test/snapshots/`, PNG z `res/mipmap-*`, `gradle-wrapper.jar` ani dużych fixtures w całości. `README.md` i `CHANGELOG.md` przeszukuj zamiast czytać od początku.
+- Małe, skupione zmiany: jeden temat na PR. Edytuj diffem i nie przepisuj całych plików (szczególnie dużych ekranów w `app/.../ui/*Screen.kt` i `core/.../Backup.kt`).
+- Pętla testów, od najszybszej:
+  1. `./gradlew :core:test --tests 'pl.asystent.leki.core.<Klasa>Test' --offline` dla dotkniętej klasy.
+  2. Pełne `./gradlew :core:test --offline` przed PR.
+  3. `./gradlew :app:assembleDebug :app:lintDebug` tylko wtedy, gdy zmieniło się coś w `app/` (wymaga Android SDK; bez SDK uruchom `core` w osobnym projekcie albo zostaw to CI).
+  Daemon Gradle zostaw włączony (bez `--no-daemon` lokalnie).
+- Nowa logika trafia do `core` (czysty Kotlin) z testem w `core/src/test`. Przy błędach stosuj TDD: najpierw test, który pada, potem poprawka. `app` ma tylko UI i wywołania platformy.
+- Bez nowych zależności bez uzasadnienia w opisie PR (co daje, rozmiar, licencja, brak sieci). Zależności dodawaj przez `gradle/libs.versions.toml`.
+- Podsumowania mają być krótkie. Nie wklejaj całych logów, tylko linie z błędem (np. `FAILED`, `e: file.kt:LINIA`).
+- Commity w formacie Conventional Commits: `fix(core): …`, `feat(app): …`, `ci: …`, `docs: …`, `test: …`.
+
+**Definicja ukończenia (DoD):**
+- [ ] `./gradlew :core:test` zielone, nowy kod w `core` ma test.
+- [ ] Jeśli dotknięto `app/`: build i lint przechodzą (lokalnie albo w CI na gałęzi PR).
+- [ ] `appVersionName` podbity, wpis `## <wersja>` w `CHANGELOG.md` (`./gradlew checkChangelog`), `README.md` zaktualizowany.
+- [ ] Brak uprawnienia INTERNET, sekretów i prawdziwych danych zdrowotnych w repo.
+- [ ] Kopie v3 i starsze fixtures nadal się wczytują.
+- [ ] PR opisuje zmiany, testy i ryzyka. Gałąź `feat/`/`fix/`, bez samodzielnego scalania.
