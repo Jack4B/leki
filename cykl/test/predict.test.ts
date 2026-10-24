@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, levelOf, windowLevel, calendarRule, profileOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
+import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, windowLevel, calendarRule, profileOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
 import { buildHistory } from "../src/history.ts";
 import { analyze } from "../src/analysis.ts";
 import { addDays } from "../src/dates.ts";
@@ -129,12 +129,6 @@ describe("test owulacyjny LH", () => {
     const a = analyze({ ...base, entries: [...base.entries, { type: "lh", date: addDays(last, 12), result: "neg" }] }, addDays(last, 13));
     assert.ok(!a.pred.lhUsed);
   });
-});
-
-test("poziomy: progi", () => {
-  assert.equal(levelOf(0.2), "high");
-  assert.equal(levelOf(0.06), "mid");
-  assert.equal(levelOf(0.01), "low");
 });
 
 describe("test LH: wiarygodność i wpływ na prognozę okresu", () => {

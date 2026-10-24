@@ -199,7 +199,12 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             val tab = if (rawTab in 0..5 && rawTab != 4 && rawTab !in visibleTabs(s.settings)) 0 else rawTab
             val setTab: (Int) -> Unit = { rawTab = it }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-            LaunchedEffect(requestedTab) { requestedTab?.let { setTab(it); onTabHandled() } }
+            LaunchedEffect(requestedTab) {
+                requestedTab?.let {
+                    setTab(it); onTabHandled()
+                    if (it == 1 && !s.settings.bpOn) toast("Zakładka Ciśnienie jest ukryta. Pokaż ją w Ustawienia → Moduły aplikacji.")
+                }
+            }
             var newMed by remember { mutableStateOf(false) }
             var showMeds by remember { mutableStateOf(false) }
             var showEvents by remember { mutableStateOf(false) }

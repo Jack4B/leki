@@ -144,9 +144,9 @@ data class Settings(
     val labsOn: Boolean = true,
 ) {
     /** Części raportu dla lekarza z uwzględnieniem ukrytych modułów: ukryty moduł nie trafia do raportu, nawet jeśli pigułka była włączona. */
-    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn)
+    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn, cykl = rp.cykl && cyklOn)
     /** To samo dla tekstu dla AI. */
-    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn)
+    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn, cykl = ai.cykl && cyklOn)
 }
 
 data class AppState(

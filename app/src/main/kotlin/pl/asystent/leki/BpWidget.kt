@@ -24,6 +24,7 @@ class BpWidget : AppWidgetProvider() {
 
     companion object {
         fun lastText(s: AppState?, today: LocalDate): String {
+            if (s != null && !s.settings.bpOn) return "Moduł ukryty w Ustawieniach"
             val last = s?.bp?.maxWithOrNull(compareBy({ it.date }, { it.time })) ?: return "Brak pomiarów"
             val day = when (last.date) { today -> "dziś"; today.minusDays(1) -> "wczoraj"; else -> plDate(last.date) }
             return "Ostatni pomiar: $day ${last.time.hhmm()}"

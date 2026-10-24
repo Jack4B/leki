@@ -41,5 +41,9 @@ class ModulesTest {
         val eff = s.settings.copy(bpOn = false, labsOn = false).effectiveRp()
         assertFalse(eff.bp || eff.labs || eff.ecg || eff.labsPeriod)
         assertTrue(eff.meds)
+        // ukryty moduł Cykl nie wchodzi do raportów, nawet jeśli pigułka była włączona
+        val c = s.settings.copy(rp = s.settings.rp.copy(cykl = true), ai = s.settings.ai.copy(cykl = true))
+        assertTrue(c.copy(cyklOn = true).effectiveRp().cykl && c.copy(cyklOn = true).effectiveAi().cykl)
+        assertFalse(c.copy(cyklOn = false).effectiveRp().cykl || c.copy(cyklOn = false).effectiveAi().cykl)
     }
 }

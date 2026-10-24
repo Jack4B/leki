@@ -192,3 +192,26 @@ describe("pasma wieku, tryb prognoz i komunikaty", () => {
     assert.ok(out.includes('role="group"') && out.includes('aria-pressed="true"') && out.includes('aria-label="Notatka dnia"'));
   });
 });
+
+describe("okno płodne: spójność etykiet z procentami", () => {
+  test("widok dnia nie podaje procentu ≥50% przy etykiecie „możliwe” (obniżony poziom to „prognoza niepewna”)", () => {
+    const db = makeDb("2030-09-14", PERI);
+    const a = analyze(db, "2031-10-22");
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(Date.parse("2031-10-22T12:00:00Z") + i * 864e5).toISOString().slice(0, 10);
+      const out = sheetDay(a, d).value;
+      const m = /okno płodne możliwe \(ok\. (\d+)%\)/.exec(out);
+      if (m) assert.ok(Number(m[1]) < 50, `${d}: ${m[0]}`);
+      assert.ok(!/bardzo prawdopodobne \(ok\. (\d+)%\)/.test(out) || a.info(d).window >= 0.5);
+    }
+  });
+  test("prawdopodobieństwo okna nigdy nie przekracza 100%", () => {
+    const db = makeDb("2031-01-01", [17, 18, 19, 17, 20, 18, 21]);
+    db.entries.push({ type: "lh", date: "2031-04-30", result: "pos" }); db.settings.ageBand = "51+";
+    const a = analyze(db, "2031-05-05");
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(Date.parse("2031-05-05T12:00:00Z") + i * 864e5).toISOString().slice(0, 10);
+      assert.ok(a.info(d).window <= 1);
+    }
+  });
+});

@@ -451,13 +451,10 @@ const FERTILITY_BY_OFFSET                         = {
   [-5]: 0.10, [-4]: 0.16, [-3]: 0.14, [-2]: 0.27, [-1]: 0.31, 0: 0.33, 1: 0.05,
 };
 const MAX_FERTILITY = 0.33;
-const HIGH = 0.15;
-const MID = 0.04;
-/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (6 dni kończących się w dniu owulacji). */
+/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (wg Wilcox 1995 to 6 dni kończących się w dniu owulacji; model liczy też dzień po owulacji z małą wagą, razem 7 dni). */
 const WIN_HIGH = 0.5;
 const WIN_MID = 0.2;
                                     
-const levelOf = (f        )        => (f >= HIGH ? "high" : f >= MID ? "mid" : "low");
 /** „Bardzo prawdopodobne” okno płodne: ≥50% szans, że dzień jest w oknie; „możliwe”: 20–50%. */
 const windowLevel = (q        )        => (q >= WIN_HIGH ? "high" : q >= WIN_MID ? "mid" : "low");
 
@@ -630,7 +627,7 @@ function mkRun(days          , f                     )             {
   return { from: days[0] , to: days.at(-1) , peak };
 }
 const fertilityOn = (p            , date        )         => p.fertility.get(date) ?? 0;
-const windowOn = (p            , date        )         => p.window.get(date) ?? 0;
+const windowOn = (p            , date        )         => Math.min(1, p.window.get(date) ?? 0);
 const meanOf = mean;
 
 
@@ -1146,6 +1143,7 @@ const monthChart = (rows            )           => {
 
 
 
+
                                            
                    
                                                                                                                            
@@ -1200,10 +1198,10 @@ const viewToday = (a          , s         )           => {
     : p.confidence === "mid" ? `Pewność prognozy: średnia. Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d.`
     : `Pewność prognozy: niska (${a.hist.cycles.length < 3 ? "mało zapisanych cykli" : "cykle bardzo się różnią"}). Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
   const ageNote = age === "46-50" || age === "51+"
-    ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): omów to z lekarzem.</p>` : "";
+    ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.). Dotyczy to metod niehormonalnych: przy hormonalnych (brak miesiączki nic wtedy nie mówi o menopauzie) decyduje lekarz.</p>` : "";
   const cal = p.calendar, lastStart = a.hist.lastStart ;
   const calTxt = p.mode !== "normal" ? "" : cal
-    ? html`<p class="note left">Metoda kalendarzowa (z ${cal.n} ostatnich cykli: najkrótszy − 18 do najdłuższy − 11): dni ${cal.from}–${cal.to} cyklu, czyli ${range(addDays(lastStart, cal.from - 1), addDays(lastStart, cal.to - 1))}. ${cal.standardDays ? "Wszystkie ostatnie cykle mają 26–32 dni, więc metoda dni standardowych wskazuje dni 8–19. " : "Przy różnych długościach cykli okno jest szerokie. "}To kontrola obok modelu, nie dokładniejsza prognoza.</p>`
+    ? html`<p class="note left">Metoda kalendarzowa (z ${cal.n} ostatnich cykli: najkrótszy − 18 do najdłuższy − 11): dni ${cal.from}–${cal.to} cyklu, czyli ${range(addDays(lastStart, cal.from - 1), addDays(lastStart, cal.to - 1))}. ${cal.standardDays ? "Ostatnie 6 cykli mają 26–32 dni, więc metoda dni standardowych wskazuje dni 8–19. " : "Przy różnych długościach cykli okno jest szerokie. "}To kontrola obok modelu, nie dokładniejsza prognoza.</p>`
     : html`<p class="note left">Metoda kalendarzowa (najkrótszy cykl − 18 do najdłuższy − 11) wymaga co najmniej 6 zapisanych cykli (teraz: ${a.hist.cycles.length}).</p>`;
   const np = p.nextPeriods[0], run = p.nextRun;
   const rangeTxt = !np || np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
@@ -1219,14 +1217,14 @@ const viewToday = (a          , s         )           => {
     </section>
     <div class="grid2">
       <div class="stat"><small>Następny okres</small><strong>${np ? dfmt(np.date) : "—"}</strong><span>${np ? html`${inDays(np.date, t)}${rangeTxt}` : "brak prognozy"}</span></div>
-      <div class="stat"><small>Okno płodne</small><strong>${run ? range(run.from, run.to) : "—"}</strong>
+      <div class="stat"><small>Okno płodne (≥20%)</small><strong>${run ? range(run.from, run.to) : "—"}</strong>
         <span>${run ? html`${run.from <= t ? "trwa" : inDays(run.from, t)}<br>szczyt ok. ${dfmt(run.peak)}` : p.mode !== "normal" || p.noForecast ? "prognoza wyłączona lub niedostępna" : "brak w 90 dniach"}</span></div>
     </div>
     ${inf.bleed && a.figo.anemia && f.flow === 0 ? html`<div class="warn"><b>Zapisz obfitość dzisiaj.</b> Przy anemii lekarz zapyta o ilość krwawienia, a zapis z dnia jest dokładniejszy niż pamięć.
       <button class="btn sec" data-act="day" data-date="${t}">Zapisz obfitość</button></div>` : ""}
     <section class="card"><h2>Najbliższe 21 dni</h2>${strip(a)}
-      <div class="legend"><span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span><i class="sw lv-low"></i>poza oknem</span><span><i class="sw lv-bleed"></i>okres</span></div>
-      <p class="note">Kolor pokazuje, czy dzień wypada w oknie płodnym (około 6 dni kończących się w dniu owulacji: plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” to co najmniej 50% szans, że dzień jest w oknie, „możliwe” to 20–50%. Wysokość słupka to względna szansa poczęcia przy stosunku w tym dniu (największa tuż przed owulacją). Przy nieregularnych cyklach okno jest szerokie, a dni „bardzo prawdopodobnych” może nie być wcale.</p></section>
+      <div class="legend"><span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span><i class="sw lv-low"></i>okno mało prawdopodobne (&lt;20%)</span><span><i class="sw lv-bleed"></i>okres</span></div>
+      <p class="note">Kolor pokazuje, czy dzień wypada w oknie płodnym (około 6 dni kończących się w dniu owulacji: plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” to co najmniej 50% szans, że dzień jest w oknie, „możliwe” to 20–50% (przy niepewnej prognozie także wyżej: wtedy najwyższy poziom to „możliwe”). Wysokość słupka to względna szansa poczęcia przy stosunku w tym dniu (największa tuż przed owulacją). Przy nieregularnych cyklach okno jest szerokie, a dni „bardzo prawdopodobnych” może nie być wcale.</p></section>
     <section class="card"><h2>Zapisz dziś</h2><div class="quick">
       ${quick("sex", "Stosunek", f.sex)}${quick("protected", "Zabezpieczone", f.prot)}${quick("him", "Solo — partner/ka", f.solo)}
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
@@ -1254,7 +1252,7 @@ const viewCalendar = (a          , s         )           => {
     <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw dashed"></i>prognoza okresu</span>
       <span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span>★ owulacja (szac.)</span>
       <span><i class="dot sex"></i>stosunek</span><span><i class="dot solo"></i>solo</span><span><i class="dot spot"></i>plamienie</span><span><i class="dot lh"></i>test LH+</span></div>
-    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Zielone dni to okno płodne: około 6 dni kończących się w dniu owulacji (plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” = co najmniej 50% szans, że dzień jest w oknie, „możliwe” = 20–50%. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
+    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Zielone dni to okno płodne: około 6 dni kończących się w dniu owulacji (plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” = co najmniej 50% szans, że dzień jest w oknie, „możliwe” = 20–50% (przy niepewnej prognozie najwyższy poziom to „możliwe”). Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
 };
 
 const pill = (ok         , na         )           => html`<span class="pill ${na ? "na" : ok ? "ok" : "bad"}">${na ? "za mało danych" : ok ? "w normie" : "poza normą"}</span>`;
@@ -1302,7 +1300,7 @@ const viewCharts = (a          , s         )           => {
     <section class="card"><h2>Intymność</h2>
       <div class="grid2 tight"><div class="stat"><small>Stosunki</small><strong>${i.sex}</strong><span>${i.pct}% z zabezpieczeniem</span></div>
       <div class="stat"><small>Solo (partner/ka)</small><strong>${i.solo}</strong></div>
-      <div class="stat wide2"><small>W dniach okna płodnego</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
+      <div class="stat wide2"><small>W dniach okna płodnego (≥20%)</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
       <div class="scroll" id="mscroll">${monthChart(mo)}</div>
       <div class="legend"><span><i class="sw sexc"></i>stosunki</span><span><i class="sw soloc"></i>solo</span></div></section>
     <section class="card"><h2>Cykle</h2><table><thead><tr><th>Od</th><th>Do</th><th>Dni</th><th>Krwaw.</th></tr></thead><tbody>
@@ -1346,7 +1344,7 @@ const seg = (name        , max        , val        )           => html`<span cla
 
 const sheetDay = (a          , date        )           => {
   const f = flagsFor(a.entries, date), i = a.info(date);
-  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && `okno płodne bardzo prawdopodobne (ok. ${Math.round(i.window * 100)}%)`, i.level === "mid" && `okno płodne możliwe (ok. ${Math.round(i.window * 100)}%)`, i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
+  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && `okno płodne bardzo prawdopodobne (ok. ${Math.round(i.window * 100)}%)`, i.level === "mid" && (i.window >= WIN_HIGH ? "okno płodne możliwe (prognoza niepewna)" : `okno płodne możliwe (ok. ${Math.min(49, Math.round(i.window * 100))}%)`), i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
   return html`<h2>${dfmt(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2>${tags ? html`<p class="mute">${tags}</p>` : ""}
     <input type="hidden" id="solotype" value="${f.soloType}">
     <div class="togs">${tog("period_start", "Start okresu", f.start)}${tog("period_end", "Koniec okresu", f.end)}${tog("spotting", "Plamienie", f.spot)}${tog("clot", "Skrzepy", f.clot)}

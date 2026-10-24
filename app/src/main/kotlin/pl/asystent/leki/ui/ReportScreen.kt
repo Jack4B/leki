@@ -74,8 +74,9 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     val first = s.firstDate(today)
     val custom = if (fromStr.isNotEmpty() || toStr.isNotEmpty()) (fromStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) } to toStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }) else null
     val per = Period.resolve(preset, custom, today, first)
-    val rp = s.settings.rp
-    val ai = s.settings.ai
+    // wyświetlamy stan z uwzględnieniem ukrytych modułów (ukryty moduł nie pokazuje swoich kart ani nie liczy się do „wybrano sekcje”)
+    val rp = s.settings.effectiveRp()
+    val ai = s.settings.effectiveAi()
 
     fun setRp(f: (ReportParts) -> ReportParts) = store.update { it.copy(settings = it.settings.copy(rp = f(it.settings.rp))) }
     fun setAi(f: (AiParts) -> AiParts) = store.update { it.copy(settings = it.settings.copy(ai = f(it.settings.ai))) }
@@ -131,7 +132,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
-                        if (!store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
+                        if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) {
                         val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
@@ -205,7 +206,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
-                        if (!store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
+                        if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))

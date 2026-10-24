@@ -128,7 +128,7 @@
     // menu jest wizualnie na górze, więc ma być też pierwsze w kolejności fokusu
     var tabsNav = document.querySelector(".tabs");
     if (tabsNav) document.body.insertBefore(tabsNav, app);
-    var LV = { high: "okno płodne bardzo prawdopodobne", mid: "okno płodne możliwe", low: "poza oknem płodnym", bleed: "okres" };
+    var LV = { high: "okno płodne bardzo prawdopodobne", mid: "okno płodne możliwe", low: "okno płodne mało prawdopodobne", bleed: "okres" };
     function labels() {
       document.querySelectorAll(".sb[aria-label]").forEach(function (b) {
         var l = b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return LV[k] || k; });

@@ -67,13 +67,10 @@ export const FERTILITY_BY_OFFSET: Record<number, number> = {
   [-5]: 0.10, [-4]: 0.16, [-3]: 0.14, [-2]: 0.27, [-1]: 0.31, 0: 0.33, 1: 0.05,
 };
 export const MAX_FERTILITY = 0.33;
-export const HIGH = 0.15;
-export const MID = 0.04;
-/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (6 dni kończących się w dniu owulacji). */
+/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (wg Wilcox 1995 to 6 dni kończących się w dniu owulacji; model liczy też dzień po owulacji z małą wagą, razem 7 dni). */
 export const WIN_HIGH = 0.5;
 export const WIN_MID = 0.2;
 export type Level = "high" | "mid" | "low";
-export const levelOf = (f: number): Level => (f >= HIGH ? "high" : f >= MID ? "mid" : "low");
 /** „Bardzo prawdopodobne” okno płodne: ≥50% szans, że dzień jest w oknie; „możliwe”: 20–50%. */
 export const windowLevel = (q: number): Level => (q >= WIN_HIGH ? "high" : q >= WIN_MID ? "mid" : "low");
 
@@ -246,5 +243,5 @@ function mkRun(days: string[], f: Map<string, number>): FertileRun {
   return { from: days[0]!, to: days.at(-1)!, peak };
 }
 export const fertilityOn = (p: Prediction, date: string): number => p.fertility.get(date) ?? 0;
-export const windowOn = (p: Prediction, date: string): number => p.window.get(date) ?? 0;
+export const windowOn = (p: Prediction, date: string): number => Math.min(1, p.window.get(date) ?? 0);
 export const meanOf = mean;

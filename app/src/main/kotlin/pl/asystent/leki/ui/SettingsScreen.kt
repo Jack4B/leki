@@ -421,7 +421,7 @@ private fun ModulesSection(s: AppState, store: Store) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             BodyText("Wybierz zakładki, które mają być na dolnym pasku. Ukrycie niczego nie kasuje: dane zostają w aplikacji i w kopii zapasowej, a ukryte moduły nie wchodzą do raportów.")
             if (people.size > 1) Hint("Dotyczy osoby: ${people.firstOrNull { it.id == activeId }?.name ?: ""}. Każda osoba ma własny wybór.")
-            module("Ciśnienie", "Pomiary, wykres i progi ciśnienia, skrót i widżet.", c.bpOn) { it.copy(bpOn = !it.bpOn) }
+            module("Ciśnienie", "Pomiary, wykres i progi ciśnienia. Widżet i skrót pokażą wtedy, że moduł jest ukryty.", c.bpOn) { it.copy(bpOn = !it.bpOn) }
             Divider()
             module("Badania", "Wyniki badań, kontrole z wynikami i EKG z zegarka.", c.labsOn) { it.copy(labsOn = !it.labsOn) }
             Divider()
