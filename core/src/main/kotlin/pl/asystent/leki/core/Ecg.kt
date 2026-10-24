@@ -291,8 +291,8 @@ object EcgAnalysis {
         val deviating = v.count { abs(it - m) / m > 0.15 }.toDouble() / v.size
         val longest = max(v.max(), gaps.maxOfOrNull { it.second } ?: 0.0)
 
-        if (hrMed > 100) flags.add(EcgFlag("tachy", "Szybkie tętno: ${hrMed.toInt()}/min", "Tętno powyżej 100/min. Jeśli utrzymuje się w spoczynku, omów z lekarzem.", EcgSeverity.Attention))
-        if (hrMed < 50) flags.add(EcgFlag("brady", "Wolne tętno: ${hrMed.toInt()}/min", "Tętno poniżej 50/min. Jeśli towarzyszą zawroty głowy lub omdlenia, skontaktuj się z lekarzem.", EcgSeverity.Attention))
+        if (hrMed > 100) flags.add(EcgFlag("tachy", "Szybkie tętno: ${Math.round(hrMed)}/min", "Tętno powyżej 100/min. Jeśli utrzymuje się w spoczynku, omów z lekarzem.", EcgSeverity.Attention))
+        if (hrMed < 50) flags.add(EcgFlag("brady", "Wolne tętno: ${Math.round(hrMed)}/min", "Tętno poniżej 50/min. Jeśli towarzyszą zawroty głowy lub omdlenia, skontaktuj się z lekarzem.", EcgSeverity.Attention))
         if (afPattern) {
             flags.add(EcgFlag("af_pattern", "Odstępy jak przy migotaniu przedsionków", "Odstępy między uderzeniami są nieregularne w sposób losowy (RMSSD/RR ${pl2(nRmssd!!)}, punkty zwrotne ${"%.0f".format(java.util.Locale.ROOT, tpr!! * 100)}%, entropia ${pl1(sampEn!!)}). Aplikacja nie rozpoznaje migotania przedsionków i może się mylić: pokaż zapis lekarzowi i zrób EKG w gabinecie.", EcgSeverity.Attention))
         } else if (deviating >= 0.35 && cv > 0.1) {
@@ -303,9 +303,19 @@ object EcgAnalysis {
         }
         if (longest > 1.6 * m && longest > 1.8) flags.add(EcgFlag("pause", "Przerwa w rytmie: ${pl1(longest)} s", "Najdłuższy odstęp między uderzeniami (typowo ${pl1(m)} s). Omów z lekarzem.", EcgSeverity.Attention))
         if (artifactRatio > 0.1) flags.add(EcgFlag("artifacts", "Zakłócenia w zapisie", "Ruch lub słaby kontakt elektrody: około ${"%.0f".format(java.util.Locale.ROOT, artifactRatio * 100)}% czasu pominięto w analizie (szare tło na przebiegu).", EcgSeverity.Info))
-        val poorQuality = artifactRatio > 0.35 || (shapeCorr != null && shapeCorr < 0.6)
-        if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" } && poorQuality) flags.add(0, EcgFlag("poor", "Zapis słabej jakości", "Dużo zakłóceń albo uderzenia bardzo różnią się kształtem, więc rytmu nie da się wiarygodnie ocenić. Powtórz pomiar: siedząc, w spokoju, z rękami opartymi i nieruchomo.", EcgSeverity.Attention))
-        else if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) flags.add(0, EcgFlag("none", "Rytm regularny", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
+        // zapis słabej jakości (dużo zakłóceń, uderzenia bardzo różne kształtem albo zbyt mało czytelnych fragmentów na całej długości, np. przerwa w sygnale):
+        // rytmu nie oceniamy wcale (tętno, nieregularność i przerwy z takiego zapisu byłyby błędne), zostaje tylko komunikat o jakości
+        val poorQuality = artifactRatio > 0.35 || (shapeCorr != null && shapeCorr < 0.6) || v.sum() < 0.6 * dur
+        if (poorQuality) {
+            val why = if (v.sum() < 0.6 * dur && artifactRatio <= 0.35) "Za mało czytelnych uderzeń na całej długości zapisu (przerwy albo brak sygnału), więc rytmu nie da się wiarygodnie ocenić." else "Dużo zakłóceń albo uderzenia bardzo różnią się kształtem, więc rytmu nie da się wiarygodnie ocenić."
+            val keep = flags.filter { it.code == "artifacts" }
+            return EcgResult(dur, beats, rr, null, null, null, null, null, null, null, null, artifactRatio, artifacts,
+                listOf(EcgFlag("poor", "Zapis słabej jakości", "$why Powtórz pomiar: siedząc, w spokoju, z rękami opartymi i nieruchomo.", EcgSeverity.Attention)) + keep, emptyList())
+        }
+        if (flags.none { it.severity == EcgSeverity.Attention || it.code == "premature" }) {
+            val allClose = v.all { abs(it - m) / m <= 0.35 }
+            flags.add(0, EcgFlag("none", if (allClose) "Rytm regularny" else "Nie wykryto wyraźnych nieregularności", "Aplikacja nie wykryła nieregularności w czytelnych fragmentach. To nie wyklucza choroby serca.", EcgSeverity.Info))
+        }
 
         // zdarzenia z położeniem w czasie
         val events = ArrayList<EcgEvent>()
@@ -452,6 +462,10 @@ object EcgDigitizer {
             }
             for (t in 0 until len) out.add(sign * sig[t] / pxPerMm / gainMmPerMv)
         }
+        // kontrola układu: wydruk zegarka ma 10, 20 lub 30 s, a amplituda zapisu nie przekracza kilku mV; inaczej to nie przebieg (np. siatka w kolorze śladu, inny układ strony)
+        val durS = out.size / (pxPerMm * paperMmPerS)
+        val ampMax = out.maxOfOrNull { abs(it) } ?: 0.0
+        if (durS < 5.0 || durS > 65.0 || ampMax > 8.0) return null
         return Result(pxPerMm * paperMmPerS, out.toDoubleArray(), ordered.size, vertical)
     }
 }

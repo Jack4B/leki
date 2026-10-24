@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +40,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import pl.asystent.leki.BuildConfig
 import pl.asystent.leki.Platform
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import pl.asystent.leki.LocalLock
 import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppLock
@@ -54,6 +58,8 @@ import pl.asystent.leki.core.Med
 import pl.asystent.leki.core.MedDraft
 import pl.asystent.leki.core.Settings as AppSettings
 import pl.asystent.leki.core.Slot
+import pl.asystent.leki.core.Cykl
+import pl.asystent.leki.core.CyklData
 import pl.asystent.leki.core.ThemeMode
 import pl.asystent.leki.core.deleteEvent
 import pl.asystent.leki.core.deleteSlot
@@ -80,14 +86,15 @@ import java.time.ZoneId
 
 private enum class Page(val title: String) {
     Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"),
-    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
+    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), Modules("Moduły aplikacji"), Cykl("Moduł Cykl"), People("Osoby"), About("O aplikacji"),
 }
 
 @Composable
 fun SettingsScreen(
     s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
-    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {},
+    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {}, onOpenCykl: () -> Unit = {},
+    showPeopleRequest: Boolean = false, onShowPeopleHandled: () -> Unit = {}, onOpenCyklReport: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
@@ -106,10 +113,16 @@ fun SettingsScreen(
     var encrypt by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var showEnded by rememberSaveable { mutableStateOf(false) }
-    val saveJson = rememberJsonSaver(s, store)
+    // zakres kopii: puste = wszystkie osoby
+    var backupIds by remember { mutableStateOf(setOf<String>()) }
+    // usunięta osoba nie może zostać w zakresie (inaczej nazwa pliku mówiłaby „wybrane”, a kopia obejmowała wszystkich)
+    fun validScope(): Set<String>? = backupIds.intersect(store.profiles.value.map { it.id }.toSet()).takeIf { it.isNotEmpty() }
+    val backupOnly: Set<String>? = validScope()
+    val saveJson = rememberJsonSaver(s, store) { validScope() }
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
     LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
+    LaunchedEffect(showPeopleRequest) { if (showPeopleRequest) { pageName = Page.People.name; onShowPeopleHandled() } }
     LaunchedEffect(showEventsRequest) { if (showEventsRequest) { pageName = Page.Events.name; onShowEventsHandled() } }
     LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
 
@@ -127,6 +140,11 @@ fun SettingsScreen(
         if (page == Page.Home) {
             item {
                 Text("Ustawienia", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                Overline("Osoby")
+                LekiCard {
+                    NavRow(Ph.User, "Osoby", store.profiles.value.let { l -> "${l.size} ${plN(l.size, "osoba", "osoby", "osób")}: " + l.joinToString(", ") { it.name } }) { pageName = Page.People.name }
+                }
+                Spacer(Modifier.height(22.dp))
                 Overline("Plan")
                 LekiCard {
                     NavRow(Ph.Pill, "Leki", if (active.isEmpty()) "Brak aktywnych leków" else "${active.size} ${plN(active.size, "aktywny", "aktywne", "aktywnych")}") { pageName = Page.Meds.name }
@@ -145,6 +163,10 @@ fun SettingsScreen(
                     NavRow(Ph.LockKey, "Blokada aplikacji", if (LocalLock.current?.enabled == true) "Włączona" else "Wyłączona") { pageName = Page.Security.name }
                     Divider()
                     NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
+                    Divider()
+                    NavRow(Ph.Table, "Moduły aplikacji", moduleSummary(c)) { pageName = Page.Modules.name }
+                    Divider()
+                    NavRow(Ph.CalendarBlank, "Moduł Cykl", if (!c.cyklOn) "Ukryty" else Cykl.summary(store.cyklOf(store.activeId.value).db)?.let { "Widoczny, ${it.entries} ${plN(it.entries, "wpis", "wpisy", "wpisów")}" } ?: "Widoczny, brak danych") { pageName = Page.Cykl.name }
                     Divider()
                     NavRow(Ph.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME}") { pageName = Page.About.name }
                 }
@@ -190,20 +212,34 @@ fun SettingsScreen(
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
                 Page.Security -> item { SecuritySection() }
+                Page.Modules -> item { ModulesSection(s, store) }
+                Page.Cykl -> item { CyklSection(s, store, onOpenCykl, onOpenCyklReport) }
+                Page.People -> item { PeopleSection(s, store) }
                 Page.Data -> item {
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BodyText("Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
+                            BodyText("Ostatnia kopia: " + (if (store.profiles.value.size > 1) store.allStates().joinToString(", ") { (pr, st) -> pr.name + " " + (st.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") } else (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
+                            Overline("Zrób kopię", Modifier.padding(bottom = 0.dp))
+                            BackupScopePicker(store.profiles.value, backupOnly.orEmpty()) { backupIds = it }
+                            if (store.profiles.value.size > 1) Hint("Automatyczna kopia do folderu zawsze obejmuje wszystkie osoby.")
+                            val shared = store.profiles.value.filter { backupOnly == null || it.id in backupOnly }.mapNotNull { pr ->
+                                val owner = store.cyklOwner(pr.id)
+                                if (owner != pr.id && backupOnly != null && owner !in backupOnly) pr.name to (store.profiles.value.firstOrNull { it.id == owner }?.name ?: "") else null
+                            }
+                            if (shared.isNotEmpty()) BodyText(shared.joinToString(" ") { (who, owner) -> "$who korzysta z dziennika cyklu osoby $owner, więc ten dziennik trafi do kopii. Na nowym telefonie będzie to osobna kopia dziennika, bez synchronizacji." })
                             LekiButton("Zaszyfrowana kopia (hasło)", { encrypt = true }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
                             Hint("Zalecane do chmury (Dysk Google, Filen). Dane są szyfrowane na tym urządzeniu, zanim opuszczą telefon.")
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), tonal = true, icon = Ph.DownloadSimple)
                                 LekiButton("Kopiuj JSON", {
-                                    if (Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))) {
-                                        store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
+                                    if (Platform.copyText(ctx, "Kopia danych", store.backupText(only = backupOnly))) {
+                                        store.markBackup(LocalDate.now(), backupOnly); toast("Skopiowano dane JSON")
                                     } else toast("Za dużo danych na schowek. Użyj „Zapisz JSON” albo zaszyfrowanej kopii.")
                                 }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
                             }
+                            Hint("JSON nie jest szyfrowany: kto dostanie plik albo skopiowany tekst, przeczyta leki, pomiary i wyniki. Do wysłania komuś lub do chmury użyj kopii zaszyfrowanej. Nie wysyłaj JSON komunikatorem ani mailem.")
+                            Divider()
+                            Overline("Wczytaj kopię", Modifier.padding(bottom = 0.dp))
                             LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
                         }
                     }
@@ -262,10 +298,10 @@ fun SettingsScreen(
             s.event(id)?.let { ev -> store.update { it.deleteEvent(id) }; undo("Usunięto kontrolę: ${ev.title}") { store.update { it.saveEvent(ev) } } }
             eventEdit = null; eventNew = false
         }, onDismiss = { eventEdit = null; eventNew = false })
-    if (encrypt) EncryptBackupDialog(s, store) { encrypt = false }
+    if (encrypt) EncryptBackupDialog(s, store, backupOnly) { encrypt = false }
     if (confirmClear) ConfirmDialog(
-        "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
-        "Usuń wszystko", onConfirm = { store.replace(AppState()); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
+        "Usunąć wszystkie dane?", "Znikną dane wszystkich osób: leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań, dziennik cyklu (jeśli go używasz) i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
+        "Usuń wszystko", onConfirm = { store.wipeAll(); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
     )
 }
 
@@ -332,29 +368,202 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
             }
             Hint("Cel wody 0 wyłącza licznik wody.")
             IntField("Dawka spóźniona po (min od pory, 0 = wyłączone)", c.lateMin, { v -> setCfg { it.copy(lateMin = v) } }, 0..600)
-            Column {
-                Text("Oznaczaj ciśnienie jako podwyższone od", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IntField("", c.hiSys, { v -> setCfg { it.copy(hiSys = v) } }, 100..250, Modifier.weight(1f))
-                    IntField("", c.hiDia, { v -> setCfg { it.copy(hiDia = v) } }, 50..150, Modifier.weight(1f))
+            if (c.bpOn) {
+                Column {
+                    Text("Oznaczaj ciśnienie jako podwyższone od", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IntField("", c.hiSys, { v -> setCfg { it.copy(hiSys = v) } }, 100..250, Modifier.weight(1f))
+                        IntField("", c.hiDia, { v -> setCfg { it.copy(hiDia = v) } }, 50..150, Modifier.weight(1f))
+                    }
                 }
-            }
-            Column {
-                Text("Oznaczaj ciśnienie jako niskie poniżej", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IntField("", c.loSys, { v -> setCfg { it.copy(loSys = v) } }, 60..130, Modifier.weight(1f))
-                    IntField("", c.loDia, { v -> setCfg { it.copy(loDia = v) } }, 30..100, Modifier.weight(1f))
+                Column {
+                    Text("Oznaczaj ciśnienie jako niskie poniżej", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IntField("", c.loSys, { v -> setCfg { it.copy(loSys = v) } }, 60..130, Modifier.weight(1f))
+                        IntField("", c.loDia, { v -> setCfg { it.copy(loDia = v) } }, 30..100, Modifier.weight(1f))
+                    }
+                    Hint("Progi ustaw według zaleceń lekarza. Aplikacja tylko oznacza wartości.", Modifier.padding(top = 6.dp))
                 }
-                Hint("Progi ustaw według zaleceń lekarza. Aplikacja tylko oznacza wartości.", Modifier.padding(top = 6.dp))
             }
             Column {
                 Text("Motyw", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                SegRow(listOf("Auto", "Jasny", "Ciemny"), ThemeMode.values().indexOf(c.theme), { i -> setCfg { it.copy(theme = ThemeMode.values()[i]) } })
+                SegRow(listOf("Auto", "Jasny", "Ciemny"), ThemeMode.values().indexOf(c.theme), { i -> store.updateAll { it.copy(settings = it.settings.copy(theme = ThemeMode.values()[i])) } })
             }
             LekiField("Dopisek na raporcie", reportNote, { reportNote = it; setCfg { c2 -> c2.copy(reportNote = it) } }, singleLine = false, minLines = 3, placeholder = "np. rozpoznanie, cel kuracji")
             LekiField("Zasady i notatki (przycisk Zasady u góry)", rules, { rules = it; store.update { st -> st.copy(rules = it) } }, singleLine = false, minLines = 5)
         }
     }
+}
+
+/** Podsumowanie widocznych zakładek (opcjonalnych) osoby, np. do wiersza w Ustawieniach. */
+private fun moduleSummary(c: AppSettings): String {
+    val shown = listOfNotNull("Ciśnienie".takeIf { c.bpOn }, "Badania".takeIf { c.labsOn }, "Cykl".takeIf { c.cyklOn })
+    return if (shown.size == 3) "Wszystkie widoczne" else if (shown.isEmpty()) "Tylko Leki i Raport" else "Widoczne: " + shown.joinToString(", ")
+}
+
+/**
+ * Moduły aplikacji: każda osoba wybiera, które zakładki są na dolnym pasku (Leki i Raport są zawsze). Ukrycie niczego nie kasuje, a ukryty moduł
+ * nie trafia do raportów. Przydatne, gdy np. osoba nie mierzy ciśnienia albo nie robi badań.
+ */
+@Composable
+private fun ModulesSection(s: AppState, store: Store) {
+    val people = store.profiles.value
+    val activeId = store.activeId.value
+    val c = s.settings
+    @Composable fun module(title: String, desc: String, on: Boolean, toggle: (AppSettings) -> AppSettings) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Hint(desc)
+            SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> if ((i == 1) != on) store.update { it.copy(settings = toggle(it.settings)) } })
+        }
+    }
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            BodyText("Wybierz zakładki, które mają być na dolnym pasku. Ukrycie niczego nie kasuje: dane zostają w aplikacji i w kopii zapasowej, a ukryte moduły nie wchodzą do raportów.")
+            if (people.size > 1) Hint("Dotyczy osoby: ${people.firstOrNull { it.id == activeId }?.name ?: ""}. Każda osoba ma własny wybór.")
+            module("Ciśnienie", "Pomiary, wykres i progi ciśnienia. Widżet i skrót pokażą wtedy, że moduł jest ukryty.", c.bpOn) { it.copy(bpOn = !it.bpOn) }
+            Divider()
+            module("Badania", "Wyniki badań, kontrole z wynikami i EKG z zegarka.", c.labsOn) { it.copy(labsOn = !it.labsOn) }
+            Divider()
+            module("Cykl", "Dziennik cyklu z prognozą (więcej w Ustawienia → Moduł Cykl).", c.cyklOn) { it.copy(cyklOn = !it.cyklOn) }
+            Divider()
+            Hint("Leki i Raport są zawsze widoczne. Ukryty moduł można w każdej chwili pokazać z powrotem.")
+        }
+    }
+}
+
+/** Moduł „Cykl”: pokazanie i ukrycie zakładki, wczytanie i zapis pliku z całą bazą, podsumowanie danych i ich usunięcie. Ukrycie niczego nie kasuje. */
+@Composable
+private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit, onOpenReport: () -> Unit) {
+    val ctx = LocalContext.current
+    val toast = LocalToast.current
+    val undo = LocalUndo.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var confirm by remember { mutableStateOf(false) }
+    var incoming by remember { mutableStateOf<Cykl.Incoming?>(null) }
+    val on = s.settings.cyklOn
+    // dziennik może być własny albo wspólny z inną osobą; zmiany cudzego dziennika odświeżają ekran przez revision
+    val rev by store.revision.collectAsStateWithLifecycle()
+    val activeId = store.activeId.value
+    val ownerId = store.cyklOwner(activeId)
+    val shared = ownerId != activeId
+    val people = store.profiles.value
+    val cy = remember(rev, s, activeId) { store.cyklOf(activeId) }
+    val sum = remember(cy.db) { Cykl.summary(cy.db) }
+    val here = sum?.entries ?: 0
+
+    // wczytanie pliku po stronie aplikacji: nie zależy od okna modułu (WebView), a robi to samo co jego „Import”
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val bytes = withContext(Dispatchers.IO) { runCatching { Platform.readBytesLimited(ctx, uri, Cykl.MAX_CHARS) }.getOrNull() }
+            when {
+                bytes == null -> toast("Nie można otworzyć pliku.")
+                bytes.size > Cykl.MAX_CHARS -> toast("Plik jest za duży na dziennik cyklu.")
+                else -> {
+                    val text = bytes.toString(Charsets.UTF_8)
+                    val r = withContext(Dispatchers.Default) { Cykl.readIncoming(text) }
+                    if (r == null) toast("To nie jest plik z dziennikiem cyklu (potrzebna lista wpisów z typem i datą).") else incoming = r
+                }
+            }
+        }
+    }
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            val ok = runCatching { Platform.writeToUri(ctx, uri, Cykl.exportText(store.cyklOf(store.activeId.value).db)) }.isSuccess
+            toast(if (ok) "Zapisano dziennik cyklu" else "Nie udało się zapisać pliku.")
+        }
+    }
+
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            BodyText("Dziennik cyklu z prognozą okna płodnego, trendem długości cykli i raportem dla lekarza. Działa w całości na telefonie, bez internetu.")
+            if (people.size > 1) Hint("Dotyczy osoby: ${people.firstOrNull { it.id == activeId }?.name ?: ""}.")
+            SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> store.update { it.copy(settings = it.settings.copy(cyklOn = i == 1)) } })
+            Hint(if (on) "Zakładka „Cykl” jest na dolnym pasku, przed Raportem." else "Zakładka jest ukryta. Wpisane dane zostają w aplikacji i wchodzą do kopii zapasowej.")
+            if (on) LekiButton("Otwórz moduł", onOpen, Modifier.fillMaxWidth(), primary = true, icon = Ph.CalendarBlank)
+            if (!store.cyklOf(store.activeId.value).isEmpty) LekiButton("Raport dla lekarza z wykresami cyklu", onOpenReport, Modifier.fillMaxWidth(), tonal = true, icon = Ph.FileText)
+        }
+    }
+    if (people.size > 1) {
+        Spacer(Modifier.height(18.dp))
+        Overline("Czyj dziennik")
+        LekiCard {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val pickedByOthers = people.any { p -> p.id != activeId && store.profileState(p.id)?.settings?.cyklFrom == activeId }
+                fun pick(id: String) {
+                    when {
+                        id.isNotEmpty() && store.profileState(id)?.settings?.cyklFrom?.isNotEmpty() == true -> toast("Ta osoba sama korzysta z cudzego dziennika.")
+                        id.isNotEmpty() && pickedByOthers -> toast("Z dziennika tej osoby korzysta ktoś inny. Najpierw tamta osoba musi przejść na własny dziennik.")
+                        else -> store.update { it.copy(settings = it.settings.copy(cyklFrom = id)) }
+                    }
+                }
+                BodyText("Wspólny dziennik oznacza, że obie osoby widzą i zmieniają te same wpisy (np. gdy dziennik prowadzi jedna z nich). Dane są wtedy zapisane u osoby, od której pochodzą.")
+                LekiButton("Własny dziennik tej osoby", { pick("") }, Modifier.fillMaxWidth(), primary = !shared, tonal = shared)
+                people.filter { it.id != activeId }.forEach { p ->
+                    LekiButton("Wspólny z osobą: ${p.name}", { pick(p.id) }, Modifier.fillMaxWidth(), primary = shared && ownerId == p.id, tonal = !(shared && ownerId == p.id))
+                }
+                if (shared) Hint("Teraz ten dziennik jest wspólny z osobą: ${people.firstOrNull { it.id == ownerId }?.name ?: ""}. Wpisy, import, eksport i raporty dotyczą jednego dziennika.")
+            }
+        }
+    }
+    Spacer(Modifier.height(18.dp))
+    Overline("Dziennik cyklu")
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val span = sum?.let { x -> x.first?.let { a -> x.last?.let { b -> ", od ${plDate(LocalDate.parse(a))} do ${plDate(LocalDate.parse(b))}" } } } ?: ""
+            BodyText(
+                if (sum == null || sum.entries == 0) "Brak zapisanych wpisów."
+                else "Zapisano ${sum.entries} ${plN(sum.entries, "wpis", "wpisy", "wpisów")}, w tym ${sum.periods} ${plN(sum.periods, "początek okresu", "początki okresu", "początków okresu")}$span.",
+            )
+            LekiButton("Wczytaj plik z dziennikiem (JSON)", { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.UploadSimple)
+            if (here > 0) LekiButton("Zapisz dziennik cyklu do pliku (JSON)", { saver.launch("cykl-baza-${LocalDate.now()}.json") }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.DownloadSimple)
+            Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić." + if (!on) " Po wczytaniu włącz widoczność modułu powyżej." else "")
+            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu.")
+            Hint("Eksport CSV nie zawiera dziennika cyklu. Raporty zawierają tylko opcjonalne, opisowe „Podsumowanie cyklu” (domyślnie wyłączone), nigdy wpisów intymnych.")
+            if (cy.prev.isNotEmpty()) LekiButton("Przywróć poprzednią wersję dziennika", {
+                val old = store.cyklOf(activeId)
+                store.updateCykl(activeId) { c -> c.copy(db = c.prev, prev = c.db) }
+                undo("Przywrócono poprzednią wersję dziennika") { store.updateCykl(activeId) { old } }
+            }, Modifier.fillMaxWidth(), tonal = true)
+            if (!cy.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
+        }
+    }
+    incoming?.let { inc ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { incoming = null },
+            title = { Text("Wczytać ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}" + store.profiles.value.let { ps -> if (ps.size > 1) " do dziennika osoby: " + (ps.firstOrNull { it.id == store.activeId.value }?.name ?: "") else "" } + "?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    BodyText("Teraz w aplikacji: $here ${plN(here, "wpis", "wpisy", "wpisów")}." + if (inc.skipped > 0) " Pominięto ${inc.skipped} ${plN(inc.skipped, "wpis", "wpisy", "wpisów")} ze złą datą lub bez typu." else "")
+                    LekiButton("Połącz (dodaj brakujące)", {
+                        if (incoming == null) return@LekiButton            // drugie dotknięcie przed zamknięciem okna nic nie robi
+                        val old = store.cyklOf(activeId)
+                        val m = Cykl.merge(old.db, inc.db)
+                        incoming = null
+                        if (m == null || m.db.length > Cykl.MAX_CHARS) toast("Nie udało się połączyć danych (po połączeniu baza byłaby za duża).") else {
+                            store.updateCykl(activeId) { c -> Cykl.merge(c.db, inc.db)?.let { r -> c.copy(db = r.db) } ?: c }
+                            undo("Dodano ${m.added} ${plN(m.added, "nowy wpis", "nowe wpisy", "nowych wpisów")}") { store.updateCykl(activeId) { old } }
+                        }
+                    }, Modifier.fillMaxWidth(), primary = true)
+                    LekiButton("Zastąp wszystko", {
+                        if (incoming == null) return@LekiButton
+                        val old = store.cyklOf(activeId)
+                        incoming = null
+                        // poprzednia baza zostaje jako zapas, tak jak w module
+                        store.updateCykl(activeId) { c -> CyklData(db = inc.db, prev = c.db.ifEmpty { c.prev }) }
+                        undo("Wczytano ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}") { store.updateCykl(activeId) { old } }
+                    }, Modifier.fillMaxWidth(), tonal = true)
+                    LinkButton("Anuluj", { incoming = null })
+                }
+            },
+            confirmButton = {},
+            containerColor = pal.surface,
+        )
+    }
+    if (confirm) ConfirmDialog(
+        "Usunąć dane modułu Cykl?", (if (shared) "Dziennik jest wspólny z inną osobą, więc zniknie także u niej. " else "") + "Znikną wszystkie wpisy dziennika cyklu z tego urządzenia, także poprzednia wersja bazy. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
+        "Usuń dane", onConfirm = { store.updateCykl(activeId) { CyklData() }; toast("Usunięto dane modułu Cykl") }, onDismiss = { confirm = false }, danger = true,
+    )
 }
 
 @Composable
@@ -517,10 +726,10 @@ private fun CsvSection(s: AppState) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Eksport do arkusza (CSV)", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
             Hint("Plik otworzysz w Excelu, LibreOffice lub Arkuszach Google. Zawiera dane zdrowotne: wysyłaj go tylko tam, gdzie chcesz.")
-            LekiButton("Ciśnienie (${s.bp.size})", { share("cisnienie-$today.csv", Csv.bp(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.bp.isNotEmpty())
-            LekiButton("Wyniki badań (${s.labs.size})", { share("wyniki-badan-$today.csv", Csv.labs(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.labs.isNotEmpty())
+            if (s.settings.bpOn || s.bp.isNotEmpty()) LekiButton("Ciśnienie (${s.bp.size})", { share("cisnienie-$today.csv", Csv.bp(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.bp.isNotEmpty())
+            if (s.settings.labsOn || s.labs.isNotEmpty()) LekiButton("Wyniki badań (${s.labs.size})", { share("wyniki-badan-$today.csv", Csv.labs(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.labs.isNotEmpty())
             LekiButton("Dawki leków (ostatnie 90 dni)", { share("dawki-$today.csv", Csv.doses(s, today.minusDays(89), today, today)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.meds.isNotEmpty())
-            LekiButton("EKG, podsumowanie (${s.ecgs.size})", { share("ekg-$today.csv", Csv.ecg(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.ecgs.isNotEmpty())
+            if (s.settings.labsOn || s.ecgs.isNotEmpty()) LekiButton("EKG, podsumowanie (${s.ecgs.size})", { share("ekg-$today.csv", Csv.ecg(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.ecgs.isNotEmpty())
         }
     }
 }

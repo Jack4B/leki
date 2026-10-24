@@ -26,7 +26,7 @@ object AiReport {
 
     fun build(s: AppState, per: Period, today: LocalDate, now: LocalDateTime, appVersion: String): String {
         val c = s.settings
-        val A = c.ai
+        val A = c.effectiveAi()
         val ecgs = if (A.ecg) s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareBy<Ecg> { it.date }.thenBy { it.time }).takeLast(5) else emptyList()
         val L = ArrayList<String>()
         fun p(x: String = "") { L.add(x) }
@@ -163,7 +163,7 @@ object AiReport {
                 p("- Progi ustawione przez pacjenta: ${c.thresholdText()}.")
                 p()
                 p(table(listOf("Data", "Godz.", "Ciśnienie", "Tętno", "Pora pomiaru", "Uwagi"),
-                    list.takeLast(40).map { r -> listOf(plDate(r.date), r.time.hhmm(), "${r.sys}/${r.dia}", r.pulse ?: "", r.ctx, listOf(c.bpFlag(r), r.note).filter { it.isNotEmpty() }.joinToString("; ")) }))
+                    list.takeLast(40).map { r -> listOf(plDate(r.date), r.time.hhmm(), "${r.sys}/${r.dia}", r.pulse ?: "", r.ctx, listOf(c.bpFlagText(r), r.note).filter { it.isNotEmpty() }.joinToString("; ")) }))
                 if (list.size > 40) p("Pokazano 40 ostatnich z ${list.size} pomiarów.")
             } else p("Brak pomiarów w tym okresie.")
         }
@@ -187,6 +187,10 @@ object AiReport {
                 if (rr.isNotEmpty()) p("- Kolejne wiarygodne odstępy RR (ms): " + rr.take(60).joinToString(", ") { Math.round(it * 1000).toString() } + if (rr.size > 60) " (pierwsze 60 z ${rr.size})" else "")
                 if (e.note.isNotBlank()) p("- Notatka pacjenta: ${cell(e.note)}")
             }
+        }
+        if (A.cykl) Cykl.brief(s.cykl.db, today)?.let { b ->
+            p(); p("## Dziennik cyklu (opis, bez rozpoznania)"); p()
+            Cykl.briefLines(b).forEach { p("- $it") }
         }
         if (A.labs) {
             p(); p("## Wyniki badań (do ${plDate(per.to)})"); p()

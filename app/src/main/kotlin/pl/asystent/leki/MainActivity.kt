@@ -68,6 +68,9 @@ import pl.asystent.leki.ui.IncomingAi
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CardShape
 import pl.asystent.leki.ui.CtlShape
+import pl.asystent.leki.ui.CyklScreen
+import pl.asystent.leki.ui.PersonSwitcher
+import pl.asystent.leki.ui.LocalPersonName
 import pl.asystent.leki.ui.Divider
 import pl.asystent.leki.ui.IconAction
 import pl.asystent.leki.ui.LabsScreen
@@ -150,7 +153,17 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia")
+private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia", "Cykl")
+/**
+ * Kolejność zakładek na dolnym pasku. Leki (0) i Raport (3) są zawsze; Ciśnienie (1), Badania (2) i „Cykl” (5, przed Raportem) każda osoba
+ * może ukryć w Ustawieniach → Moduły (dane zostają). Ustawienia (numer 4) są pod ikoną koła zębatego w nagłówku. Numery zakładek się nie zmieniają.
+ */
+private fun visibleTabs(c: pl.asystent.leki.core.Settings): List<Int> = listOfNotNull(0, 1.takeIf { c.bpOn }, 2.takeIf { c.labsOn }, 5.takeIf { c.cyklOn }, 3)
+private const val TAB_CYKL = 5
+
+/** Kolor przycisku „Cofnij” na ciemnym (jasny motyw) lub jasnym (ciemny motyw) pasku komunikatu: kontrast co najmniej 5,5:1. */
+@Composable
+private fun snackAction(): androidx.compose.ui.graphics.Color = if (pal.dark) androidx.compose.ui.graphics.Color(0xFF0B6B58) else androidx.compose.ui.graphics.Color(0xFF7FD9C0)
 
 @Composable
 fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}, incoming: IncomingAi? = null, onIncomingHandled: () -> Unit = {}) {
@@ -171,7 +184,9 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
         val toast: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
         val saveFailed by store.saveFailed.collectAsStateWithLifecycle()
         LaunchedEffect(saveFailed) {
-            if (saveFailed) toast("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.")
+            // ostrzeżenie o niezapisanych danych nie znika samo: zostaje do udanego zapisu albo zamknięcia
+            if (saveFailed) scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.", actionLabel = "Zamknij", duration = SnackbarDuration.Indefinite) }
+            else snackbar.currentSnackbarData?.dismiss()
         }
         // usunięcie pojedynczej pozycji: bez okna potwierdzenia, za to z komunikatem i przyciskiem „Cofnij” (długo widocznym)
         val undo: (String, () -> Unit) -> Unit = { msg, restore ->
@@ -181,24 +196,36 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             }
         }
         CompositionLocalProvider(LocalToast provides toast, LocalUndo provides undo, LocalLock provides lock) {
-            var tab by rememberSaveable { mutableIntStateOf(0) }
+            var rawTab by rememberSaveable { mutableIntStateOf(0) }
+            // moduł ukryty w Ustawieniach (albo po zmianie osoby), a zakładka była otwarta: wracamy do pierwszej
+            val tab = if (rawTab in 0..5 && rawTab != 4 && rawTab !in visibleTabs(s.settings)) 0 else rawTab
+            val setTab: (Int) -> Unit = { rawTab = it }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-            LaunchedEffect(requestedTab) { requestedTab?.let { tab = it; onTabHandled() } }
+            LaunchedEffect(requestedTab) {
+                requestedTab?.let {
+                    setTab(it); onTabHandled()
+                    if (it == 1 && !s.settings.bpOn) toast("Zakładka Ciśnienie jest ukryta. Pokaż ją w Ustawienia → Moduły aplikacji.")
+                }
+            }
             var newMed by remember { mutableStateOf(false) }
             var showMeds by remember { mutableStateOf(false) }
             var showEvents by remember { mutableStateOf(false) }
+            var showPeople by remember { mutableStateOf(false) }
+            val profiles by store.profiles.collectAsStateWithLifecycle()
+            val activeId by store.activeId.collectAsStateWithLifecycle()
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
-            BackHandler(enabled = tab != 0) { tab = 0 }
+            BackHandler(enabled = tab != 0) { setTab(0) }
 
             val overlays = remember { OverlayHost() }
-            CompositionLocalProvider(LocalOverlayHost provides overlays) {
+            val whoName = profiles.firstOrNull { it.id == activeId }?.name?.takeIf { profiles.size > 1 }
+            CompositionLocalProvider(LocalOverlayHost provides overlays, LocalPersonName provides whoName) {
             Box(Modifier.fillMaxSize()) {
             Scaffold(
                 // pod pełnoekranowym edytorem czytnik ekranu nie ma czytać zasłoniętej aplikacji
                 modifier = if (overlays.entries.isNotEmpty() || lock?.locked == true) Modifier.clearAndSetSemantics {} else Modifier,
                 containerColor = pal.bg,
-                snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
+                snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = snackAction(), shape = CtlShape) } },
                 topBar = {
                     Column(Modifier.fillMaxWidth().background(pal.bg).statusBarsPadding()) {
                         Row(
@@ -207,21 +234,24 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text("Asystent leków", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                                if (s.patient.isNotEmpty()) Text(s.patient, style = TextStyle(fontSize = 12.5.sp, color = pal.ink3), maxLines = 1)
+                                PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true })
                             }
                             IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
+                            IconAction(Ph.GearSix, "Ustawienia", { setTab(4) }, selected = tab == 4)
                         }
                         Divider()
                     }
                 },
                 bottomBar = {
                     NavigationBar(containerColor = pal.surface) {
-                        val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix)
-                        tabs.forEachIndexed { i, label ->
+                        val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix, Ph.CalendarBlank)
+                        val shown = visibleTabs(s.settings)
+                        shown.forEach { i ->
+                            val label = tabs[i]
                             NavigationBarItem(
-                                selected = tab == i, onClick = { tab = i },
+                                selected = tab == i, onClick = { setTab(i) },
                                 icon = { Icon(icons[i], contentDescription = null, modifier = Modifier.size(24.dp)) },
-                                label = { Text(label, style = TextStyle(fontSize = 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
+                                label = { Text(label, maxLines = 1, style = TextStyle(fontSize = 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = pal.accent, selectedTextColor = pal.accent, indicatorColor = pal.accentSoft,
                                     unselectedIconColor = pal.ink3, unselectedTextColor = pal.ink3,
@@ -233,17 +263,19 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             ) { padding ->
                 // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true }, showMeds = { tab = 4; showMeds = true }, showEvents = { tab = 4; showEvents = true })
+                    val nav = Nav(goSettings = { setTab(4) }, newMed = { setTab(4); newMed = true }, showMeds = { setTab(4); showMeds = true }, showEvents = { setTab(4); showEvents = true })
                     // stan każdej zakładki (wybrany dzień, zakres, widok, przewinięcie) przeżywa przełączanie zakładek, a nie tylko obrót ekranu
-                    saveable.SaveableStateProvider(tab) {
+                    // po zmianie osoby ekrany startują od nowa (formularze i wersje robocze nie mogą przenieść danych jednej osoby do drugiej)
+                    androidx.compose.runtime.key(activeId) { saveable.SaveableStateProvider("$activeId:$tab") {
                         when (tab) {
-                            0 -> MedsScreen(s, store, nav, onGoData = { tab = 4 }, recoveredFrom = store.recoveredFrom)
+                            0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) })
                             1 -> BpScreen(s, store)
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)
-                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false })
+                            TAB_CYKL -> CyklScreen(store)
+                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false }, onOpenCyklReport = { store.update { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(cykl = true))) }; setTab(3) })
                         }
-                    }
+                    } }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
                         modifier = Modifier.align(Alignment.BottomCenter))
                 }
@@ -253,7 +285,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             OverlayLayer(overlays)
             // komunikaty muszą być widoczne także nad pełnoekranowym edytorem, który zasłania pasek główny
             if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 88.dp)) { data ->
-                Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape)
+                Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = snackAction(), shape = CtlShape)
             }
             // ekran blokady jest ostatni, więc zasłania wszystko, także edytory i komunikaty
             if (lock != null && lock.locked) LockScreen(lock)

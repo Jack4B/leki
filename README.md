@@ -1,10 +1,56 @@
 # Asystent leków
 
-Wersja **0.6.7 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose).
+Wersja **0.14 (preview)**. Natywna aplikacja na Androida (Kotlin, Jetpack Compose), bez internetu, kont i analityki.
 
-Dziennik leków, ciśnienia i wyników badań w jednej aplikacji. Dane zostają **tylko na telefonie**. Aplikacja nie ma kont, serwera ani analityki, a w manifeście nie ma nawet uprawnienia INTERNET, więc technicznie nie może niczego wysłać do sieci.
+Dziennik **leków, ciśnienia, wyników badań, EKG z zegarka i (opcjonalnie) cyklu** dla jednej lub kilku osób. Dane zostają **tylko na telefonie**: w manifeście nie ma uprawnienia INTERNET (sprawdza to CI), a kopie zapasowe są plikami, które zapisujesz sam, najlepiej zaszyfrowanymi hasłem. Aplikacja zapisuje i porządkuje to, co wpiszesz, oznacza wartości poza zakresem i przygotowuje raport dla lekarza. **Nie stawia diagnoz, nie leczy i nie zastępuje lekarza.**
 
-Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia. Wszystko dodajesz sam w Ustawieniach albo wczytujesz z kopii zapasowej.
+Aplikacja startuje **pusta**: nie ma w niej żadnych leków, danych ani imienia. Dodajesz je w Ustawieniach, wczytujesz z kopii zapasowej albo z plików przykładowych (patrz niżej).
+
+## W skrócie
+
+| Obszar | Do czego służy | Jak liczy / co oznacza |
+|---|---|---|
+| **Leki** | plan dnia z porami, odhaczanie z godziną, pominięcia z powodem, zapas, przypomnienia | zapas liczony z odhaczonych dawek i planu (ostrzeżenie przy ≤7 dniach), zgodność z planem w raporcie, przypomnienia alarmami (także po restarcie) |
+| **Ciśnienie** | pomiary z tętnem i porą, wykres 7 dni – rok, średnie, historia | progi „podwyższone” 135/85 i „niskie” 90/60 (zmienisz w Ustawieniach); stałe ostrzeżenie od **180/110** i dla bardzo niskiego z wskazówką, kiedy dzwonić pod 112 |
+| **Badania** | wyniki z zakresami odniesienia, wykresy, mapa, porównanie dni, skan zdjęcia lub PDF (OCR na telefonie) | flaga „poza zakresem” według zakresu z wyniku lub parametru; zmiana „istotna” od 10% zakresu, tendencja od 3 wyników; odczyt OCR zawsze do sprawdzenia |
+| **EKG z zegarka** | odczyt wydruku PDF/obrazu (25 mm/s, 10 mm/mV), tętno, odstępy RR, trend | wykrywanie załamków R, tętno, RMSSD/SDNN/pNN50, wskazówki o nieregularności, przerwach i przedwczesnych uderzeniach; **bez oceny QT i ST**; zapis słabej jakości nie jest oceniany |
+| **Raport** | PDF dla lekarza, tekst dla AI, „Przygotuj na wizytę” | sekcje do wyboru, ukryte moduły nie wchodzą do raportu; wpisy intymne tylko na życzenie |
+| **Cykl** (opcjonalny) | dziennik cyklu, kalendarz, prognoza, wykresy, raport | okno płodne z prawdopodobieństwa (Wilcox 1995) i metody kalendarzowej od 6 cykli (najkrótszy − 18 do najdłuższy − 11); FIGO 2018 (24–38 dni, ≤8 dni krwawienia, regularność wg wieku), STRAW+10, pasma wieku do 50+ i tryby prognoz; **nie jest antykoncepcją** |
+| **Kilka osób** | do 8 osób, osobne dane, wspólny motyw i blokada | kopia całości lub wybranych osób, dopisywanie z pliku, moduły do ukrycia per osoba |
+
+**Prywatność i bezpieczeństwo:** blokada biometryczna (opcjonalna), kopie szyfrowane (PBKDF2-HMAC-SHA256 600 000 iteracji, AES-GCM), brak kopii do chmury Google, moduł Cykl w WebView bez sieci. Szczegóły: sekcja „Prywatność”.
+
+## Zrzuty ekranów (puste ekrany)
+
+Zrzuty pochodzą z automatycznych testów renderowania (wydanie [zrzuty-ekranow](https://github.com/Jack4B/leki/releases/tag/zrzuty-ekranow), odświeżane przy każdym buildzie) i pokazują aplikację bez żadnych danych.
+
+<table>
+<tr>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_lekiPuste_leki-puste-1.png" width="190" alt="Leki"><br><sub>Leki</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_cisnieniePuste_cisnienie-puste-1.png" width="190" alt="Ciśnienie"><br><sub>Ciśnienie</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_badaniaPuste_badania-puste-1.png" width="190" alt="Badania"><br><sub>Badania</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_raportPuste_raport-puste-1.png" width="190" alt="Raport"><br><sub>Raport</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_ustawieniaPuste_ustawienia-puste-1.png" width="190" alt="Ustawienia"><br><sub>Ustawienia</sub></td>
+<td align="center"><img src="https://github.com/Jack4B/leki/releases/download/zrzuty-ekranow/pl.asystent.leki_ScreenshotTest_ustawieniaModulyPuste_ustawienia-moduly-puste-1.png" width="190" alt="Moduły aplikacji"><br><sub>Moduły aplikacji</sub></td>
+<td align="center"><img src="docs/zrzuty/cykl-dzis-puste-jasny.png" width="190" alt="Cykl, jasny"><br><sub>Cykl (jasny)</sub></td>
+<td align="center"><img src="docs/zrzuty/cykl-dzis-puste-ciemny.png" width="190" alt="Cykl, ciemny"><br><sub>Cykl (ciemny)</sub></td>
+</tr>
+</table>
+
+## Dane przykładowe do wczytania
+
+W katalogu [`przyklady/`](przyklady) są **zmyślone** pliki do wypróbowania aplikacji (osoby „Jan Przykładowy” i „Ola Przykładowa”, leki „Lek A/B/C”, dane z okresu 02–10.2026). Ściągnij plik na telefon i wczytaj go w Ustawienia → Kopie zapasowe i dane → **Wczytaj kopię z pliku** (okno zapyta, czy dopisać osoby, czy zastąpić dane; na pustej aplikacji wystarczy „Wczytaj kopię”). W raporcie wybierz okres obejmujący dane (np. „Wszystko”).
+
+| Plik | Zawartość |
+|---|---|
+| `przyklad-jedna-osoba.json` | pełna kopia jednej osoby: 3 leki (w tym zmiana dawki i zapas), ok. 84 dni odhaczeń i pominięć, ~80 pomiarów ciśnienia (z jednym wysokim po wysiłku), wyniki badań w trzech terminach, kontrole |
+| `przyklad-dwie-osoby.json` | dwie osoby: druga ma włączony moduł Cykl z dziennikiem (9 cykli), ukryte Ciśnienie, własne leki i wyniki |
+| `przyklad-dziennik-cyklu.json` | sam dziennik cyklu do importu w module (Ustawienia → Moduł Cykl → Wczytaj plik z dziennikiem) |
+| `przyklad-wyniki-badan.json` | plik wyników badań do dołączenia (Badania → import wyników) |
+
+Pliki generuje test `SampleDataTest` (zmiana generatora wymaga odtworzenia plików: `WRITE_SAMPLES=1 ./gradlew :core:test --tests '*SampleDataTest*'`), więc zawsze zgadzają się z formatem kopii.
 
 ## Funkcje
 
@@ -112,6 +158,39 @@ Wykres ma stałą skalę czasu, więc przy długim okresie nie zlewa się w kres
 - **Powyżej 45 dni:** dla każdego dnia pionowy słupek od najniższego do najwyższego pomiaru i linia średnich dziennych. Podpisy to tygodnie (do ok. 4 miesięcy) albo początki miesięcy (rok i dłużej).
 - **W raporcie do druku** wykres jest cięty na kawałki po 91 dni, a pod nim jest zestawienie tygodniowe (powyżej ok. 6 miesięcy: miesięczne) ze średnimi, zakresami, tętnem i liczbą pomiarów podwyższonych i niskich. Pełna lista każdego pomiaru jest tylko w raportach do 45 dni, żeby roczny wydruk miał kilka stron, a nie kilkadziesiąt.
 
+## Kilka osób w jednej aplikacji
+
+Pod nazwą aplikacji w nagłówku jest wybór osoby (kółko z inicjałem i imię). Dotknięcie pokazuje listę osób, „Dodaj osobę” i „Zarządzaj osobami” (Ustawienia → Osoby). Każda osoba ma **osobne** leki, odhaczenia, ciśnienie, badania, EKG, analizy AI, ustawienia raportów, kontrole i dziennik cyklu, więc raporty (dla lekarza i dla AI), badania i wszystkie wykresy zawsze dotyczą wybranej osoby. Wspólne są tylko wygląd (motyw), blokada aplikacji i ustawienia automatycznej kopii. Do 8 osób.
+
+- **Kopie zapasowe** (zwykła, zaszyfrowana hasłem, „Kopiuj JSON”, automatyczna do folderu) domyślnie zawierają wszystkie osoby. W Ustawienia → Kopie zapasowe i dane można wybrać **tylko niektóre osoby** (np. żeby przenieść dane jednej osoby na jej telefon); wtedy wspólny dziennik cyklu jest dołączany do osoby, która z niego korzysta. Automatyczna kopia do folderu zawsze obejmuje wszystkich.
+- **Wczytywanie kopii na innym telefonie:** zainstaluj aplikację, wybierz Ustawienia → Kopie zapasowe i dane → „Wczytaj kopię z pliku” (pasuje do kopii wszystkich albo wybranych osób, także zaszyfrowanej). Na świeżej aplikacji jest jedno „Wczytaj kopię”. Gdy w aplikacji już ktoś jest, okno wylicza osoby z pliku i daje wybór: **„Dodaj osoby z pliku”** (niczego nie usuwa; powtórzone imię dostaje dopisek „(z pliku)”, limit 8 osób, po dodaniu otwiera się dodana osoba, a jej przypomnienia o lekach działają od razu na tym telefonie) albo **„Zastąp wszystkie dane”** (usuwa osoby z telefonu; można to od razu wycofać przyciskiem „Cofnij”, po cofnięciu aktywna jest pierwsza osoba). Starsza wersja aplikacji wczyta z kopii pierwszą osobę. **Uwaga:** „Zapisz JSON” i „Kopiuj JSON” nie szyfrują danych. Plik, który wysyłasz komuś albo do chmury, rób jako zaszyfrowaną kopię, a hasło przekaż osobno. Nazwy plików nie zawierają imion (JSON: `leki-kopia-RRRR-MM-DD[-wybrane].json`).
+- **Przypomnienia** działają dla wszystkich osób; przy więcej niż jednej osobie tytuł powiadomienia zaczyna się od imienia.
+- **Wspólny dziennik cyklu:** Ustawienia → Moduł Cykl → „Czyj dziennik”: osoby mogą współdzielić jeden dziennik (wpisy zmieniane przez jedną są widoczne u drugiej). Dane są zapisane u osoby-właściciela; raporty i „Podsumowanie cyklu” korzystają z dziennika wspólnego. Działa w jednej aplikacji na jednym telefonie; między dwoma telefonami nie ma synchronizacji (aplikacja nie ma sieci), można przenosić plik dziennika lub kopię zapasową.
+- **Przeniesienie dziennika cyklu:** Ustawienia → Osoby → „Przenieś do: …” (gdy wybrana osoba ma dziennik, a inna go nie ma).
+- **Widżet ciśnienia** pokazuje ostatni pomiar wybranej w tej chwili osoby. **Powrót do starszej wersji aplikacji** (sprzed obsługi osób) pokazuje tylko pierwszą osobę (plik `state.json`); dane pozostałych osób zostają w plikach i wracają po ponownej aktualizacji.
+- **Pamięć:** dane każdej osoby w osobnym pliku w pamięci aplikacji (`state.json` dla pierwszej, `state-p2.json`… dla kolejnych, lista w `profiles.json`); przy pierwszym uruchomieniu powstaje zapas `state.przed-osobami.json`. Uszkodzony plik osoby jest odkładany obok jako `*.uszkodzony.json`, osoba startuje pusta, a jej pustego stanu nie zapisują zmiany automatyczne; automatyczna kopia zapasowa czeka na decyzję (wczytanie kopii albo „Zaczynam od nowa” na ekranie Leki). Wczytanie kopii zapisuje najpierw nowe pliki i listę osób, a stare pliki osób kasuje dopiero na końcu (zapas `state.przed-osobami.json` zostaje do usunięcia pierwszej osoby albo „Usuń wszystkie dane”). Logika magazynu osób (odczyt z odtwarzaniem, wczytanie kopii, dopisywanie osób) jest w `core` (`Profiles`) z testami.
+- **Prywatność:** dane zdrowotne (także osób trzecich) nigdy nie trafiają do repozytorium; do GitHuba idzie tylko kod i zmyślone dane testowe. Kopie zapasowe szyfruj hasłem.
+
+## Moduł „Cykl” (opcjonalny)
+
+Ustawienia → **Moduł Cykl** → Widoczny pokazuje zakładkę **Cykl** na dolnym pasku (domyślnie moduł jest ukryty; ukrycie nie kasuje danych). To dziennik cyklu: szybkie zapisy dnia, kalendarz, prognoza następnego okresu i okna płodnego (statystyczna, nie jest antykoncepcją ani diagnozą), wykresy długości cykli, raport tekstowy dla lekarza lub AI.
+
+- **Jak jest zrobiony:** gotowa strona HTML bez zależności (`cykl/`, ze źródłami, testami i opisem) otwierana w WebView bez dostępu do sieci. Plik wchodzący do APK to `app/src/main/assets/cykl/cykl.html` (wynik `npm run build` w `cykl/`; CI sprawdza zgodność ze źródłami). Dołożone są `host.js` (most do aplikacji) i `host.css` (wygląd aplikacji).
+- **Dane:** baza (`entries`, `cycles`, `settings`) jest w pamięci aplikacji i **wchodzi do kopii zapasowej** (sekcja `cykl`), także zaszyfrowanej i automatycznej. Raport CSV **nie zawiera** danych cyklu, a raporty dla lekarza i AI tylko opcjonalne „Podsumowanie cyklu” (domyślnie wyłączone, bez wpisów intymnych). Dane zdrowotne nie opuszczają telefonu.
+- **Import z pliku:** najpewniej w Ustawienia → Moduł Cykl → **Wczytaj plik z dziennikiem (JSON)** (systemowy wybór pliku, wybór Połącz / Zastąp, Cofnij); to samo można w module (Dane → Import): wybór pliku JSON (np. kopia z poprzedniej aplikacji do cyklu o tym samym formacie) albo wklejenie; potem „Połącz” (dodaje nowe wpisy) lub „Zastąp wszystko” (poprzednia wersja zostaje jako zapas). Plik przykładowy z zmyślonymi danymi: `core/src/test/resources/fixtures/cykl-przyklad.json`.
+- **Eksport całej bazy:** Ustawienia → Moduł Cykl → **Zapisz całą bazę do pliku (JSON)** albo w module Dane → Pobierz kopię (JSON); system pyta, gdzie zapisać plik. Kopia całej aplikacji z lekami i cyklem: Ustawienia → Kopie zapasowe i dane.
+- **Wpisy intymne:** „Stosunek”, „Zabezpieczone” i „Solo — partner/ka” są tylko w dzienniku i w kopii zapasowej. Wpisy solo nigdy nie trafiają do raportów (ani do raportu w module, ani do raportu dla lekarza czy AI w aplikacji); raport tekstowy w module zawiera informacje o stosunkach (liczbę i daty) **tylko po zaznaczeniu** „Dołącz informacje o stosunkach” (domyślnie wyłączone). Nie trzeba osobnej osoby do takich zapisów: prowadzi się je w dzienniku danej osoby.
+- **Raport dla lekarza z wykresami cyklu:** opcja „Podsumowanie cyklu” w Raporcie dodaje sekcję z tabelą ostatnich 12 cykli i trzema wykresami do druku (długość cyklu na tle zakresu 24–38 dni, czas krwawienia, zmiana względem poprzedniego cyklu); skrót w Ustawieniach → Moduł Cykl. Zakresy odniesienia są tylko oznaczeniem, bez rozpoznania.
+- **W raportach:** opcjonalne „Podsumowanie cyklu” (raport dla lekarza i dla AI, domyślnie wyłączone): długości cykli, mediana, rozrzut, ostatni początek okresu, choroby i leki wpisane w module. Wpisy intymne nie wchodzą do raportów.
+- **Okno płodne w kalendarzu:** okno płodne to ok. 6 dni kończących się w dniu owulacji (plemniki żyją do 5 dni, komórka jajowa ok. doby; Wilcox i wsp., NEJM 1995, BMJ 2000; Dunson i wsp. 2002). Kolor dnia: **wysokie ryzyko (szczyt okna)** = co najmniej 50% prawdopodobieństwa, że dzień jest w oknie; **okno płodne (możliwe)** = 20–50% albo dzień z zakresu **metody kalendarzowej**; reszta „okno mało prawdopodobne” (poczęcie nigdy nie jest wykluczone). Metoda kalendarzowa (od 6 zapisanych cykli, jak w wytycznych: najkrótszy cykl − 18 do najdłuższy − 11, np. Mayo Clinic, Family Planning Handbook; przy cyklach 26–32 dni dni 8–19 metody dni standardowych) liczy się od ostatniego startu okresu i oznacza dni jako co najmniej „możliwe”: **przy nieregularnych cyklach obejmuje większość cyklu, bo wytyczne nie pozwalają wtedy wskazać bezpiecznych dni** (w jednym z badań tylko ok. 30% kobiet miało okno w „typowych” dniach 10–17). Wysokość słupka w pasku 21 dni to względna szansa poczęcia przy stosunku w danym dniu. Bez historii (mniej niż 3 cykle) i bez testu LH szczyt okna nie jest pokazywany jako „wysokie ryzyko”. W okołomenopauzie (46+) owulacja i ciąża nadal są możliwe, a metody oparte na kalendarzu są wg wytycznych (CDC US MEC) „z ostrożnością”: prognoza jest wtedy mniej pewna, a progu ryzyka nie obniżamy. Prognoza nie jest antykoncepcją.
+- **Moduły aplikacji (Ustawienia → Moduły aplikacji):** każda osoba może ukryć zakładki Ciśnienie, Badania i Cykl (Leki i Raport są zawsze). Ukrycie niczego nie kasuje, a ukryty moduł nie wchodzi do raportów dla lekarza i AI (także podsumowanie Cyklu), a eksport CSV ukrytego modułu jest tylko, gdy są w nim dane; widżet pokazuje wtedy „Moduł ukryty w Ustawieniach”.
+- **Szczegóły dnia** (dotknięcie dnia w kalendarzu, „Więcej…”) otwierają się jako osobna strona z paskiem „‹ Wróć / Zapisz” u góry, a nie arkusz przypięty do dołu (na telefonie widać było tylko wąski pasek).
+- **Wiek i tryb prognoz (Wykresy → Wiek; Dane → Tryb prognoz):** pasma 18–25, 26–41, 42–45, **46–50** i **powyżej 50 lat**. Do 45. roku życia obowiązują progi FIGO 2018 (regularność ≤7 dni w wieku 26–41, ≤9 dni w 18–25 i 42–45). **Po 45. roku życia regularność nie jest oceniana**, bo duża zmienność cykli jest wtedy częsta (okołomenopauza); rozkłady długości cyklu i fazy lutealnej są szersze, a pewność prognozy ograniczona (46–50: najwyżej średnia, po 50.: niska). Wskazówka STRAW+10 (wczesna faza przejściowa: powtarzająca się różnica ≥7 dni między cyklami; późna: przerwa ≥60 dni; menopauza: brak miesiączki ponad 12 miesięcy) pojawia się jako kryterium dla osób od 42 lat, u młodszych jako neutralny opis częstych przyczyn (PCOS, tarczyca, stres, masa ciała, leki). **Krwawienie po ponad 12 miesiącach bez miesiączki** zawsze trafia do listy „do gabinetu”. Tryby: „Antykoncepcja hormonalna” wyłącza prognozy płodności i wskazówkę STRAW (okresy są nadal prognozowane), „Ciąża, połóg lub karmienie” wyłącza wszystkie prognozy i flagi braku miesiączki. W wieku 46+ ekran Dziś przypomina, że poczęcie jest nadal możliwe i że antykoncepcję zwykle zaleca się do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): do omówienia z lekarzem.
+- **Algorytmy po przeglądzie medycznym:** poziomy w kalendarzu wynikają z prawdopodobieństwa, że dzień należy do okna płodnego i z metody kalendarzowej (patrz „Okno płodne” wyżej); „pewność wysoka” dopiero od 6 cykli; „Okres się spóźnia” liczone od końca własnego 80% zakresu cykli (nie od mediany), a przy teście LH od prognozy opartej na owulacji; gdy historia nie ma tak długich cykli, jest „Brak prognozy” zamiast sztucznej prognozy; test LH liczy się, jeśli nie wypada w trakcie miesiączki i tuż po niej ani w ostatnich 9 dniach cyklu (przy kilku seriach: ostatnia seria). FIGO: pojedynczy cykl poza 24–38 dni nie jest flagą (dopiero 2 z ostatnich 6 albo mediana poza zakresem), regularność oceniana od 6 cykli, dane z ostatnich 12 miesięcy, plamienia poza okresem dopiero gdy powtarzają się w różnych cyklach, obfite krwawienie to obfitość 4–5 przez co najmniej 2 dni albo skrzepy w co najmniej 2 miesiączkach, dodatni test ciążowy liczy się 100 dni, zaprzeczenie „brak anemii” nie jest anemią. Trend (wydłużanie/skracanie) pokazywany dopiero od 6 cykli i po teście Manna–Kendalla. Wszystkie ekrany przypominają, że prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.
+- **Nowe cykle poniżej 15 dni** (podwójny wpis startu) są scalane z pierwszym, jak w raporcie z aplikacji.
+- **Wyłączenie:** Ustawienia → Moduł Cykl → Ukryty (dane zostają) albo „Usuń dane modułu Cykl”.
+- **Zmiany w module:** edytuj `cykl/src`, uruchom `npm test` (Node ≥ 22.18), skopiuj `cykl/dist/cykl.html` do `app/src/main/assets/cykl/cykl.html`.
+
 ## Automatyczna kopia do folderu
 
 Ustawienia → Kopie zapasowe i dane → **Automatyczna kopia do folderu**. Wybierasz folder przez systemowe okno (aplikacja nie dostaje uprawnień do całej pamięci, a nadal nie ma uprawnienia INTERNET). Po zmianie danych, gdy minął wybrany odstęp (codziennie albo co tydzień), w tle powstaje plik `asystent-lekow-kopia-RRRR-MM-DD.json` (z szyfrowaniem: `….zaszyfrowana.json`); zostaje 7 ostatnich. Zalecane jest szyfrowanie hasłem: w folderze synchronizowanym z chmurą leżą dane zdrowotne. Hasło jest przechowywane na telefonie zaszyfrowane kluczem z Android Keystore (poza kopią i plikiem); jeśli je zgubisz, plik nie otworzy się nigdzie. Plik wczytujesz tak jak każdą inną kopię (Wczytaj kopię z pliku). Ustawienia tej funkcji są tylko na tym telefonie i nie trafiają do kopii. Gdy zapis się nie powiedzie (np. folder usunięty, brak miejsca), ekran pokazuje komunikat, a przycisk „Zrób teraz” próbuje jeszcze raz.
@@ -148,8 +227,8 @@ Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na ins
 
 Wersja 0.3 ma inny identyfikator (`pl.asystent.leki`), więc instaluje się **obok** starej i niczego jej nie kasuje.
 
-1. W starej aplikacji: **Ustawienia → Dane → Zaszyfrowana kopia** (albo Pobierz JSON) i zapisz plik.
-2. W nowej aplikacji: **Ustawienia → Dane → Wczytaj kopię z pliku**, wybierz plik (przy zaszyfrowanym wpisz hasło).
+1. W starej aplikacji: **Ustawienia → Kopie zapasowe i dane → Zaszyfrowana kopia** (albo Pobierz JSON) i zapisz plik.
+2. W nowej aplikacji: **Ustawienia → Kopie zapasowe i dane → Wczytaj kopię z pliku**, wybierz plik (przy zaszyfrowanym wpisz hasło).
 3. Włącz przypomnienia w **Ustawienia → Przypomnienia o lekach** (Android poprosi o zgodę na powiadomienia). Przycisk **„Wyślij testowe powiadomienie”** też o nią prosi i wysyła dwa powiadomienia: od razu oraz po kilku sekundach z alarmu. Gdy przychodzi tylko pierwsze, zezwól aplikacji na pracę w tle i autostart (Realme, Oppo, Xiaomi: Ustawienia aplikacji w telefonie → Bateria).
 4. Dopiero gdy wszystko się zgadza, odinstaluj starą aplikację.
 
@@ -187,7 +266,7 @@ Nowy APK instaluje się **na wierzch** (bez odinstalowywania) i dane zostają, a
 
 **Klucz release (opcjonalnie, zalecane przed Google Play):** ustaw sekrety `LEKI_RELEASE_KEYSTORE_BASE64` (plik `.jks` w base64), `LEKI_KEYSTORE_PASSWORD`, `LEKI_KEY_ALIAS` i `LEKI_KEY_PASSWORD`. Gdy są ustawione, mają pierwszeństwo przed `DEBUG_KEYSTORE_BASE64`. Lokalnie te same nazwy działają jako zmienne środowiskowe (z `LEKI_KEYSTORE_PATH` zamiast base64) albo jako `-P...`. **Uwaga:** zmiana klucza oznacza, że APK nie zainstaluje się na wierzch wersji podpisanej kluczem debug (trzeba odinstalować aplikację po zrobieniu kopii). Wydania są publikowane z gałęzi domyślnej i z tagów `v*`, a z gałęzi roboczych tylko po ręcznym uruchomieniu workflow z zaznaczonym „Opublikuj wydanie testowe”.
 
-Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
+Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Kopie zapasowe i dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
 
 ### Aktualizacje przez Obtainium
 
@@ -222,10 +301,13 @@ Dziś dystrybucja jest prywatna: GitHub Releases i Obtainium (opis wyżej). Do p
 core/          logika bez zależności od Androida (Kotlin/JVM): model danych, harmonogram, statystyki,
                raporty (lekarz, AI), kopie zapasowe i szyfrowanie, analiza EKG (odtworzenie przebiegu z obrazu, wykrywanie uderzeń, odstępy RR), geometria wykresów (w tym przewijany wykres ciśnienia), czyszczenie Markdown i LaTeX z odpowiedzi AI, przypomnienia,
                odczyt wyników z tekstu OCR (LabScan)
+przyklady/     zmyślone dane przykładowe do wczytania w aplikacji (generuje je test SampleDataTest)
+docs/zrzuty/   zrzuty modułu Cykl (pusty ekran) do README
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
                ocr/ (ML Kit, wczytywanie zdjęć i PDF), Lock.kt (blokada biometryczna), BpWidget.kt (widżet)
 app/src/test   zrzuty ekranów głównych widoków (Paparazzi, render na JVM; także próby na wąskim ekranie 320 dp z czcionką 130%), publikowane w wydaniu „zrzuty-ekranow”
+cykl/          moduł „Cykl” (źródła TypeScript, testy, bundler): jedna strona HTML wbudowana w aplikację (app/src/main/assets/cykl)
 assets/        źródłowe rysunki ikony (SVG)
 scripts/       generatory: ikony launchera (make-icons.js) i ikon interfejsu Phosphor (gen-icons.js), tylko dev
 .github/       workflow budujący APK i publikujący go w Releases
@@ -243,7 +325,8 @@ Lista składników dołączonych do aplikacji, ich licencje i noty praw autorski
 - Dane trafiają wyłącznie do pamięci aplikacji. Kopia zapasowa Androida do chmury Google i przenoszenie między telefonami są wyłączone.
 - Aplikacja nie ma uprawnienia INTERNET.
 - Kopię do chmury (Dysk Google, Filen) rób w formie zaszyfrowanej. Hasła nie da się odzyskać.
-- Repozytorium nie zawiera żadnych danych osobowych ani zdrowotnych.
+- Moduł Cykl działa w WebView bez dostępu do sieci i przechowuje dane tylko w pamięci aplikacji; nie jest szyfrowany w pliku danych (tak jak reszta), więc zaszyfrowana kopia obejmuje także dziennik cyklu.
+- Repozytorium nie zawiera żadnych danych osobowych ani zdrowotnych. Dziennik cyklu to dane zdrowotne (także osoby trzeciej): pliki z prawdziwym dziennikiem wczytuj tylko w aplikacji na telefonie, nigdy nie dodawaj ich do repozytorium, testów ani przykładów.
 
 ## Zasady pracy nad projektem
 
@@ -253,6 +336,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ### Do sprawdzenia na telefonie (testy)
 
+- [ ] **Moduły aplikacji (0.14):** Ustawienia → Moduły aplikacji: ukrycie Ciśnienia u jednej osoby (zakładka znika tylko u niej, po zmianie osoby wraca), raport i „Przygotuj na wizytę” bez ciśnienia, widżet „Moduł ukryty”, skrót ciśnienia z komunikatem, kopia i wczytanie zachowują wybór; kalendarz Cyklu w obu motywach (okno płodne bardzo prawdopodobne/możliwe, legenda, widok dnia z procentem).
 - [ ] **Powiększony podgląd EKG:** czy dotknięcie karty nieprawidłowości zawsze ustawia wykres na zdarzeniu (przyczyny wcześniejszego przesuwania nie ustalono; wprowadzono zabezpieczenia i przycisk „Wróć do zdarzenia”).
 - [ ] **Blokada aplikacji:** włączenie, odblokowanie odciskiem i PIN-em, opóźnienia (zaraz, 30 s, 5 min), zachowanie po wyborze pliku lub zdjęcia, opcja blokady zrzutów ekranu.
 - [ ] **Zapas leków:** wpisanie liczby, odliczanie odhaczonych dawek, prognoza, kolory paska (zielony, pomarańczowy, czerwony), ostrzeżenie na ekranie Leki.
@@ -267,6 +351,8 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Badania (przebudowa 0.9.9):** Przegląd (poprzedni wynik, zmiana, tendencja po 3 wynikach, filtry, przypinanie), Mapa (przewijanie w bok, kolory, dotknięcie otwiera parametr), skróty porównania, „Nałóż rok temu” i okno Rok | 3 lata | Wszystko po roku danych, własny zakres w edycji wyniku, widok Lata na listach.
 - [ ] **Badania → Parametry:** wybór dnia („Wyniki z dnia”, „Tylko wyniki z tego dnia”), tabela „Porównaj dni” (2–4 dni, wąski ekran), przełącznik Grupami | A–Z | Najnowsze, alfabetyczna kolejność w grupach (polskie znaki), strzałki w szczegółach parametru.
 - [ ] **Powiadomienie o dawkach:** przyciski „Wzięte” (odhacza dawki tej pory) i „Odłóż o 15 min”; po odhaczeniu w aplikacji powiadomienie nie wraca.
+- [ ] **Osoby (0.12.0):** po aktualizacji dotychczasowe dane są pierwszą osobą (nic nie zginęło); dodanie drugiej osoby, przełączanie w nagłówku, osobne leki i raporty, przeniesienie dziennika cyklu do drugiej osoby (z „Cofnij”), kopia zaszyfrowana zawiera obie osoby i wczytuje się na czysto, powiadomienie o dawce drugiej osoby z jej imieniem i przycisk „Wzięte”, „Podsumowanie cyklu” w raporcie.
+- [ ] **Moduł Cykl** (gałąź `cykl-modul`): Ustawienia → Moduł Cykl → Widoczny; zakładka na pasku (do 5 zakładek na dolnym pasku; Ciśnienie, Badania i Cykl można ukryć per osoba w Ustawienia → Moduły aplikacji, Ustawienia pod kołem zębatym w nagłówku), import pliku JSON (Dane → Import, wybór pliku i wklejenie, Połącz / Zastąp wszystko), pobranie kopii JSON i raportu .txt (okno zapisu), kopiowanie raportu, przycisk Wstecz zamyka arkusz szczegółów, motyw jasny i ciemny z aplikacji, ukrycie i ponowne pokazanie bez utraty danych, dane w zaszyfrowanej kopii aplikacji i po wczytaniu jej na czysto.
 - [ ] **„Cofnij”** po usunięciu pomiaru, EKG, wyniku, analizy i kontroli.
 - [ ] **„Przygotuj na wizytę”** w Raporcie, **udostępnianie odpowiedzi AI** do aplikacji i otwarcie pliku .md, **automatyczna kopia do folderu** (wybór folderu, hasło, „Zrób teraz”, wczytanie powstałego pliku), Parametry badań w Badaniach i najbliższe kontrole na Lekach.
 - [ ] **Listy podzielone na okresy** (Ciśnienie, EKG, Badania → Według dat i historia parametru): przełącznik Dni | Tygodnie | Miesiące, rozwijanie kart, filtr „tylko podwyższone / z oznaczeniami”, usuwanie z rozwiniętej karty, zachowanie widoku po obrocie ekranu.
@@ -281,6 +367,8 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ### Pomysły (do decyzji po testach)
 
+- **Synchronizacja między telefonami (tylko koncepcja, nie wdrażamy):** dziś dane przenosi się plikiem (kopia całości albo wybranych osób, najlepiej zaszyfrowana) i można go zostawiać w folderze synchronizowanym przez inną aplikację (Syncthing, Filen, Dysk). Opcje na później: (1) **folder synchronizowany + scalanie przy wczytaniu** (bez sieci w aplikacji; dla dziennika cyklu scalanie jest już „dopisz brakujące”, dla reszty potrzebne znaczniki czasu wpisów); (2) **przekaźnik na własnym serwerze (np. ct8) z szyfrowaniem end-to-end**: serwer trzyma tylko zaszyfrowane paczki, klucz powstaje przy sparowaniu (kod QR), aplikacja wysyła i pobiera paczki, a scalanie robi po stronie telefonu; wymaga uprawnienia INTERNET (zmiana zasady „aplikacja nie łączy się z siecią”), więc najlepiej jako osobny, opcjonalny wariant aplikacji; (3) **wymiana bezpośrednia bez serwera** (kod QR z pakietem albo udostępnianie pliku). Rekomendacja: najpierw (1)+(3), przekaźnik dopiero po długich testach i decyzji o INTERNET.
+
 - Szyfrowanie samego pliku danych w telefonie (blokada aplikacji go nie szyfruje).
 - Wykres ciśnienia z podziałem na rano i wieczór.
 - Cotygodniowe podsumowanie zgodności z planem w powiadomieniu.
@@ -292,9 +380,15 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ## Znane ograniczenia wersji preview
 
+- **Ciśnienie:** ostrzeżenie o bardzo wysokim (od 180/110) i bardzo niskim ciśnieniu jest stałe i nie zależy od progów w Ustawieniach, ale to tylko podpowiedź, nie ocena medyczna; progi „podwyższone/niskie” ustawia się według zaleceń lekarza (domyślnie 135/85 i 90/60).
+- **EKG:** zapis słabej jakości (zakłócenia, przerwy w sygnale) nie jest oceniany pod kątem rytmu; odczyt z PDF zakłada wydruk 25 mm/s i 10 mm/mV, a inny układ lub skala jest odrzucana. Bradykardia jest oznaczana poniżej 50/min (ostrożniej niż ogólna definicja <60/min, żeby nie alarmować sportowców i osób śpiących), tachykardia powyżej 100/min.
+- **Leki:** brak typu leku „w razie potrzeby” (doraźne trzeba wpisać jako stałe albo pominąć); edytor dawek ma krok 0,5 (ćwiartki tabletki wymagają wpisania z importu).
+- **Badania (OCR):** parser nie rozpoznaje poprawnie wszystkich wierszy (np. liczba w nazwie badania, kilka zakresów w jednym wierszu, jednostki spoza listy); zawsze sprawdź wynik z oryginałem przed zapisem. Domyślne zakresy dotyczą tylko potasu, sodu i magnezu (zakres z wyniku laboratorium ma pierwszeństwo).
+
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później. Rozmiar APK to kilkadziesiąt MB, głównie przez model i biblioteki rozpoznawania tekstu; działa tylko na telefonach arm64 i armeabi-v7a.
 - Interfejs tylko po polsku.
+- Moduł Cykl był testowany w przeglądarce (Chromium z atrapą mostu) i testami logiki, ale nie w WebView na telefonie; przełączenie zakładki wczytuje stronę modułu od nowa (wybrana karta i miesiąc nie są pamiętane). Dziennik nie jest szyfrowany w pliku danych aplikacji.
 - Odczyt leku ze zdjęcia zależy od jakości zdjęcia i wyglądu opakowania (nazwa musi być największym napisem; ozdobne czcionki, odbicia i tekst na zakrzywionej powierzchni pogarszają odczyt). Aplikacja zawsze pokazuje wynik do sprawdzenia i nie zgaduje dawkowania; gdy odczyt się pomyli, „Pokaż cały rozpoznany tekst” pozwala wskazać właściwy napis jako nazwę.
 - Zapas leków zakłada, że wpisana liczba jest aktualna i że odhaczasz każdą wziętą dawkę; dawki wzięte, ale nieodhaczone, zawyżają prognozę. Prognoza liczy według planu (zmiany dawkowania w przyszłości są uwzględnione, doraźne zmiany nie).
 - Blokada aplikacji: wybór pliku lub zdjęcia wyników zamyka aplikację na chwilę, więc przy opóźnieniu „zaraz” trzeba ją odblokować po powrocie. Opcja „blokuj zrzuty ekranu” uniemożliwia też Twoje własne zrzuty (np. do zgłaszania błędów).

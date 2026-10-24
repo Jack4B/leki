@@ -100,7 +100,7 @@ class ScreenshotTest {
 
     @Test fun waskiCisnienie() = narrow("waski-cisnienie") { BpScreen(state, store, listState = LazyListState(1, 0)) }
     @Test fun waskiCisnienieMiesiace() = narrow("waski-cisnienie-miesiace") { BpScreen(yearState, store, listState = LazyListState(3, 0), initialRange = 365, hist = remember { HistoryState(view = 2) }) }
-    @Test fun waskiLeki() = narrow("waski-leki") { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = LazyListState(0, 0)) }
+    @Test fun waskiLeki() = narrow("waski-leki") { MedsScreen(state, store, nav, onGoData = {}, listState = LazyListState(0, 0)) }
     @Test fun waskiBadania() = narrow("waski-badania") { LabsScreen(state, store, onImport = {}, listState = LazyListState(0, 0)) }
     @Test fun waskiRaport() = narrow("waski-raport") { ReportScreen(state, store, listState = LazyListState(0, 0), initialMode = 0) }
     @Test fun waskiUstawienia() = narrow("waski-ustawienia") { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = LazyListState(0, 0)) }
@@ -114,9 +114,14 @@ class ScreenshotTest {
         for (k in 0 until n) shot("$name-${k + 1}", mode) { content(remember { LazyListState(0, k * 950) }) }
     }
 
-    @Test fun leki() = slices("leki", 3) { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
-    @Test fun lekiCiemny() = slices("leki-ciemny", 1, ThemeMode.Dark) { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
-    @Test fun lekiPuste() = slices("leki-puste", 1) { MedsScreen(AppState(), store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
+    @Test fun leki() = slices("leki", 3) { MedsScreen(state, store, nav, onGoData = {}, listState = it) }
+    @Test fun lekiCiemny() = slices("leki-ciemny", 1, ThemeMode.Dark) { MedsScreen(state, store, nav, onGoData = {}, listState = it) }
+    @Test fun lekiPuste() = slices("leki-puste", 1) { MedsScreen(AppState(), store, nav, onGoData = {}, listState = it) }
+    @Test fun cisnienieCiemny() = slices("cisnienie-ciemny", 2, ThemeMode.Dark) { BpScreen(state, store, listState = it) }
+    @Test fun cisnienieRokCiemny() = slices("cisnienie-rok-ciemny", 1, ThemeMode.Dark) { BpScreen(yearState, store, listState = it, initialRange = 365) }
+    @Test fun badaniaMapaCiemny() = slices("badania-mapa-ciemny", 1, ThemeMode.Dark) { LabsScreen(state, store, onImport = {}, listState = it, initialMode = 1) }
+    @Test fun badaniaCiemny() = slices("badania-ciemny", 1, ThemeMode.Dark) { LabsScreen(state, store, onImport = {}, listState = it) }
+    @Test fun ekgCiemny() = slices("badania-ekg-ciemny", 1, ThemeMode.Dark) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 3) }
     @Test fun cisnienie() = slices("cisnienie", 3) { BpScreen(state, store, listState = it) }
     /** Zmyślone pomiary z całego roku, liczone od dzisiaj: sprawdza przewijany wykres z zakresem min–max i podpisami miesięcy. */
     private val yearState: AppState = run {
@@ -200,11 +205,29 @@ class ScreenshotTest {
 
     @Test fun badania() = slices("badania", 1) { LabsScreen(state, store, onImport = {}, listState = it) }
     @Test fun badaniaPuste() = slices("badania-puste", 1) { LabsScreen(AppState(), store, onImport = {}, listState = it) }
+    // puste ekrany (bez żadnych danych) do README
+    @Test fun cisnieniePuste() = slices("cisnienie-puste", 1) { BpScreen(AppState(), store, listState = it) }
+    @Test fun raportPuste() = slices("raport-puste", 1) { ReportScreen(AppState(), store, listState = it, initialMode = 0) }
+    @Test fun ustawieniaPuste() = slices("ustawienia-puste", 1) { SettingsScreen(AppState(), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it) }
+    @Test fun ustawieniaModulyPuste() = slices("ustawienia-moduly-puste", 1) { SettingsScreen(AppState(), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Modules") }
     @Test fun raportLekarz() = slices("raport-lekarz", 1) { ReportScreen(state, store, listState = it, initialMode = 0) }
     @Test fun raportAi() = slices("raport-ai", 2) { ReportScreen(state, store, listState = it, initialMode = 1) }
     @Test fun ustawienia() = slices("ustawienia", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it) }
     @Test fun ustawieniaLeki() = slices("ustawienia-leki", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Meds") }
     @Test fun ustawieniaOgolne() = slices("ustawienia-ogolne", 2) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "General") }
+    @Test fun ustawieniaCykl() = slices("ustawienia-cykl", 1) {
+        val demo = pl.asystent.leki.core.CyklData("""{"entries":[{"type":"period_start","date":"2024-01-08"},{"type":"period_start","date":"2024-02-05"},{"type":"period_end","date":"2024-02-09"}],"cycles":{},"settings":{}}""")
+        SettingsScreen(state.copy(settings = state.settings.copy(cyklOn = true), cykl = demo), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Cykl")
+    }
+    @Test fun ustawieniaModuly() = slices("ustawienia-moduly", 1) { SettingsScreen(state.copy(settings = state.settings.copy(bpOn = false)), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Modules") }
+    @Test fun ustawieniaCyklUkryty() = slices("ustawienia-cykl-ukryty", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Cykl") }
+    private fun twoPeople(): Store = Store(File(System.getProperty("java.io.tmpdir"), "leki-people-" + System.nanoTime())).also { st ->
+        st.updateAll { it.copy(settings = it.settings.copy(cyklOn = false)) }
+        st.update { it.copy(patient = "Jan", meds = state.meds) }
+        st.addProfile("Anna")
+    }
+    @Test fun ustawieniaOsoby() = slices("ustawienia-osoby", 1) { val st = remember { twoPeople() }; SettingsScreen(st.state.value, st, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "People") }
+    @Test fun naglowekOsoby() = shot("naglowek-osoby") { val st = remember { twoPeople() }; Column(Modifier.padding(16.dp)) { Text("Asystent leków"); pl.asystent.leki.ui.PersonSwitcher(st, st.profiles.value, st.activeId.value, onManage = {}) } }
     @Test fun ustawieniaDane() = slices("ustawienia-dane", 2) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Data") }
 
     @Test fun skanWybor() = shot("skan-wybor") { Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) { PickBody({}, {}, {}) } }

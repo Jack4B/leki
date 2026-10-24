@@ -74,8 +74,9 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     val first = s.firstDate(today)
     val custom = if (fromStr.isNotEmpty() || toStr.isNotEmpty()) (fromStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) } to toStr.takeIf { it.isNotEmpty() }?.let { LocalDate.parse(it) }) else null
     val per = Period.resolve(preset, custom, today, first)
-    val rp = s.settings.rp
-    val ai = s.settings.ai
+    // wyświetlamy stan z uwzględnieniem ukrytych modułów (ukryty moduł nie pokazuje swoich kart ani nie liczy się do „wybrano sekcje”)
+    val rp = s.settings.effectiveRp()
+    val ai = s.settings.effectiveAi()
 
     fun setRp(f: (ReportParts) -> ReportParts) = store.update { it.copy(settings = it.settings.copy(rp = f(it.settings.rp))) }
     fun setAi(f: (AiParts) -> AiParts) = store.update { it.copy(settings = it.settings.copy(ai = f(it.settings.ai))) }
@@ -88,7 +89,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                 LekiCard(Modifier.padding(bottom = 16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Wizyta u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ustawia raport na ostatnie 30 dni z ciśnieniem, całą historią wyników, przyjmowaniem i listą leków, kontrolami, EKG" + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
+                        BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
                         LekiButton("Przygotuj na wizytę", {
                             preset = 30; fromStr = ""; toStr = ""; customRange = false
                             setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true) }
@@ -124,13 +125,14 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     BodyText("Raport w formie tabel i wykresów do wydruku lub zapisu jako PDF, np. na wizytę.")
                     Overline("Co dołączyć", Modifier.padding(top = 16.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ToggleChip("Ciśnienie", rp.bp) { setRp { it.copy(bp = !it.bp) } }
-                        ToggleChip("Wyniki badań", rp.labs) { setRp { it.copy(labs = !it.labs) } }
+                        if (s.settings.bpOn) ToggleChip("Ciśnienie", rp.bp) { setRp { it.copy(bp = !it.bp) } }
+                        if (s.settings.labsOn) ToggleChip("Wyniki badań", rp.labs) { setRp { it.copy(labs = !it.labs) } }
                         ToggleChip("Przyjmowanie leków", rp.meds) { setRp { it.copy(meds = !it.meds) } }
                         ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
-                        ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) {
                         val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
@@ -171,7 +173,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         }
                         LekiButton(if (s.analyses.isEmpty()) "Wklej lub wczytaj odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
-                    if (rp.labs) {
+                    if (rp.labs && s.settings.labsOn) {
                         Spacer8()
                         ToggleChip("Badania tylko z wybranego okresu", rp.labsPeriod) { setRp { it.copy(labsPeriod = !it.labsPeriod) } }
                         Hint("Bez tego raport pokazuje całą historię wyników do końca okresu.", Modifier.padding(top = 6.dp))
@@ -179,7 +181,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         LekiButton("Podgląd", { preview = true }, Modifier.weight(1f), tonal = true, enabled = rp.any)
                         LekiButton("Drukuj / PDF", {
-                            ctx.findActivity()?.let { a -> Platform.printHtml(a, "Raport ${s.patient} $today".trim(), DoctorReport.document(DoctorReport.html(s, per, today, now))) }
+                            ctx.findActivity()?.let { a -> Platform.printHtml(a, "Raport ${s.patient} $today".trim(), DoctorReport.document(DoctorReport.html(store.withSharedCykl(s, store.activeId.value), per, today, now))) }
                         }, Modifier.weight(1f), primary = true, enabled = rp.any, icon = Ph.Printer)
                     }
                 }
@@ -199,11 +201,12 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Leki i harmonogram", ai.meds) { setAi { it.copy(meds = !it.meds) } }
                         ToggleChip("Zmiany dawek", ai.history) { setAi { it.copy(history = !it.history) } }
                         ToggleChip("Zgodność z planem", ai.adherence) { setAi { it.copy(adherence = !it.adherence) } }
-                        ToggleChip("Ciśnienie", ai.bp) { setAi { it.copy(bp = !it.bp) } }
-                        ToggleChip("Badania", ai.labs) { setAi { it.copy(labs = !it.labs) } }
+                        if (s.settings.bpOn) ToggleChip("Ciśnienie", ai.bp) { setAi { it.copy(bp = !it.bp) } }
+                        if (s.settings.labsOn) ToggleChip("Badania", ai.labs) { setAi { it.copy(labs = !it.labs) } }
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
-                        ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn) ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
@@ -213,7 +216,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     LekiField("Kontekst medyczny (opcjonalnie)", context, { context = it.take(2000); setAi { a -> a.copy(context = it.take(2000)) } },
                         Modifier.padding(top = 18.dp), singleLine = false, minLines = 3, placeholder = "np. wiek, płeć, choroby, alergie, leki bez recepty i suplementy, godziny posiłków")
                     Hint("Im więcej kontekstu, tym trafniejsza analiza. Nie wpisuj danych, których nie chcesz ujawniać. Imię jest domyślnie pomijane.", Modifier.padding(top = 6.dp))
-                    val text = AiReport.build(s, per, today, now, BuildConfig.VERSION_NAME)
+                    val text = AiReport.build(store.withSharedCykl(s, store.activeId.value), per, today, now, BuildConfig.VERSION_NAME)
                     Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         LekiButton("Kopiuj", { Platform.copyText(ctx, "Raport dla AI", text); toast("Skopiowano raport dla AI") }, Modifier.weight(1f), primary = true, icon = Ph.Copy)
                         LekiButton("Udostępnij", { Platform.shareFile(ctx, "leki-raport-ai-$today.md", text, "text/markdown", "Raport dla AI") }, Modifier.weight(1f), tonal = true, icon = Ph.ShareNetwork)
@@ -230,7 +233,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     if (editorOpen) AnalysisEditor(s.analysis(editId), store, today) { editorOpen = false; editId = "" }
 
     if (preview) {
-        val html = remember(s, per, now.toLocalTime().hour) { DoctorReport.document(DoctorReport.html(s, per, today, now)) }
+        val html = remember(s, per, now.toLocalTime().hour, store.revision.value) { DoctorReport.document(DoctorReport.html(store.withSharedCykl(s, store.activeId.value), per, today, now)) }
         FullScreenDialog("Podgląd raportu", { preview = false }) {
             LekiButton("Drukuj / zapisz PDF", { ctx.findActivity()?.let { a -> Platform.printHtml(a, "Raport ${s.patient} $today".trim(), html) } }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Printer)
             ReportWebView(html, Modifier.fillMaxWidth())

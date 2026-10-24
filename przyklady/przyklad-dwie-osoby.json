@@ -1,0 +1,4319 @@
+{
+    "app": "asystent-lekow",
+    "version": 3,
+    "exportedAt": "2026-10-23T12:00:00Z",
+    "data": {
+        "v": 3,
+        "patient": "Jan Przykładowy",
+        "created": "2026-07-02",
+        "lastBackup": null,
+        "settings": {
+            "rp": {
+                "bp": true,
+                "labs": true,
+                "labsPeriod": false,
+                "meds": true,
+                "plan": true,
+                "events": true,
+                "analysis": true,
+                "analysisId": "",
+                "ecg": true
+            },
+            "ai": {
+                "meds": true,
+                "history": true,
+                "adherence": true,
+                "bp": true,
+                "labs": true,
+                "events": true,
+                "notes": true,
+                "ecg": true,
+                "name": false,
+                "context": "",
+                "detail": 1
+            },
+            "lateMin": 60,
+            "waterGoal": 10,
+            "glassMl": 250,
+            "hiSys": 135,
+            "hiDia": 85,
+            "loSys": 90,
+            "loDia": 60,
+            "theme": "auto",
+            "reportNote": "",
+            "remind": {
+                "on": false,
+                "lead": 0,
+                "stock": 7,
+                "backup": 30
+            }
+        },
+        "rules": "Dane przykładowe, zmyślone. Można je usunąć w Ustawienia → Kopie zapasowe i dane.",
+        "slots": [
+            {
+                "id": "morning",
+                "name": "Śniadanie",
+                "time": "08:00"
+            },
+            {
+                "id": "lunch",
+                "name": "Obiad",
+                "time": "14:30"
+            },
+            {
+                "id": "dinner",
+                "name": "Kolacja",
+                "time": "19:00"
+            },
+            {
+                "id": "night",
+                "name": "Przed snem",
+                "time": "22:00"
+            }
+        ],
+        "meds": [
+            {
+                "id": "lek-a",
+                "name": "Lek A",
+                "substance": "Substancja X",
+                "note": "Przykładowy lek stały",
+                "unit": "tabl.",
+                "timerMin": 0,
+                "mmol": 0,
+                "end": null,
+                "stock": 180,
+                "stockDate": "2026-08-01",
+                "phases": [
+                    {
+                        "from": "2026-07-02",
+                        "doses": {
+                            "morning": 1,
+                            "dinner": 1
+                        },
+                        "dow": [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "lek-b",
+                "name": "Lek B",
+                "substance": "Substancja Y",
+                "note": "Dawka zmieniona w trakcie (historia zostaje)",
+                "unit": "tabl.",
+                "timerMin": 0,
+                "mmol": 0,
+                "end": null,
+                "stock": 70,
+                "stockDate": "2026-08-01",
+                "phases": [
+                    {
+                        "from": "2026-07-02",
+                        "doses": {
+                            "morning": 0.5
+                        },
+                        "dow": [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6
+                        ]
+                    },
+                    {
+                        "from": "2026-09-18",
+                        "doses": {
+                            "morning": 1
+                        },
+                        "dow": [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            5,
+                            6
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "wit-z",
+                "name": "Witamina Z",
+                "substance": "",
+                "note": "Trzy razy w tygodniu",
+                "unit": "kaps.",
+                "timerMin": 0,
+                "mmol": 0,
+                "end": null,
+                "phases": [
+                    {
+                        "from": "2026-07-02",
+                        "doses": {
+                            "lunch": 1
+                        },
+                        "dow": [
+                            1,
+                            3,
+                            5
+                        ]
+                    }
+                ]
+            }
+        ],
+        "events": [
+            {
+                "id": "e1",
+                "date": "2026-11-01",
+                "title": "Kontrola u lekarza (przykład)",
+                "note": "Zabrać wyniki i listę leków",
+                "field": "",
+                "marker": ""
+            },
+            {
+                "id": "e2",
+                "date": "2026-11-22",
+                "title": "Badanie potasu (przykład)",
+                "note": "Rano, na czczo",
+                "field": "wynik",
+                "marker": "potas"
+            }
+        ],
+        "markers": [
+            {
+                "id": "potas",
+                "name": "Potas",
+                "unit": "mmol/l",
+                "lo": 3.5,
+                "hi": 5.1,
+                "grp": "Elektrolity"
+            },
+            {
+                "id": "sod",
+                "name": "Sód",
+                "unit": "mmol/l",
+                "lo": 136,
+                "hi": 145,
+                "grp": "Elektrolity"
+            },
+            {
+                "id": "magnez",
+                "name": "Magnez",
+                "unit": "mmol/l",
+                "lo": 0.7,
+                "hi": 1.1,
+                "grp": "Elektrolity"
+            },
+            {
+                "id": "kreatynina",
+                "name": "Kreatynina",
+                "unit": "mg/dl",
+                "lo": null,
+                "hi": null,
+                "grp": "Nerki i metabolizm"
+            },
+            {
+                "id": "moczowy",
+                "name": "Kwas moczowy",
+                "unit": "mg/dl",
+                "lo": null,
+                "hi": null,
+                "grp": "Nerki i metabolizm"
+            },
+            {
+                "id": "tsh",
+                "name": "TSH",
+                "unit": "µIU/ml",
+                "lo": 0.27,
+                "hi": 4.2,
+                "grp": "Wątroba i tarczyca"
+            },
+            {
+                "id": "glukoza",
+                "name": "Glukoza na czczo",
+                "unit": "mmol/l",
+                "lo": 3.9,
+                "hi": 5.5,
+                "grp": "Nerki i metabolizm"
+            }
+        ],
+        "labs": [
+            {
+                "id": "l1",
+                "date": "2026-08-06",
+                "marker": "potas",
+                "value": 4.3,
+                "note": ""
+            },
+            {
+                "id": "l2",
+                "date": "2026-09-15",
+                "marker": "potas",
+                "value": 4.5,
+                "note": ""
+            },
+            {
+                "id": "l3",
+                "date": "2026-10-20",
+                "marker": "potas",
+                "value": 4.1,
+                "note": ""
+            },
+            {
+                "id": "l4",
+                "date": "2026-08-06",
+                "marker": "sod",
+                "value": 139,
+                "note": ""
+            },
+            {
+                "id": "l5",
+                "date": "2026-09-15",
+                "marker": "sod",
+                "value": 137,
+                "note": ""
+            },
+            {
+                "id": "l6",
+                "date": "2026-10-20",
+                "marker": "sod",
+                "value": 141,
+                "note": ""
+            },
+            {
+                "id": "l7",
+                "date": "2026-08-06",
+                "marker": "magnez",
+                "value": 0.82,
+                "note": ""
+            },
+            {
+                "id": "l8",
+                "date": "2026-09-15",
+                "marker": "magnez",
+                "value": 0.78,
+                "note": ""
+            },
+            {
+                "id": "l9",
+                "date": "2026-10-20",
+                "marker": "magnez",
+                "value": 0.68,
+                "note": ""
+            },
+            {
+                "id": "l10",
+                "date": "2026-08-06",
+                "marker": "tsh",
+                "value": 2.1,
+                "note": ""
+            },
+            {
+                "id": "l11",
+                "date": "2026-09-15",
+                "marker": "tsh",
+                "value": 2.6,
+                "note": ""
+            },
+            {
+                "id": "l12",
+                "date": "2026-10-20",
+                "marker": "tsh",
+                "value": 1.9,
+                "note": ""
+            },
+            {
+                "id": "l13",
+                "date": "2026-08-06",
+                "marker": "glukoza",
+                "value": 5,
+                "note": ""
+            },
+            {
+                "id": "l14",
+                "date": "2026-09-15",
+                "marker": "glukoza",
+                "value": 5.3,
+                "note": ""
+            },
+            {
+                "id": "l15",
+                "date": "2026-10-20",
+                "marker": "glukoza",
+                "value": 4.9,
+                "note": ""
+            }
+        ],
+        "days": {
+            "2026-08-01": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:23",
+                    "lek-b|morning": "08:12",
+                    "lek-a|dinner": "19:40"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-02": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:00",
+                    "lek-a|dinner": "19:14"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-03": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:49",
+                    "lek-b|morning": "08:10",
+                    "wit-z|lunch": "14:33",
+                    "lek-a|dinner": "19:33"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-04": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:37",
+                    "lek-b|morning": "07:29",
+                    "lek-a|dinner": "18:56"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-05": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:26",
+                    "wit-z|lunch": "14:20",
+                    "lek-a|dinner": "19:08"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-06": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:36",
+                    "lek-a|dinner": "18:57"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-07": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:52",
+                    "lek-b|morning": "08:37",
+                    "wit-z|lunch": "14:24",
+                    "lek-a|dinner": "18:38"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-08": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:41",
+                    "lek-b|morning": "08:23",
+                    "lek-a|dinner": "18:55"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-09": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:28",
+                    "lek-b|morning": "08:02",
+                    "lek-a|dinner": "18:28"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-10": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:35",
+                    "lek-b|morning": "08:18",
+                    "wit-z|lunch": "13:58",
+                    "lek-a|dinner": "18:56"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-11": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:19",
+                    "lek-b|morning": "07:55",
+                    "lek-a|dinner": "19:07"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-12": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:41",
+                    "lek-b|morning": "07:52",
+                    "wit-z|lunch": "14:24",
+                    "lek-a|dinner": "19:36"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-13": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:34",
+                    "lek-b|morning": "08:15",
+                    "lek-a|dinner": "19:37"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-14": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:05",
+                    "lek-b|morning": "07:28",
+                    "wit-z|lunch": "14:24",
+                    "lek-a|dinner": "19:21"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-15": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:14",
+                    "lek-b|morning": "08:37",
+                    "lek-a|dinner": "19:28"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-16": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:17",
+                    "lek-b|morning": "07:21",
+                    "lek-a|dinner": "18:27"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-17": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:25",
+                    "lek-b|morning": "07:29",
+                    "wit-z|lunch": "14:56",
+                    "lek-a|dinner": "19:31"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-18": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:11",
+                    "lek-b|morning": "07:35",
+                    "lek-a|dinner": "18:56"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-19": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:34",
+                    "lek-b|morning": "07:31",
+                    "wit-z|lunch": "14:14",
+                    "lek-a|dinner": "18:38"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-20": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:56",
+                    "lek-b|morning": "07:47",
+                    "lek-a|dinner": "18:51"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-21": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:16",
+                    "lek-b|morning": "07:23",
+                    "wit-z|lunch": "14:58",
+                    "lek-a|dinner": "18:32"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-22": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:33",
+                    "lek-b|morning": "07:25",
+                    "lek-a|dinner": "19:27"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-23": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:36",
+                    "lek-b|morning": "08:31",
+                    "lek-a|dinner": "18:53"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-24": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:24",
+                    "lek-b|morning": "07:45",
+                    "lek-a|dinner": "19:36"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-25": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:49",
+                    "lek-b|morning": "08:09",
+                    "lek-a|dinner": "18:44"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-26": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:38",
+                    "lek-b|morning": "07:30",
+                    "wit-z|lunch": "13:50",
+                    "lek-a|dinner": "18:45"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-27": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:00",
+                    "lek-b|morning": "07:32",
+                    "lek-a|dinner": "18:49"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-28": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:31",
+                    "lek-b|morning": "08:22",
+                    "wit-z|lunch": "14:48",
+                    "lek-a|dinner": "18:42"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-29": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:51",
+                    "lek-b|morning": "08:28",
+                    "lek-a|dinner": "19:25"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-30": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:34",
+                    "lek-b|morning": "07:44"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-08-31": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:02",
+                    "lek-b|morning": "07:59",
+                    "lek-a|dinner": "18:22"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-01": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:00",
+                    "lek-b|morning": "08:13",
+                    "lek-a|dinner": "19:32"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-02": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:48",
+                    "lek-b|morning": "08:21",
+                    "wit-z|lunch": "13:53",
+                    "lek-a|dinner": "19:30"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-03": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:08",
+                    "lek-b|morning": "08:34",
+                    "lek-a|dinner": "18:48"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-04": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:28",
+                    "lek-b|morning": "08:27",
+                    "wit-z|lunch": "14:12",
+                    "lek-a|dinner": "18:40"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-05": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:34",
+                    "lek-b|morning": "07:50",
+                    "lek-a|dinner": "18:37"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-06": {
+                "taken": {
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-b|morning": "07:50",
+                    "lek-a|dinner": "19:23"
+                },
+                "skipped": {
+                    "lek-a|morning": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-07": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:38",
+                    "lek-b|morning": "08:12",
+                    "wit-z|lunch": "14:53",
+                    "lek-a|dinner": "18:49"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-08": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:51",
+                    "lek-b|morning": "07:43",
+                    "lek-a|dinner": "18:37"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-09": {
+                "taken": {
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-b|morning": "08:16",
+                    "wit-z|lunch": "15:08",
+                    "lek-a|dinner": "19:19"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-10": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:09",
+                    "lek-b|morning": "08:27",
+                    "lek-a|dinner": "19:33"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-11": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:11",
+                    "wit-z|lunch": "14:48",
+                    "lek-a|dinner": "19:30"
+                },
+                "skipped": {
+                    "lek-b|morning": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-12": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:07",
+                    "lek-b|morning": "07:38",
+                    "lek-a|dinner": "18:23"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-13": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:12",
+                    "lek-a|dinner": "18:57"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-14": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:39",
+                    "wit-z|lunch": "13:50",
+                    "lek-a|dinner": "18:44"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-15": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:21",
+                    "lek-a|dinner": "19:03"
+                },
+                "skipped": {
+                    "lek-b|morning": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-16": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:34",
+                    "lek-b|morning": "08:05",
+                    "wit-z|lunch": "15:03",
+                    "lek-a|dinner": "19:05"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "Dużo kawy",
+                "results": {}
+            },
+            "2026-09-17": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:06",
+                    "lek-b|morning": "07:35",
+                    "lek-a|dinner": "18:39"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-18": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:24",
+                    "lek-b|morning": "08:36",
+                    "wit-z|lunch": "14:26",
+                    "lek-a|dinner": "19:07"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-19": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:15",
+                    "lek-b|morning": "07:55",
+                    "lek-a|dinner": "18:59"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-20": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:25",
+                    "lek-b|morning": "08:19",
+                    "lek-a|dinner": "19:35"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "Dużo kawy",
+                "results": {}
+            },
+            "2026-09-21": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:52",
+                    "lek-b|morning": "07:31",
+                    "lek-a|dinner": "19:17"
+                },
+                "skipped": {
+                    "wit-z|lunch": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-22": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:01",
+                    "lek-b|morning": "08:10",
+                    "lek-a|dinner": "19:17"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "Dłuższy spacer",
+                "results": {}
+            },
+            "2026-09-23": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:38",
+                    "lek-b|morning": "07:28",
+                    "wit-z|lunch": "15:01",
+                    "lek-a|dinner": "18:49"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-24": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:31",
+                    "lek-b|morning": "07:30",
+                    "lek-a|dinner": "19:04"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-25": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:13",
+                    "lek-b|morning": "07:51",
+                    "wit-z|lunch": "14:56",
+                    "lek-a|dinner": "19:10"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-26": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:29",
+                    "lek-b|morning": "08:31",
+                    "lek-a|dinner": "19:36"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-27": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:54",
+                    "lek-b|morning": "07:33",
+                    "lek-a|dinner": "19:32"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-28": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:12",
+                    "lek-b|morning": "07:23",
+                    "wit-z|lunch": "14:26",
+                    "lek-a|dinner": "19:17"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "Wizyta kontrolna",
+                "results": {}
+            },
+            "2026-09-29": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:57",
+                    "lek-b|morning": "08:33",
+                    "lek-a|dinner": "19:32"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-09-30": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:02",
+                    "lek-b|morning": "07:38",
+                    "wit-z|lunch": "14:39",
+                    "lek-a|dinner": "19:35"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-01": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:31",
+                    "lek-b|morning": "07:43",
+                    "lek-a|dinner": "19:13"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "Dłuższy spacer",
+                "results": {}
+            },
+            "2026-10-02": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:45",
+                    "lek-b|morning": "08:27",
+                    "wit-z|lunch": "13:53",
+                    "lek-a|dinner": "18:51"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-03": {
+                "taken": {
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-b|morning": "08:25",
+                    "lek-a|dinner": "18:22"
+                },
+                "skipped": {
+                    "lek-a|morning": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-04": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:58",
+                    "lek-b|morning": "08:33",
+                    "lek-a|dinner": "19:38"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-05": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:27",
+                    "lek-b|morning": "07:48",
+                    "wit-z|lunch": "14:27",
+                    "lek-a|dinner": "18:36"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-06": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:39",
+                    "lek-b|morning": "08:25",
+                    "lek-a|dinner": "19:28"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-07": {
+                "taken": {
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-b|morning": "07:33",
+                    "wit-z|lunch": "14:30",
+                    "lek-a|dinner": "18:33"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-08": {
+                "taken": {
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-b|morning": "07:57",
+                    "lek-a|dinner": "19:20"
+                },
+                "skipped": {
+                    "lek-a|morning": {
+                        "reason": "Zapomniano",
+                        "note": ""
+                    }
+                },
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-09": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:26",
+                    "wit-z|lunch": "14:31",
+                    "lek-a|dinner": "18:25"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-10": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:37",
+                    "lek-a|dinner": "19:33"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-11": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:22",
+                    "lek-b|morning": "07:23",
+                    "lek-a|dinner": "19:25"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-12": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:03",
+                    "lek-b|morning": "08:11",
+                    "wit-z|lunch": "14:21",
+                    "lek-a|dinner": "19:07"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "Wizyta kontrolna",
+                "results": {}
+            },
+            "2026-10-13": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:51",
+                    "lek-b|morning": "07:38",
+                    "lek-a|dinner": "19:29"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-14": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:39",
+                    "lek-b|morning": "07:37",
+                    "wit-z|lunch": "15:02",
+                    "lek-a|dinner": "19:04"
+                },
+                "skipped": {},
+                "water": 10,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-15": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:53",
+                    "lek-b|morning": "07:41",
+                    "lek-a|dinner": "19:02"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-16": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:33",
+                    "lek-b|morning": "08:23",
+                    "wit-z|lunch": "14:48",
+                    "lek-a|dinner": "18:36"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-17": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:37",
+                    "lek-b|morning": "08:37",
+                    "lek-a|dinner": "19:33"
+                },
+                "skipped": {},
+                "water": 4,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-18": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "08:22",
+                    "lek-b|morning": "07:21",
+                    "lek-a|dinner": "18:48"
+                },
+                "skipped": {},
+                "water": 7,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-19": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:42",
+                    "lek-b|morning": "07:21",
+                    "wit-z|lunch": "14:56",
+                    "lek-a|dinner": "18:40"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-20": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:26",
+                    "lek-b|morning": "08:37",
+                    "lek-a|dinner": "18:32"
+                },
+                "skipped": {},
+                "water": 5,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-21": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:52",
+                    "wit-z|lunch": "14:44",
+                    "lek-a|dinner": "18:39"
+                },
+                "skipped": {},
+                "water": 8,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-22": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:29",
+                    "lek-b|morning": "08:02",
+                    "lek-a|dinner": "19:03"
+                },
+                "skipped": {},
+                "water": 6,
+                "note": "",
+                "results": {}
+            },
+            "2026-10-23": {
+                "taken": {
+                    "lek-a|morning": 1,
+                    "lek-b|morning": 1,
+                    "wit-z|lunch": 1,
+                    "lek-a|dinner": 1
+                },
+                "times": {
+                    "lek-a|morning": "07:55",
+                    "lek-b|morning": "08:02",
+                    "wit-z|lunch": "15:06",
+                    "lek-a|dinner": "19:39"
+                },
+                "skipped": {},
+                "water": 9,
+                "note": "",
+                "results": {}
+            }
+        },
+        "bp": [
+            {
+                "id": "b1",
+                "date": "2026-08-01",
+                "time": "07:36",
+                "sys": 134,
+                "dia": 80,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b2",
+                "date": "2026-08-02",
+                "time": "07:23",
+                "sys": 132,
+                "dia": 76,
+                "pulse": 67,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b3",
+                "date": "2026-08-06",
+                "time": "08:26",
+                "sys": 130,
+                "dia": 83,
+                "pulse": 70,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b4",
+                "date": "2026-08-06",
+                "time": "20:37",
+                "sys": 119,
+                "dia": 77,
+                "pulse": 69,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b5",
+                "date": "2026-08-07",
+                "time": "07:57",
+                "sys": 139,
+                "dia": 86,
+                "pulse": 62,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b6",
+                "date": "2026-08-08",
+                "time": "07:46",
+                "sys": 130,
+                "dia": 84,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b7",
+                "date": "2026-08-09",
+                "time": "07:35",
+                "sys": 135,
+                "dia": 78,
+                "pulse": 74,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b8",
+                "date": "2026-08-09",
+                "time": "20:46",
+                "sys": 126,
+                "dia": 82,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b9",
+                "date": "2026-08-10",
+                "time": "08:18",
+                "sys": 123,
+                "dia": 82,
+                "pulse": 70,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b10",
+                "date": "2026-08-10",
+                "time": "20:26",
+                "sys": 121,
+                "dia": 74,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b11",
+                "date": "2026-08-11",
+                "time": "08:37",
+                "sys": 133,
+                "dia": 76,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b12",
+                "date": "2026-08-13",
+                "time": "07:59",
+                "sys": 127,
+                "dia": 82,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b13",
+                "date": "2026-08-13",
+                "time": "19:14",
+                "sys": 126,
+                "dia": 79,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b14",
+                "date": "2026-08-14",
+                "time": "08:38",
+                "sys": 132,
+                "dia": 76,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b15",
+                "date": "2026-08-14",
+                "time": "19:10",
+                "sys": 129,
+                "dia": 77,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b16",
+                "date": "2026-08-15",
+                "time": "08:30",
+                "sys": 134,
+                "dia": 84,
+                "pulse": 63,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b17",
+                "date": "2026-08-15",
+                "time": "19:50",
+                "sys": 123,
+                "dia": 81,
+                "pulse": 64,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b18",
+                "date": "2026-08-16",
+                "time": "20:43",
+                "sys": 121,
+                "dia": 75,
+                "pulse": 64,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b19",
+                "date": "2026-08-17",
+                "time": "08:17",
+                "sys": 125,
+                "dia": 83,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b20",
+                "date": "2026-08-18",
+                "time": "08:32",
+                "sys": 127,
+                "dia": 80,
+                "pulse": 66,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b21",
+                "date": "2026-08-18",
+                "time": "20:29",
+                "sys": 130,
+                "dia": 77,
+                "pulse": 75,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b22",
+                "date": "2026-08-19",
+                "time": "08:02",
+                "sys": 122,
+                "dia": 76,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b23",
+                "date": "2026-08-20",
+                "time": "08:36",
+                "sys": 130,
+                "dia": 81,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b24",
+                "date": "2026-08-20",
+                "time": "19:30",
+                "sys": 126,
+                "dia": 74,
+                "pulse": 71,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b25",
+                "date": "2026-08-21",
+                "time": "07:36",
+                "sys": 135,
+                "dia": 79,
+                "pulse": 62,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b26",
+                "date": "2026-08-21",
+                "time": "20:49",
+                "sys": 130,
+                "dia": 74,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b27",
+                "date": "2026-08-22",
+                "time": "08:16",
+                "sys": 126,
+                "dia": 78,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b28",
+                "date": "2026-08-22",
+                "time": "19:50",
+                "sys": 129,
+                "dia": 74,
+                "pulse": 72,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b29",
+                "date": "2026-08-23",
+                "time": "19:16",
+                "sys": 127,
+                "dia": 78,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b30",
+                "date": "2026-08-24",
+                "time": "07:29",
+                "sys": 128,
+                "dia": 80,
+                "pulse": 65,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b31",
+                "date": "2026-08-24",
+                "time": "19:44",
+                "sys": 126,
+                "dia": 82,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b32",
+                "date": "2026-08-25",
+                "time": "20:25",
+                "sys": 131,
+                "dia": 82,
+                "pulse": 75,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b33",
+                "date": "2026-08-26",
+                "time": "08:37",
+                "sys": 127,
+                "dia": 80,
+                "pulse": 63,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b34",
+                "date": "2026-08-27",
+                "time": "07:29",
+                "sys": 130,
+                "dia": 80,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b35",
+                "date": "2026-08-28",
+                "time": "08:32",
+                "sys": 134,
+                "dia": 77,
+                "pulse": 70,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b36",
+                "date": "2026-08-29",
+                "time": "20:36",
+                "sys": 128,
+                "dia": 80,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b37",
+                "date": "2026-08-31",
+                "time": "07:46",
+                "sys": 126,
+                "dia": 82,
+                "pulse": 63,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b38",
+                "date": "2026-09-01",
+                "time": "08:04",
+                "sys": 124,
+                "dia": 79,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b39",
+                "date": "2026-09-01",
+                "time": "20:26",
+                "sys": 123,
+                "dia": 78,
+                "pulse": 68,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b40",
+                "date": "2026-09-02",
+                "time": "07:25",
+                "sys": 122,
+                "dia": 82,
+                "pulse": 66,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b41",
+                "date": "2026-09-03",
+                "time": "08:21",
+                "sys": 129,
+                "dia": 80,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b42",
+                "date": "2026-09-03",
+                "time": "19:57",
+                "sys": 121,
+                "dia": 81,
+                "pulse": 74,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b43",
+                "date": "2026-09-04",
+                "time": "08:28",
+                "sys": 122,
+                "dia": 76,
+                "pulse": 66,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b44",
+                "date": "2026-09-04",
+                "time": "19:50",
+                "sys": 123,
+                "dia": 74,
+                "pulse": 69,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b45",
+                "date": "2026-09-05",
+                "time": "08:39",
+                "sys": 133,
+                "dia": 79,
+                "pulse": 74,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b46",
+                "date": "2026-09-05",
+                "time": "19:36",
+                "sys": 129,
+                "dia": 79,
+                "pulse": 66,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b47",
+                "date": "2026-09-07",
+                "time": "07:21",
+                "sys": 132,
+                "dia": 77,
+                "pulse": 70,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b48",
+                "date": "2026-09-08",
+                "time": "08:08",
+                "sys": 128,
+                "dia": 79,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b49",
+                "date": "2026-09-08",
+                "time": "20:33",
+                "sys": 128,
+                "dia": 78,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b50",
+                "date": "2026-09-09",
+                "time": "07:49",
+                "sys": 134,
+                "dia": 84,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b51",
+                "date": "2026-09-09",
+                "time": "19:40",
+                "sys": 120,
+                "dia": 82,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b52",
+                "date": "2026-09-10",
+                "time": "07:44",
+                "sys": 134,
+                "dia": 82,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b53",
+                "date": "2026-09-10",
+                "time": "20:37",
+                "sys": 120,
+                "dia": 79,
+                "pulse": 69,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b54",
+                "date": "2026-09-11",
+                "time": "08:31",
+                "sys": 131,
+                "dia": 82,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b55",
+                "date": "2026-09-11",
+                "time": "19:45",
+                "sys": 127,
+                "dia": 82,
+                "pulse": 72,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b56",
+                "date": "2026-09-12",
+                "time": "08:04",
+                "sys": 138,
+                "dia": 79,
+                "pulse": 65,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b57",
+                "date": "2026-09-12",
+                "time": "19:56",
+                "sys": 119,
+                "dia": 82,
+                "pulse": 74,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b58",
+                "date": "2026-09-13",
+                "time": "07:36",
+                "sys": 130,
+                "dia": 84,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b59",
+                "date": "2026-09-14",
+                "time": "08:10",
+                "sys": 125,
+                "dia": 84,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b60",
+                "date": "2026-09-15",
+                "time": "08:30",
+                "sys": 133,
+                "dia": 81,
+                "pulse": 62,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b61",
+                "date": "2026-09-16",
+                "time": "08:28",
+                "sys": 132,
+                "dia": 81,
+                "pulse": 66,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b62",
+                "date": "2026-09-17",
+                "time": "07:37",
+                "sys": 130,
+                "dia": 76,
+                "pulse": 62,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b63",
+                "date": "2026-09-18",
+                "time": "19:43",
+                "sys": 124,
+                "dia": 77,
+                "pulse": 64,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b64",
+                "date": "2026-09-20",
+                "time": "08:24",
+                "sys": 133,
+                "dia": 77,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b65",
+                "date": "2026-09-20",
+                "time": "19:10",
+                "sys": 124,
+                "dia": 80,
+                "pulse": 75,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b66",
+                "date": "2026-09-21",
+                "time": "07:57",
+                "sys": 132,
+                "dia": 78,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b67",
+                "date": "2026-09-22",
+                "time": "20:12",
+                "sys": 131,
+                "dia": 79,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b68",
+                "date": "2026-09-23",
+                "time": "07:51",
+                "sys": 127,
+                "dia": 76,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b69",
+                "date": "2026-09-24",
+                "time": "07:52",
+                "sys": 128,
+                "dia": 82,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b70",
+                "date": "2026-09-25",
+                "time": "07:24",
+                "sys": 137,
+                "dia": 80,
+                "pulse": 65,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b71",
+                "date": "2026-09-26",
+                "time": "07:29",
+                "sys": 129,
+                "dia": 83,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b72",
+                "date": "2026-09-26",
+                "time": "20:32",
+                "sys": 122,
+                "dia": 82,
+                "pulse": 68,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b73",
+                "date": "2026-09-27",
+                "time": "08:25",
+                "sys": 130,
+                "dia": 84,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b74",
+                "date": "2026-09-28",
+                "time": "07:22",
+                "sys": 124,
+                "dia": 80,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b75",
+                "date": "2026-09-28",
+                "time": "19:51",
+                "sys": 130,
+                "dia": 82,
+                "pulse": 65,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b76",
+                "date": "2026-09-29",
+                "time": "07:20",
+                "sys": 128,
+                "dia": 76,
+                "pulse": 67,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b77",
+                "date": "2026-09-29",
+                "time": "20:07",
+                "sys": 118,
+                "dia": 77,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b78",
+                "date": "2026-10-01",
+                "time": "07:55",
+                "sys": 131,
+                "dia": 77,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b79",
+                "date": "2026-10-04",
+                "time": "08:31",
+                "sys": 133,
+                "dia": 81,
+                "pulse": 63,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b80",
+                "date": "2026-10-05",
+                "time": "07:30",
+                "sys": 132,
+                "dia": 81,
+                "pulse": 66,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b81",
+                "date": "2026-10-05",
+                "time": "19:56",
+                "sys": 123,
+                "dia": 81,
+                "pulse": 67,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b82",
+                "date": "2026-10-06",
+                "time": "07:56",
+                "sys": 123,
+                "dia": 79,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b83",
+                "date": "2026-10-06",
+                "time": "19:57",
+                "sys": 118,
+                "dia": 79,
+                "pulse": 75,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b84",
+                "date": "2026-10-07",
+                "time": "19:43",
+                "sys": 125,
+                "dia": 80,
+                "pulse": 69,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b85",
+                "date": "2026-10-08",
+                "time": "07:49",
+                "sys": 130,
+                "dia": 81,
+                "pulse": 65,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b86",
+                "date": "2026-10-09",
+                "time": "07:58",
+                "sys": 138,
+                "dia": 84,
+                "pulse": 68,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b87",
+                "date": "2026-10-10",
+                "time": "20:23",
+                "sys": 124,
+                "dia": 76,
+                "pulse": 66,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b88",
+                "date": "2026-10-11",
+                "time": "08:10",
+                "sys": 135,
+                "dia": 79,
+                "pulse": 73,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b89",
+                "date": "2026-10-12",
+                "time": "07:46",
+                "sys": 129,
+                "dia": 78,
+                "pulse": 75,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b90",
+                "date": "2026-10-13",
+                "time": "07:23",
+                "sys": 123,
+                "dia": 81,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b91",
+                "date": "2026-10-13",
+                "time": "19:12",
+                "sys": 118,
+                "dia": 77,
+                "pulse": 68,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b92",
+                "date": "2026-10-14",
+                "time": "08:03",
+                "sys": 129,
+                "dia": 79,
+                "pulse": 71,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b93",
+                "date": "2026-10-15",
+                "time": "08:37",
+                "sys": 122,
+                "dia": 79,
+                "pulse": 74,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b94",
+                "date": "2026-10-15",
+                "time": "20:02",
+                "sys": 118,
+                "dia": 79,
+                "pulse": 70,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b95",
+                "date": "2026-10-16",
+                "time": "19:57",
+                "sys": 119,
+                "dia": 77,
+                "pulse": 70,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b96",
+                "date": "2026-10-17",
+                "time": "07:34",
+                "sys": 133,
+                "dia": 80,
+                "pulse": 69,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b97",
+                "date": "2026-10-18",
+                "time": "08:09",
+                "sys": 123,
+                "dia": 81,
+                "pulse": 63,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b98",
+                "date": "2026-10-19",
+                "time": "07:37",
+                "sys": 135,
+                "dia": 84,
+                "pulse": 70,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b99",
+                "date": "2026-10-19",
+                "time": "20:36",
+                "sys": 126,
+                "dia": 77,
+                "pulse": 70,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b100",
+                "date": "2026-10-20",
+                "time": "07:20",
+                "sys": 134,
+                "dia": 76,
+                "pulse": 64,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b101",
+                "date": "2026-10-20",
+                "time": "20:31",
+                "sys": 129,
+                "dia": 79,
+                "pulse": 73,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b102",
+                "date": "2026-10-21",
+                "time": "19:12",
+                "sys": 128,
+                "dia": 75,
+                "pulse": 73,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b103",
+                "date": "2026-10-22",
+                "time": "08:15",
+                "sys": 142,
+                "dia": 83,
+                "pulse": 72,
+                "ctx": "rano",
+                "note": ""
+            },
+            {
+                "id": "b104",
+                "date": "2026-10-22",
+                "time": "19:17",
+                "sys": 124,
+                "dia": 75,
+                "pulse": 73,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b105",
+                "date": "2026-10-23",
+                "time": "20:24",
+                "sys": 123,
+                "dia": 77,
+                "pulse": 70,
+                "ctx": "wieczór",
+                "note": ""
+            },
+            {
+                "id": "b106",
+                "date": "2026-10-02",
+                "time": "18:05",
+                "sys": 184,
+                "dia": 112,
+                "pulse": 96,
+                "ctx": "inne",
+                "note": "po wysiłku"
+            },
+            {
+                "id": "b107",
+                "date": "2026-10-02",
+                "time": "18:20",
+                "sys": 152,
+                "dia": 94,
+                "pulse": 82,
+                "ctx": "inne",
+                "note": "kontrolnie po 15 minutach"
+            }
+        ],
+        "analyses": [],
+        "ecgs": [],
+        "timerEnd": 0,
+        "timerMed": "",
+        "timerNote": ""
+    },
+    "profiles": [
+        {
+            "data": {
+                "v": 3,
+                "patient": "Ola Przykładowa",
+                "created": "2026-08-19",
+                "lastBackup": null,
+                "settings": {
+                    "rp": {
+                        "bp": true,
+                        "labs": true,
+                        "labsPeriod": false,
+                        "meds": true,
+                        "plan": true,
+                        "events": true,
+                        "analysis": true,
+                        "analysisId": "",
+                        "ecg": true
+                    },
+                    "ai": {
+                        "meds": true,
+                        "history": true,
+                        "adherence": true,
+                        "bp": true,
+                        "labs": true,
+                        "events": true,
+                        "notes": true,
+                        "ecg": true,
+                        "name": false,
+                        "context": "",
+                        "detail": 1
+                    },
+                    "lateMin": 60,
+                    "waterGoal": 10,
+                    "glassMl": 250,
+                    "hiSys": 135,
+                    "hiDia": 85,
+                    "loSys": 90,
+                    "loDia": 60,
+                    "theme": "auto",
+                    "reportNote": "",
+                    "remind": {
+                        "on": false,
+                        "lead": 0,
+                        "stock": 7,
+                        "backup": 30
+                    },
+                    "cyklOn": true,
+                    "bpOn": false
+                },
+                "rules": "",
+                "slots": [
+                    {
+                        "id": "morning",
+                        "name": "Śniadanie",
+                        "time": "08:00"
+                    },
+                    {
+                        "id": "lunch",
+                        "name": "Obiad",
+                        "time": "14:30"
+                    },
+                    {
+                        "id": "dinner",
+                        "name": "Kolacja",
+                        "time": "19:00"
+                    },
+                    {
+                        "id": "night",
+                        "name": "Przed snem",
+                        "time": "22:00"
+                    }
+                ],
+                "meds": [
+                    {
+                        "id": "lek-c",
+                        "name": "Lek C",
+                        "substance": "Substancja V",
+                        "note": "",
+                        "unit": "tabl.",
+                        "timerMin": 0,
+                        "mmol": 0,
+                        "end": null,
+                        "stock": 70,
+                        "stockDate": "2026-08-29",
+                        "phases": [
+                            {
+                                "from": "2026-08-19",
+                                "doses": {
+                                    "morning": 1
+                                },
+                                "dow": [
+                                    0,
+                                    1,
+                                    2,
+                                    3,
+                                    4,
+                                    5,
+                                    6
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "zel",
+                        "name": "Żelazo (przykład)",
+                        "substance": "",
+                        "note": "Po obiedzie",
+                        "unit": "tabl.",
+                        "timerMin": 0,
+                        "mmol": 0,
+                        "end": null,
+                        "phases": [
+                            {
+                                "from": "2026-08-19",
+                                "doses": {
+                                    "lunch": 1
+                                },
+                                "dow": [
+                                    0,
+                                    1,
+                                    2,
+                                    3,
+                                    4,
+                                    5,
+                                    6
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "events": [],
+                "markers": [
+                    {
+                        "id": "potas",
+                        "name": "Potas",
+                        "unit": "mmol/l",
+                        "lo": 3.5,
+                        "hi": 5.1,
+                        "grp": "Elektrolity"
+                    },
+                    {
+                        "id": "sod",
+                        "name": "Sód",
+                        "unit": "mmol/l",
+                        "lo": 136,
+                        "hi": 145,
+                        "grp": "Elektrolity"
+                    },
+                    {
+                        "id": "magnez",
+                        "name": "Magnez",
+                        "unit": "mmol/l",
+                        "lo": 0.7,
+                        "hi": 1.1,
+                        "grp": "Elektrolity"
+                    },
+                    {
+                        "id": "kreatynina",
+                        "name": "Kreatynina",
+                        "unit": "mg/dl",
+                        "lo": null,
+                        "hi": null,
+                        "grp": "Nerki i metabolizm"
+                    },
+                    {
+                        "id": "moczowy",
+                        "name": "Kwas moczowy",
+                        "unit": "mg/dl",
+                        "lo": null,
+                        "hi": null,
+                        "grp": "Nerki i metabolizm"
+                    },
+                    {
+                        "id": "tsh",
+                        "name": "TSH",
+                        "unit": "µIU/ml",
+                        "lo": 0.27,
+                        "hi": 4.2,
+                        "grp": "Wątroba i tarczyca"
+                    },
+                    {
+                        "id": "glukoza",
+                        "name": "Glukoza na czczo",
+                        "unit": "mmol/l",
+                        "lo": 3.9,
+                        "hi": 5.5,
+                        "grp": "Nerki i metabolizm"
+                    }
+                ],
+                "labs": [
+                    {
+                        "id": "l1",
+                        "date": "2026-09-08",
+                        "marker": "tsh",
+                        "value": 1.8,
+                        "note": ""
+                    },
+                    {
+                        "id": "l2",
+                        "date": "2026-10-18",
+                        "marker": "tsh",
+                        "value": 2.2,
+                        "note": ""
+                    },
+                    {
+                        "id": "l3",
+                        "date": "2026-09-08",
+                        "marker": "glukoza",
+                        "value": 4.8,
+                        "note": ""
+                    },
+                    {
+                        "id": "l4",
+                        "date": "2026-10-18",
+                        "marker": "glukoza",
+                        "value": 5.1,
+                        "note": ""
+                    }
+                ],
+                "days": {
+                    "2026-08-29": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:34",
+                            "zel|lunch": "15:03"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-08-30": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:40",
+                            "zel|lunch": "14:32"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-08-31": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:31",
+                            "zel|lunch": "14:35"
+                        },
+                        "skipped": {},
+                        "water": 4,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-01": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:01",
+                            "zel|lunch": "14:36"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-02": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:44",
+                            "zel|lunch": "13:59"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-03": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:15",
+                            "zel|lunch": "14:19"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-04": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:36",
+                            "zel|lunch": "13:50"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-05": {
+                        "taken": {
+                            "lek-c|morning": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:19"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-06": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:43",
+                            "zel|lunch": "13:52"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-07": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:30",
+                            "zel|lunch": "14:54"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-08": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:44",
+                            "zel|lunch": "14:36"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "Wizyta kontrolna",
+                        "results": {}
+                    },
+                    "2026-09-09": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:36",
+                            "zel|lunch": "14:18"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-10": {
+                        "taken": {
+                            "lek-c|morning": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:13"
+                        },
+                        "skipped": {
+                            "zel|lunch": {
+                                "reason": "Zapomniano",
+                                "note": ""
+                            }
+                        },
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-11": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:43",
+                            "zel|lunch": "15:01"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-12": {
+                        "taken": {
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "zel|lunch": "14:53"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-13": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:52",
+                            "zel|lunch": "14:47"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-14": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:33",
+                            "zel|lunch": "15:00"
+                        },
+                        "skipped": {},
+                        "water": 4,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-15": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:34",
+                            "zel|lunch": "13:53"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-16": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:25",
+                            "zel|lunch": "14:59"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-17": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:11",
+                            "zel|lunch": "14:28"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-18": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:14",
+                            "zel|lunch": "13:53"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-19": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:34",
+                            "zel|lunch": "14:30"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-20": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:34",
+                            "zel|lunch": "15:01"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "Gorszy sen",
+                        "results": {}
+                    },
+                    "2026-09-21": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:04",
+                            "zel|lunch": "13:50"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-22": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:28",
+                            "zel|lunch": "14:13"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-23": {
+                        "taken": {
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "zel|lunch": "14:44"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-24": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:19",
+                            "zel|lunch": "13:54"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-25": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:39",
+                            "zel|lunch": "14:04"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-26": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:36",
+                            "zel|lunch": "14:03"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-27": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:17",
+                            "zel|lunch": "13:51"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-28": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:47",
+                            "zel|lunch": "15:02"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-29": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:26",
+                            "zel|lunch": "13:58"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-09-30": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:31",
+                            "zel|lunch": "14:12"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-01": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:37",
+                            "zel|lunch": "14:26"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-02": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:20",
+                            "zel|lunch": "13:57"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-03": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:21",
+                            "zel|lunch": "14:30"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-04": {
+                        "taken": {
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "zel|lunch": "14:32"
+                        },
+                        "skipped": {
+                            "lek-c|morning": {
+                                "reason": "Zapomniano",
+                                "note": ""
+                            }
+                        },
+                        "water": 4,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-05": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:47",
+                            "zel|lunch": "14:29"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-06": {
+                        "taken": {
+                            "lek-c|morning": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:09"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-07": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:23",
+                            "zel|lunch": "15:02"
+                        },
+                        "skipped": {},
+                        "water": 7,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-08": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:44",
+                            "zel|lunch": "14:25"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-09": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:46",
+                            "zel|lunch": "14:29"
+                        },
+                        "skipped": {},
+                        "water": 4,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-10": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:45",
+                            "zel|lunch": "14:22"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-11": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:20",
+                            "zel|lunch": "14:27"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-12": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:27",
+                            "zel|lunch": "13:59"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-13": {
+                        "taken": {
+                            "lek-c|morning": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:34"
+                        },
+                        "skipped": {},
+                        "water": 8,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-14": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:28",
+                            "zel|lunch": "14:37"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-15": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:11",
+                            "zel|lunch": "14:31"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-16": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:16",
+                            "zel|lunch": "14:02"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-17": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:07",
+                            "zel|lunch": "14:29"
+                        },
+                        "skipped": {},
+                        "water": 10,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-18": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:33",
+                            "zel|lunch": "13:54"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-19": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:00",
+                            "zel|lunch": "14:13"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-20": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:14",
+                            "zel|lunch": "14:38"
+                        },
+                        "skipped": {},
+                        "water": 6,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-21": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "08:23",
+                            "zel|lunch": "14:56"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-22": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:24",
+                            "zel|lunch": "14:50"
+                        },
+                        "skipped": {},
+                        "water": 9,
+                        "note": "",
+                        "results": {}
+                    },
+                    "2026-10-23": {
+                        "taken": {
+                            "lek-c|morning": 1,
+                            "zel|lunch": 1
+                        },
+                        "times": {
+                            "lek-c|morning": "07:58",
+                            "zel|lunch": "14:59"
+                        },
+                        "skipped": {},
+                        "water": 5,
+                        "note": "",
+                        "results": {}
+                    }
+                },
+                "bp": [],
+                "analyses": [],
+                "ecgs": [],
+                "timerEnd": 0,
+                "timerMed": "",
+                "timerNote": "",
+                "cykl": {
+                    "db": {
+                        "entries": [
+                            {
+                                "type": "period_start",
+                                "date": "2026-02-09"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-02-09",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-02-10",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-02-11",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-02-12",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-02-13",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-02-13"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-02-09",
+                                "value": 1
+                            },
+                            {
+                                "type": "lh",
+                                "date": "2026-02-23",
+                                "result": "pos"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-02-21"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-02-21"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-03-10"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-03-10",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-03-11",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-03-12",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-03-13",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-03-14",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-03-14"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-03-10",
+                                "value": 1
+                            },
+                            {
+                                "type": "spotting",
+                                "date": "2026-03-24"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-03-21"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-03-21"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-03-29"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-04-07"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-04-07",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-04-08",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-04-09",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-04-10",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-04-11",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-04-11"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-04-07",
+                                "value": 3
+                            },
+                            {
+                                "type": "lh",
+                                "date": "2026-04-23",
+                                "result": "pos"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-04-21"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-04-21"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-05-08"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-05-08",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-05-09",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-05-10",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-05-11",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-05-12",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-05-12"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-05-08",
+                                "value": 3
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-05-18"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-05-18"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-05-26"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-06-04"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-06-04",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-06-05",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-06-06",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-06-07",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-06-08",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-06-08"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-06-04",
+                                "value": 2
+                            },
+                            {
+                                "type": "lh",
+                                "date": "2026-06-19",
+                                "result": "pos"
+                            },
+                            {
+                                "type": "spotting",
+                                "date": "2026-06-20"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-06-17"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-06-17"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-07-04"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-07-04",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-07-05",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-07-06",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-07-07",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-07-08",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-07-08"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-07-04",
+                                "value": 2
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-07-16"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-07-16"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-07-24"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-08-02"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-02",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-03",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-04",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-05",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-06",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-08-06"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-08-02",
+                                "value": 2
+                            },
+                            {
+                                "type": "lh",
+                                "date": "2026-08-15",
+                                "result": "pos"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-08-13"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-08-13"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-08-30"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-30",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-08-31",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-09-01",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-09-02",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-09-03",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-09-03"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-08-30",
+                                "value": 3
+                            },
+                            {
+                                "type": "spotting",
+                                "date": "2026-09-15"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-09-12"
+                            },
+                            {
+                                "type": "protected",
+                                "date": "2026-09-12"
+                            },
+                            {
+                                "type": "sex",
+                                "date": "2026-09-20"
+                            },
+                            {
+                                "type": "period_start",
+                                "date": "2026-09-29"
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-09-29",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-09-30",
+                                "value": 3
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-10-01",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-10-02",
+                                "value": 2
+                            },
+                            {
+                                "type": "flow",
+                                "date": "2026-10-03",
+                                "value": 1
+                            },
+                            {
+                                "type": "period_end",
+                                "date": "2026-10-03"
+                            },
+                            {
+                                "type": "pain",
+                                "date": "2026-09-29",
+                                "value": 3
+                            }
+                        ],
+                        "cycles": {},
+                        "settings": {
+                            "ageBand": "26-41"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

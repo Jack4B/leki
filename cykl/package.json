@@ -1,0 +1,11 @@
+{
+  "name": "cykl",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/core.test.ts test/predict.test.ts test/health.test.ts test/ui.test.ts test/bundle.test.mjs"
+  }
+}

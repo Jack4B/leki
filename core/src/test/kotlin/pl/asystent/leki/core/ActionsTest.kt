@@ -47,7 +47,7 @@ class ActionsTest {
     }
 
     @Test fun markAllAndStats() {
-        val s = base().markAll(today, today, now)
+        val s = base().markAll(today, today, java.time.LocalDateTime.of(today, java.time.LocalTime.of(23, 59)))
         val st = s.dayStats(today)
         assertEquals(2, st.tot); assertEquals(2, st.n); assertTrue(st.complete)
     }

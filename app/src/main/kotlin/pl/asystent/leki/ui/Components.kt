@@ -62,9 +62,15 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -107,14 +113,14 @@ fun Divider() {
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composable RowScope.() -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 26.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f, fill = false))
+        Text(text, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f, fill = false).semantics { heading() })
         if (action != null) action()
     }
 }
 
 @Composable
-fun Hint(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier, style = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, color = pal.ink3))
+fun Hint(text: String, modifier: Modifier = Modifier, live: Boolean = false) {
+    Text(text, modifier = if (live) modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite } else modifier, style = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, color = pal.ink3))
 }
 
 @Composable
@@ -298,13 +304,13 @@ private fun PickerBox(text: String, placeholder: Boolean, onClick: () -> Unit) {
 /** Rząd przycisków do wyboru jednej opcji. */
 @Composable
 fun SegRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().clip(CtlShape).border(1.dp, pal.line, CtlShape).background(pal.surface)) {
+    Row(modifier.fillMaxWidth().clip(CtlShape).border(1.dp, pal.line, CtlShape).background(pal.surface).selectableGroup()) {
         options.forEachIndexed { i, o ->
             val on = i == selected
             Box(
                 // dłuższe etykiety dostają szerszy segment, żeby nie zmniejszać ich bez potrzeby
                 Modifier.weight(o.length + 4f).heightIn(min = 48.dp).background(if (on) pal.accent else pal.surface)
-                    .clickable(role = Role.RadioButton) { onSelect(i) }.padding(horizontal = 4.dp),
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }).padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 FitText(o, TextStyle(fontSize = 14.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
@@ -319,17 +325,20 @@ private fun Modifier.width1() = this.then(Modifier.size(width = 1.dp, height = 4
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
-            .background(if (selected) pal.accent else pal.surface).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
+        Modifier.heightIn(min = 48.dp).toggleable(value = selected, role = Role.Checkbox, onValueChange = { onClick() }),
         contentAlignment = Alignment.Center,
-    ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) }
+    ) { Box(
+        Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
+            .background(if (selected) pal.accent else pal.surface).padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) } }
 }
 
 /** Wiersz z polem wyboru (lista opcji). */
 @Composable
 fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subtitle: String? = null, indent: Boolean = false) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Checkbox) { onChange(!checked) }.padding(start = if (indent) 42.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = checked, role = Role.Checkbox, onValueChange = { onChange(it) }).padding(start = if (indent) 42.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -443,6 +452,9 @@ fun FullScreenDialog(title: String, onClose: () -> Unit, footer: (@Composable ()
     DisposableEffect(key) { onDispose { host.remove(key) } }
 }
 
+/** Imię wybranej osoby, gdy w aplikacji jest więcej niż jedna (null przy jednej osobie). */
+val LocalPersonName = staticCompositionLocalOf<String?> { null }
+
 @Composable
 fun FullScreenBody(title: String, onClose: () -> Unit, footer: (@Composable () -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
     androidx.activity.compose.BackHandler(onBack = onClose)
@@ -452,7 +464,11 @@ fun FullScreenBody(title: String, onClose: () -> Unit, footer: (@Composable () -
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose).semantics { contentDescription = "Zamknij" }, contentAlignment = Alignment.Center) {
                     PhIcon(Ph.X, size = 22.dp, tint = pal.ink)
                 }
-                Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(start = 8.dp))
+                // przy kilku osobach w pełnoekranowym edytorze widać, czyje dane są zmieniane
+                Column(Modifier.padding(start = 8.dp).weight(1f)) {
+                    Text(title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                    LocalPersonName.current?.let { Text("Osoba: $it", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontSize = 12.sp, color = pal.ink3)) }
+                }
             }
             Divider()
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
@@ -474,7 +490,7 @@ fun ProgressBar(fraction: Float, modifier: Modifier = Modifier) {
 
 @Composable
 fun ErrorText(text: String) {
-    if (text.isNotEmpty()) Text(text, style = TextStyle(fontSize = 13.sp, color = pal.danger))
+    if (text.isNotEmpty()) Text(text, modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }, style = TextStyle(fontSize = 13.sp, color = pal.danger))
 }
 
 fun parseDecimal(s: String): Double? = parseNum(s)
@@ -505,30 +521,34 @@ fun DropdownField(label: String, options: List<Pair<String, String>>, selectedId
 
 /** Przełączana pigułka z ptaszkiem (wybór wielu opcji). */
 @Composable
-fun ToggleChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
-            .background(if (selected) pal.accentSoft else pal.surface).clickable(role = Role.Checkbox, onClick = onClick).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (selected) { Icon(Ph.Check, null, Modifier.size(15.dp), tint = pal.accent); Spacer(Modifier.size(6.dp)) }
-        Text(text, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accent else pal.ink2))
+fun ToggleChip(text: String, selected: Boolean, role: Role = Role.Checkbox, onClick: () -> Unit) {
+    // zewnętrzny obszar dotyku ma 48 dp, widoczny „chip” jest niższy
+    Box(Modifier.heightIn(min = 48.dp).toggleable(value = selected, role = role, onValueChange = { onClick() }), contentAlignment = Alignment.CenterStart) {
+        Row(
+            Modifier.heightIn(min = 36.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
+                .background(if (selected) pal.accentSoft else pal.surface).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) { Icon(Ph.Check, null, Modifier.size(15.dp), tint = pal.accent); Spacer(Modifier.size(6.dp)) }
+            Text(text, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accent else pal.ink2))
+        }
     }
 }
 
 /** Mały nagłówek grupy nad listą. */
 @Composable
 fun Overline(text: String, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), modifier = modifier.padding(bottom = 8.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp))
+    Text(text.uppercase(), modifier = modifier.padding(bottom = 8.dp).semantics { heading() }, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp))
 }
 
 /** Przycisk z samą ikoną (np. kalendarz, wstecz). */
 @Composable
-fun IconAction(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = true) {
+fun IconAction(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, tonal: Boolean = true, selected: Boolean = false) {
     Box(
-        modifier.size(44.dp).clip(CircleShape).background(if (tonal) pal.accentSoft else Color.Transparent).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = description },
+        modifier.size(48.dp).clip(CircleShape).background(if (selected) pal.accent else if (tonal) pal.accentSoft else Color.Transparent).clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description; if (selected) stateDescription = "Otwarte" },
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, Modifier.size(22.dp), tint = if (tonal) pal.accent else pal.ink) }
+    ) { Icon(icon, null, Modifier.size(22.dp), tint = if (selected) pal.accentInk else if (tonal) pal.accent else pal.ink) }
 }
 
 /** Ikona w kolorowym kółku, np. przy wierszu ustawień. */

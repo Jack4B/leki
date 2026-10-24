@@ -82,10 +82,12 @@ data class ReportParts(
     val analysis: Boolean = true,
     /** Czy dołączyć zapisy EKG z zegarka z wybranego okresu. */
     val ecg: Boolean = true,
+    /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (tylko gdy moduł ma dane; domyślnie wyłączone). */
+    val cykl: Boolean = false,
     /** Id wybranej analizy; puste = najnowsza. */
     val analysisId: String = "",
 ) {
-    val any get() = bp || labs || meds || plan || events || analysis || ecg
+    val any get() = bp || labs || meds || plan || events || analysis || ecg || cykl
 }
 
 /**
@@ -104,6 +106,8 @@ data class AiParts(
     val notes: Boolean = true,
     /** Czy dołączyć zapisy EKG z zegarka (wskaźniki i odstępy RR, bez surowego przebiegu). */
     val ecg: Boolean = true,
+    /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (domyślnie wyłączone). */
+    val cykl: Boolean = false,
     val name: Boolean = false,
     val context: String = "",
     /** Szczegółowość odpowiedzi, o którą prosi polecenie: 0 = krótko (ok. 350 słów), 1 = szczegółowo (ok. 1000 słów). */
@@ -120,7 +124,7 @@ data class Settings(
     val glassMl: Int = 250,
     val hiSys: Int = 135,
     val hiDia: Int = 85,
-    val loSys: Int = 100,
+    val loSys: Int = 90,
     val loDia: Int = 60,
     val theme: ThemeMode = ThemeMode.Auto,
     val reportNote: String = "",
@@ -130,7 +134,20 @@ data class Settings(
     val stockWarnDays: Int = 7,
     /** Przypomnienie o kopii zapasowej, gdy ostatnia jest starsza niż tyle dni (0 = wyłączone). */
     val backupRemindDays: Int = 30,
-)
+    /** Moduł „Cykl” (dziennik cyklu) jest opcjonalny: domyślnie ukryty, dane zostają po jego ukryciu. */
+    val cyklOn: Boolean = false,
+    /** Dziennik cyklu wspólny z inną osobą: jej identyfikator w aplikacji (w pliku kopii: „#numer” osoby); puste = własny dziennik. */
+    val cyklFrom: String = "",
+    /** Zakładka „Ciśnienie” jest widoczna (osoba, która nie mierzy ciśnienia, może ją ukryć; dane zostają). */
+    val bpOn: Boolean = true,
+    /** Zakładka „Badania” (wyniki i EKG) jest widoczna. */
+    val labsOn: Boolean = true,
+) {
+    /** Części raportu dla lekarza z uwzględnieniem ukrytych modułów: ukryty moduł nie trafia do raportu, nawet jeśli pigułka była włączona. */
+    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn, cykl = rp.cykl && cyklOn)
+    /** To samo dla tekstu dla AI. */
+    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn, cykl = ai.cykl && cyklOn)
+}
 
 data class AppState(
     val patient: String = "",
@@ -151,6 +168,8 @@ data class AppState(
     val timerEnd: Long = 0,
     val timerMed: String = "",
     val timerNote: String = "",
+    /** Baza modułu „Cykl” (dane zdrowotne, tylko na tym urządzeniu i w kopii zapasowej). */
+    val cykl: CyklData = CyklData(),
 ) {
     fun day(d: LocalDate): DayRec = days[d] ?: DayRec()
     fun med(id: String): Med? = meds.firstOrNull { it.id == id }
@@ -178,11 +197,12 @@ object Defaults {
     )
 
     fun markers() = listOf(
-        Marker("potas", "Potas", "mmol/l", 3.5, 5.5, "Elektrolity"),
-        Marker("sod", "Sód", "mmol/l", 136.0, 146.0, "Elektrolity"),
+        Marker("potas", "Potas", "mmol/l", 3.5, 5.1, "Elektrolity"),
+        Marker("sod", "Sód", "mmol/l", 136.0, 145.0, "Elektrolity"),
         Marker("magnez", "Magnez", "mmol/l", 0.7, 1.1, "Elektrolity"),
-        Marker("kreatynina", "Kreatynina", "mg/dl", 0.67, 1.17, "Nerki i metabolizm"),
-        Marker("moczowy", "Kwas moczowy", "mg/dl", 3.5, 7.2, "Nerki i metabolizm"),
+        // zakresy kreatyniny i kwasu moczowego zależą od płci i laboratorium, więc nie ma domyślnych: wpisz je z wyniku
+        Marker("kreatynina", "Kreatynina", "mg/dl", null, null, "Nerki i metabolizm"),
+        Marker("moczowy", "Kwas moczowy", "mg/dl", null, null, "Nerki i metabolizm"),
     )
 
     /** Grupy znanych parametrów (także z plików wyników przygotowanych w innych narzędziach). */

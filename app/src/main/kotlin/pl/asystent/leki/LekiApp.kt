@@ -9,15 +9,16 @@ class LekiApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        store = Store(filesDir) { s ->
-            Reminders.reschedule(this, s)
-            runCatching { BpWidget.refresh(this, s) }
-            // automatyczna kopia do wybranego folderu (gdy włączona i należna); po sukcesie oznaczamy datę ostatniej kopii w danych
-            runCatching { AutoBackup.maybeRun(this, s) { d -> store.update { it.copy(lastBackup = d) } } }
+        store = Store(filesDir) { st ->
+            Reminders.reschedule(this, Reminders.people(st))
+            runCatching { BpWidget.refresh(this, st.state.value) }
+            // automatyczna kopia do wybranego folderu (gdy włączona i należna): obejmuje wszystkie osoby; po sukcesie oznaczamy datę ostatniej kopii;
+            // wstrzymana, gdy któraś osoba została odtworzona po uszkodzonym pliku (pusta osoba wyparłaby rotacją dobre kopie)
+            if (!st.hasRecovery) runCatching { AutoBackup.maybeRun(this, st.exportStates()) { d -> st.markBackup(d) } }
         }
         runCatching { Reminders.ensureChannel(this) }
         // błąd alarmów (np. cofnięta zgoda, limit alarmów) nie może uniemożliwiać uruchomienia aplikacji
-        runCatching { Reminders.reschedule(this, store.state.value) }
+        runCatching { Reminders.reschedule(this, Reminders.people(store)) }
         // pliki tymczasowe z udostępniania i aparatu (kopie danych, zdjęcia wyników) nie zostają na dysku po zamknięciu aplikacji
         Thread { runCatching { listOf("share", "camera").forEach { java.io.File(cacheDir, it).deleteRecursively() } } }.start()
     }
