@@ -53,7 +53,7 @@ export const start = (): void => {
     }
     toastEl.className = "toast show";
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => { toastEl.className = "toast"; }, withUndo ? 5000 : 2600);
+    toastTimer = window.setTimeout(() => { toastEl.className = "toast"; }, withUndo ? 9000 : 2600);
   };
   const showSheet = (h: { value: string }): void => { sheet.innerHTML = `<div class="grab"></div>${h.value}`; sheet.hidden = false; mask.hidden = false; };
   const closeSheet = (): void => { sheet.hidden = true; mask.hidden = true; };

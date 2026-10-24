@@ -73,7 +73,7 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
     <section class="card"><h2>Zapisz dziś</h2><div class="quick">
       ${quick("sex", "Stosunek", f.sex)}${quick("protected", "Zabezpieczone", f.prot)}${quick("him", "Solo — partner/ka", f.solo)}
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
-      ${inf.bleed || f.start ? quick("period_end", "Koniec okresu", f.end) : quick("period_start", "Start okresu", f.start)}</div>
+      ${f.start ? quick("period_start", "Start okresu", true) : ""}${inf.bleed || f.start ? quick("period_end", "Koniec okresu", f.end) : quick("period_start", "Start okresu", false)}</div>
       <button class="btn sec" data-act="day" data-date="${t}">Więcej: ból, obfitość, notatka</button></section>
     <p class="note">Prognoza statystyczna (owulacja ≈ 14 dni przed okresem, wagi dni wg badań Wilcox i wsp. 1995). Nie jest antykoncepcją ani diagnozą.</p>`;
 };

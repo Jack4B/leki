@@ -49,6 +49,13 @@ describe("widoki (czyste renderery)", () => {
     assert.ok(!host.includes("Wygląd") && !host.includes('data-act="theme"') && !host.includes("przeglądarce"));
     assert.ok(host.includes("Kopie zapasowe i dane"));
   });
+  test("Dziś: po zapisaniu startu okresu kafelek startu zostaje (jego dotknięcie cofa pomyłkę), obok jest koniec okresu", () => {
+    const st = mkState("dzis");
+    const today = st.today;
+    const db = { ...st.db, entries: [...st.db.entries.filter((e) => !(e.date === today && e.type === "period_start")), { type: "period_start", date: today }] };
+    const out = renderTab({ ...st, db }).value;
+    assert.ok(out.includes('data-type="period_start"') && out.includes('data-type="period_end"'));
+  });
   test("arkusz dnia i raport escapują notatkę i dane zdrowotne", () => {
     const s = mkState("dane");
     const sheet = sheetDay(analyze(s.db, s.today), "2031-10-20").value;

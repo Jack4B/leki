@@ -12,6 +12,7 @@ Przebudowa pod **kilka osób** w jednej aplikacji (np. osoba prowadząca dane i 
 - **Cykl w raportach:** opcjonalne **„Podsumowanie cyklu”** w raporcie dla lekarza i dla AI (widoczne, gdy moduł ma dane; domyślnie wyłączone): ostatni początek okresu, długości ostatnich cykli (mediana, zakres, rozrzut), typowy czas krwawienia, przerwy powyżej 90 dni oraz choroby i leki wpisane w module. Opisowe, bez rozpoznania; wpisy intymne nigdy nie trafiają do raportów.
 - Moduł Cykl: strona przypięta do osoby, która była wybrana, gdy ją otwarto (zapisy trafiają do właściwej osoby nawet po przełączeniu); popraw. układu klawiatury (patrz 0.11.1).
 - **Wpisy solo poza raportami:** tekst raportu w module (zakładka Dane → „Kopiuj raport”, „Pobierz .txt”) nie zawiera już wpisów solo (masturbacji), także po zaznaczeniu dat (zostają stosunki); pole „Dołącz daty stosunków”. Wpisy solo zostają tylko w dzienniku i w kopii zapasowej. 1 nowy test modułu (75).
+- **Pomyłkowy „Start okresu” da się cofnąć:** po dotknięciu kafelka „Start okresu” (Dziś → Zapisz dziś) kafelek zostawał zastąpiony „Koniec okresu” i nie było jak wycofać zapisu. Teraz oba kafelki są widoczne, a ponowne dotknięcie „Start okresu” usuwa wpis; okno „Cofnij” po zapisie trwa 9 s zamiast 5. Zawsze można też otworzyć dzień w Kalendarzu i wyłączyć „Start okresu”. 1 nowy test modułu (76).
 - `core`: `Backup.exportAll` / `parseAll` (do 8 osób), `Cykl.brief` i `Cykl.briefLines`, pola `rp.cykl` i `ai.cykl`; 5 nowych testów.
 
 ## 0.11.1-preview
