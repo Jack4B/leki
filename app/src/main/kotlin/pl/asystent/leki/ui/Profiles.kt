@@ -142,9 +142,15 @@ fun PeopleSection(s: AppState, store: Store) {
                     PersonAvatar(info.name, size = 36)
                     Column(Modifier.weight(1f)) {
                         Text(info.name + if (info.id == activeId) " (teraz)" else "", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        // tylko to, co ma dane (zera nic nie mówią)
+                        val parts = listOfNotNull(
+                            st.meds.size.takeIf { it > 0 }?.let { "$it ${plN(it, "lek", "leki", "leków")}" },
+                            st.bp.size.takeIf { it > 0 }?.let { "$it ${plN(it, "pomiar", "pomiary", "pomiarów")} ciśnienia" },
+                            st.labs.size.takeIf { it > 0 }?.let { "$it ${plN(it, "wynik", "wyniki", "wyników")} badań" },
+                            if (st.settings.cyklOn || !st.cykl.isEmpty) "dziennik cyklu" else null,
+                        )
                         Text(
-                            "${st.meds.size} ${plN(st.meds.size, "lek", "leki", "leków")}, ${st.bp.size} ${plN(st.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${st.labs.size} ${plN(st.labs.size, "wynik", "wyniki", "wyników")}" +
-                                if (st.settings.cyklOn || !st.cykl.isEmpty) ", dziennik cyklu" else "",
+                            parts.joinToString(", ").ifEmpty { "Brak danych" },
                             style = TextStyle(fontSize = 12.5.sp, color = pal.ink3),
                         )
                     }
