@@ -20,9 +20,7 @@ h2{font-weight:600}
 .btn:not(.sec):not(.danger){background:var(--green);color:var(--surface)}
 :root[data-theme="dark"] .btn:not(.sec):not(.danger){color:#06201a}
 .q.on{background:var(--green);border-color:var(--green);color:var(--surface)}
-.q.on i{background:var(--surface)}
 :root[data-theme="dark"] .q.on{color:#06201a}
-.day.today{border-color:var(--green)}
 .rnow{fill:var(--green)}
 .tabs{background:var(--surface);border-top:1px solid var(--line)}
 .tabs button{color:var(--mute)}
@@ -47,14 +45,6 @@ body{padding-top:calc(76px + env(safe-area-inset-top,0px))}
 
 /* Czytelność kalendarza i wykresów (zwłaszcza w ciemnym motywie): komórki szansy mają te same barwy co legenda, osie i etykiety mają kontrast */
 :root[data-theme="dark"]{--green-bg:#1f5646;--green-soft:#183d31;--line2:#3d5248}
-.day.lv-high{background:var(--green);color:var(--surface);font-weight:800}
-:root[data-theme="dark"] .day.lv-high{color:#06201a}
-.day.lv-mid{background:var(--green-bg)}
-.day.lv-high .ov{color:var(--surface)}
-:root[data-theme="dark"] .day.lv-high .ov{color:#06201a}
-.day.bleed{background:var(--rose-bg);color:var(--rose);font-weight:800}
-.dot{width:8px;height:8px}
-.dots{gap:3px}
 .track{fill:var(--line2)}
 .bleedb{opacity:1}
 .ev{stroke-width:2}
@@ -63,14 +53,10 @@ body{padding-top:calc(76px + env(safe-area-inset-top,0px))}
 .band{opacity:.2}
 .ma{stroke:var(--ink);opacity:.7}
 .sbar.lv-low{background:var(--line2)}
-.legend .sw.dashed{background:var(--pred-bg);border:2px dashed var(--rose);box-sizing:border-box}
 
 /* Kontrast i cele dotyku (przegląd UX): tekst na kapsułkach, kropki na polach, obrysy przycisków, minimum 48 px */
 :root[data-theme="dark"] .chip.high{color:#a8ecd9}
 :root[data-theme="light"] .chip.low,:root[data-theme="light"] .pill.na{color:#44564e}
-.day .dot{box-shadow:0 0 0 1.5px var(--surface)}
-.day.lv-high .dot.lh{background:var(--surface)}
-:root[data-theme="light"] .sbar.lv-mid{background:#7fb8a6}
 :root[data-theme="light"]{--line2:#7a8b83}
 :root[data-theme="dark"]{--line2:#5c7168}
 .tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -118,10 +104,73 @@ body{padding-top:calc(84px + env(safe-area-inset-top,0px))}
 .check{min-height:48px}
 input[type=text],select,.btn{min-height:48px}
 ::placeholder{color:var(--mute);opacity:1}
-.day.lv-mid{box-shadow:inset 0 0 0 1.5px var(--green)}
-:root[data-theme="light"] .sbar.lv-mid,:root[data-theme="dark"] .sbar.lv-mid{background:var(--green);opacity:.55}
 .tog.on,.seg button.on,.chipb.on{background:var(--green);border-color:var(--green);color:var(--surface)}
 :root[data-theme="dark"] .tog.on,:root[data-theme="dark"] .seg button.on,:root[data-theme="dark"] .chipb.on{color:#06201a}
 .sb:not(:first-child):not(:nth-child(5n+1)) .sl{visibility:hidden}   /* 21 etykiet nie mieści się w jednym rzędzie */
 
 .q{padding:8px 2px;font-size:12.5px;overflow-wrap:break-word}
+
+/* ===== Przegląd wyglądu: kalendarz, pola i wykresy w obu motywach =====
+   Zasada: poziom szansy rozróżnia jasność wypełnienia i kształt obramowania, nie tylko odcień.
+   wysoka = pełne wypełnienie akcentem; podwyższona = delikatne tło i cienka obwódka; niska = bez tła;
+   okres = różowe wypełnienie z cienką obwódką; prognoza okresu = przerywana obwódka; dziś = gruba obwódka akcentu. */
+:root[data-theme="light"]{
+  --field:#f1f4f2;--cal-mid-bg:#e1f0ea;--cal-mid-line:#3f8f7b;
+  --cal-bleed-bg:#f9dedc;--cal-bleed-ink:#b3261e;--cal-bleed-line:#c8574f;--cal-pred-bg:#fbeceb;
+  --track:#a8b8b0;--dot-sex:#b3261e;--dot-solo:#1f6f86;--dot-spot:#8a5200;--dot-lh:#0b6b58;
+}
+:root[data-theme="dark"]{
+  --field:#1c2924;--cal-mid-bg:#172c26;--cal-mid-line:#33806c;
+  --cal-bleed-bg:#6a2a27;--cal-bleed-ink:#ffdad6;--cal-bleed-line:#e0766f;--cal-pred-bg:#2f1d1c;
+  --track:#44574e;--dot-sex:#f2867f;--dot-solo:#6cc4d8;--dot-spot:#f0b35a;--dot-lh:#4dc2a5;
+}
+:root{--ink-on-accent:#fff}
+:root[data-theme="dark"]{--ink-on-accent:#06201a}
+
+/* komórki kalendarza */
+.day{border-width:2px;font-weight:600}
+.day.lv-high{background:var(--green);color:var(--ink-on-accent);font-weight:800}
+.day.lv-mid{background:var(--cal-mid-bg);border:1px solid var(--cal-mid-line);padding-top:4px}
+.day.bleed{background:var(--cal-bleed-bg);color:var(--cal-bleed-ink);border:1px solid var(--cal-bleed-line);padding-top:4px;font-weight:800}
+.day.pred{background:var(--cal-pred-bg);color:var(--rose);border:2px dashed var(--rose);font-weight:700}
+.day.today,.day.today.bleed,.day.today.pred{border:2px solid var(--green);padding-top:3px;font-weight:800}
+.day.today.lv-high{box-shadow:inset 0 0 0 2px var(--surface)}
+.day .ov{color:var(--green);font-size:10px;line-height:1;top:1px;right:3px}
+.nav strong{flex:1;text-align:center;padding:0 8px}
+.day.lv-high .ov{color:var(--ink-on-accent)}
+
+/* znaczniki zdarzeń: kształt zależy od rodzaju (koło, romb, kwadrat, pierścień), więc nie tylko od barwy */
+.dots{gap:3px}
+.dot{width:8px;height:8px;box-sizing:border-box;flex:0 0 auto}
+.dot.sex{background:var(--dot-sex)}
+.dot.solo{background:var(--dot-solo);transform:rotate(45deg) scale(.82);border-radius:1px}
+.dot.spot{background:var(--dot-spot);border-radius:2px}
+.dot.lh{background:transparent;border:2px solid var(--dot-lh)}
+.day .dot{box-shadow:0 0 0 1.5px var(--surface)}
+.day.lv-mid .dot,.day.bleed .dot,.day.pred .dot{box-shadow:0 0 0 1.5px var(--cal-halo,var(--surface))}
+.day.lv-mid .dot{--cal-halo:var(--cal-mid-bg)}
+.day.bleed .dot{--cal-halo:var(--cal-bleed-bg)}
+.day.pred .dot{--cal-halo:var(--cal-pred-bg)}
+.day.lv-high .dot{box-shadow:0 0 0 1.5px var(--surface)}
+.day.lv-high .dot.lh{border-color:var(--surface)}
+.day.lv-high .dot.sex,.day.lv-high .dot.solo,.day.lv-high .dot.spot{outline:0}
+@media (max-width:400px){.dot{width:7px;height:7px}.dots{gap:2px}.dot.lh{border-width:1.5px}}
+
+/* legenda: kwadraty wyglądają jak odpowiadające im komórki */
+.cal-card .legend .sw.lv-bleed{background:var(--cal-bleed-bg);border:1px solid var(--cal-bleed-line);box-sizing:border-box}
+.legend .sw.dashed{background:var(--cal-pred-bg);border:2px dashed var(--rose);box-sizing:border-box}
+.legend .sw.lv-mid{background:var(--cal-mid-line)}
+.cal-card .legend .sw.lv-mid{background:var(--cal-mid-bg);border:1px solid var(--cal-mid-line);box-sizing:border-box}
+.sbar.lv-mid{background:var(--cal-mid-line)}
+.rmid{stroke:var(--cal-mid-line);opacity:1}
+.track{fill:var(--track)}                              /* ścieżka osi cykli: odcinki okresu i okna płodnego odcinają się od niej na co najmniej 3:1 */
+
+/* pola, przyciski wyboru i tła wewnętrzne: ta sama „wklęsła” barwa co w aplikacji (w ciemnym jaśniejsza od tła, nie czarna) */
+.q,.tog,.seg button,.chipb,input[type=text],textarea,select,input[type=file],.detail,.grid2.tight .stat{background:var(--field)}
+.sel{fill:var(--field)}
+.q,.seg button{border-radius:12px}
+.q i{box-sizing:border-box;width:12px;height:12px;background:transparent;border:2px solid var(--mute)}
+.q.on i{background:currentColor;border-color:currentColor}
+input[type=checkbox]{accent-color:var(--green)}
+input[type=file]::file-selector-button{margin-right:12px;min-height:36px;padding:0 14px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--ink);font:600 13px var(--sans);cursor:pointer}
+:focus-visible{outline-color:var(--green)}

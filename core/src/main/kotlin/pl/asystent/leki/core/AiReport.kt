@@ -26,7 +26,7 @@ object AiReport {
 
     fun build(s: AppState, per: Period, today: LocalDate, now: LocalDateTime, appVersion: String): String {
         val c = s.settings
-        val A = c.ai
+        val A = c.effectiveAi()
         val ecgs = if (A.ecg) s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareBy<Ecg> { it.date }.thenBy { it.time }).takeLast(5) else emptyList()
         val L = ArrayList<String>()
         fun p(x: String = "") { L.add(x) }

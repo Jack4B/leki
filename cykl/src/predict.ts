@@ -68,15 +68,32 @@ export const FERTILITY_BY_OFFSET: Record<number, number> = {
 };
 export const MAX_FERTILITY = 0.33;
 export const HIGH = 0.15;
-export const MID = 0.02;
+export const MID = 0.04;
+/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (6 dni kończących się w dniu owulacji). */
+export const WIN_HIGH = 0.5;
+export const WIN_MID = 0.2;
 export type Level = "high" | "mid" | "low";
 export const levelOf = (f: number): Level => (f >= HIGH ? "high" : f >= MID ? "mid" : "low");
+/** „Bardzo prawdopodobne” okno płodne: ≥50% szans, że dzień jest w oknie; „możliwe”: 20–50%. */
+export const windowLevel = (q: number): Level => (q >= WIN_HIGH ? "high" : q >= WIN_MID ? "mid" : "low");
+
+/** Metoda kalendarzowa (np. Mayo Clinic, Family Planning Handbook): pierwszy dzień płodny = najkrótszy cykl − 18, ostatni = najdłuższy − 11 (z co najmniej 6 ostatnich cykli). */
+export interface CalendarRule { from: number; to: number; n: number; standardDays: boolean }
+export const calendarRule = (lengths: number[]): CalendarRule | null => {
+  const l = lengths.slice(-12);
+  if (l.length < 6) return null;
+  return { from: Math.max(1, Math.min(...l) - 18), to: Math.max(1, Math.max(...l) - 11), n: l.length, standardDays: l.slice(-6).every((x) => x >= 26 && x <= 32) };
+};
 
 export interface NextPeriod { k: number; date: string; from: string; to: string }
 export interface FertileRun { from: string; to: string; peak: string }
 export interface Prediction {
   /** Względna szansa poczęcia dla każdej daty (suma po cyklach: bieżący + 2 następne). */
   fertility: Map<string, number>;
+  /** Prawdopodobieństwo, że dzień należy do okna płodnego (6 dni kończących się w dniu owulacji); to z niego wynikają poziomy w kalendarzu. */
+  window: Map<string, number>;
+  /** Okno wg metody kalendarzowej (od 6 cykli) jako kontrola obok modelu; null przy mniejszej liczbie cykli i w trybach bez prognoz płodności. */
+  calendar: CalendarRule | null;
   nextPeriods: NextPeriod[];
   lengthMedian: number; lengthLow: number; lengthHigh: number; lengthSd: number;
   confidence: "high" | "mid" | "low";
@@ -92,11 +109,12 @@ export interface Prediction {
 
 const sd = (p: Pmf): number => { const m = pmfMean(p); let v = 0; for (const [k, x] of p) v += x * (k - m) ** 2; return Math.sqrt(v); };
 
-const addOvulationWeights = (map: Map<string, number>, ovDates: Map<string, number>): void => {
+const addOvulationWeights = (map: Map<string, number>, ovDates: Map<string, number>, win?: Map<string, number>): void => {
   for (const [ov, p] of ovDates) {
     for (let off = -5; off <= 1; off++) {
       const date = addDays(ov, off);
       map.set(date, (map.get(date) ?? 0) + p * FERTILITY_BY_OFFSET[off]!);
+      if (win) win.set(date, (win.get(date) ?? 0) + p);
     }
   }
 };
@@ -117,6 +135,7 @@ const conditionOn = (p: Pmf, min: number): Pmf | null => {
 
 export const predict = (hist: History, entries: Entry[], settings: Settings, today: string): Prediction => {
   const fertility = new Map<string, number>();
+  const win = new Map<string, number>();
   const prof = profileOf(settings.ageBand);
   const mode = settings.mode === "hormonal" || settings.mode === "pause" ? settings.mode : "normal";
   const luteal = lutealPmf(settings.lutealDays ?? 14, prof.lutealSpread);
@@ -132,17 +151,17 @@ export const predict = (hist: History, entries: Entry[], settings: Settings, tod
   // 1) cykle zakończone: owulacja wstecz od rzeczywistego następnego okresu (albo od testu LH)
   for (const c of hist.cycles) {
     const lh = lhIn(c.start, c.end);
-    if (lh) { addOvulationWeights(fertility, lhPmf(lh)); continue; }
+    if (lh) { addOvulationWeights(fertility, lhPmf(lh), win); continue; }
     const ov = new Map<string, number>();
     for (const [l, p] of luteal) addTo2(ov, addDays(c.end, -l), p);
-    addOvulationWeights(fertility, ov);
+    addOvulationWeights(fertility, ov, win);
   }
 
   const lengths = hist.cycles.map((c) => c.days);
   const base = cycleLengthPmf(lengths, settings.averageCycleLength ?? 29, prof);
   const recent = lengths.slice(-8);
   const out: Prediction = {
-    fertility, nextPeriods: [], lengthMedian: Math.round(pmfQuantile(base, 0.5)),
+    fertility, window: win, calendar: null, nextPeriods: [], lengthMedian: Math.round(pmfQuantile(base, 0.5)),
     lengthLow: Math.round(pmfQuantile(base, 0.1)), lengthHigh: Math.round(pmfQuantile(base, 0.9)),
     lengthSd: sd(base), confidence: "low", expectedOvulation: null, lhUsed: false, overdueDays: 0, nextRun: null, noForecast: false, mode,
   };
@@ -150,9 +169,10 @@ export const predict = (hist: History, entries: Entry[], settings: Settings, tod
   const raw = recent.length < 3 ? "low" : out.lengthSd <= 2.5 ? (recent.length >= 6 ? "high" : "mid") : out.lengthSd <= 4.5 ? "mid" : "low";
   const rank = { low: 0, mid: 1, high: 2 } as const;
   out.confidence = rank[raw] <= rank[prof.confCap] ? raw : prof.confCap;
-  if (mode === "pause") { fertility.clear(); out.noForecast = true; return out; }   // ciąża, połóg, karmienie: żadnych prognoz
+  if (mode === "pause") { fertility.clear(); win.clear(); out.noForecast = true; return out; }
+  if (mode === "normal") out.calendar = calendarRule(lengths);   // ciąża, połóg, karmienie: żadnych prognoz
   const last = hist.lastStart;
-  if (!last) { if (mode === "hormonal") fertility.clear(); return out; }
+  if (!last) { if (mode === "hormonal") { fertility.clear(); win.clear(); } return out; }
 
   // 2) bieżący cykl: warunkowanie na to, że okresu jeszcze nie ma (okres może zacząć się dopiero dziś lub później)
   const cycleDay = Math.max(1, diffDays(last, today) + 1);
@@ -174,7 +194,7 @@ export const predict = (hist: History, entries: Entry[], settings: Settings, tod
   if (!s0) {
     // historia nie ma tak długich cykli: prognozy z rozkładu nie ma, a wynik z rozkładu jednostajnego tylko udawałby pewność
     out.noForecast = true;
-    if (mode === "hormonal") fertility.clear();
+    if (mode === "hormonal") { fertility.clear(); win.clear(); }
     return out;
   }
 
@@ -188,12 +208,12 @@ export const predict = (hist: History, entries: Entry[], settings: Settings, tod
     });
     const ovOffsets = convolve(S, negate(luteal));
     const ovDates = new Map<string, number>();
-    if (k === 0 && lh0) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh0)); continue; }
+    if (k === 0 && lh0) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh0), win); continue; }
     // owulacja nie może wypaść w trakcie miesiączki
     const feasible = normalize(new Map([...ovOffsets].filter(([o]) => o >= hist.bleedLen)));
     const useOffsets = feasible.size ? feasible : ovOffsets;
     for (const [o, p] of useOffsets) addTo2(ovDates, addDays(last, o), p);
-    addOvulationWeights(fertility, ovDates);
+    addOvulationWeights(fertility, ovDates, win);
     if (k === 0) out.expectedOvulation = addDays(last, Math.round(pmfQuantile(useOffsets, 0.5)));
   }
   if (out.lhUsed) out.expectedOvulation = addDays(lh0!, 1);
@@ -202,16 +222,16 @@ export const predict = (hist: History, entries: Entry[], settings: Settings, tod
 
   if (mode === "hormonal") {
     // hormonalna antykoncepcja: krwawienia są prognozowane, ale szans poczęcia i owulacji nie liczymy
-    fertility.clear(); out.expectedOvulation = null; out.lhUsed = false;
+    fertility.clear(); win.clear(); out.calendar = null; out.expectedOvulation = null; out.lhUsed = false;
     return out;
   }
 
-  // 4) najbliższe okno: pierwszy ciągły przedział dni z szansą ≥ MID, który nie skończył się przed dziś
+  // 4) najbliższe okno: pierwszy ciągły przedział dni, w którym okno płodne jest co najmniej „możliwe” (≥20%), i który nie skończył się przed dziś
   const run: string[] = [];
   let found: FertileRun | null = null;
   for (let i = 0; i <= 90 && !found; i++) {
     const d = addDays(today, i);
-    if ((fertility.get(d) ?? 0) >= MID) run.push(d);
+    if ((win.get(d) ?? 0) >= WIN_MID) run.push(d);
     else if (run.length) found = mkRun(run, fertility);
   }
   if (!found && run.length) found = mkRun(run, fertility);
@@ -226,4 +246,5 @@ function mkRun(days: string[], f: Map<string, number>): FertileRun {
   return { from: days[0]!, to: days.at(-1)!, peak };
 }
 export const fertilityOn = (p: Prediction, date: string): number => p.fertility.get(date) ?? 0;
+export const windowOn = (p: Prediction, date: string): number => p.window.get(date) ?? 0;
 export const meanOf = mean;

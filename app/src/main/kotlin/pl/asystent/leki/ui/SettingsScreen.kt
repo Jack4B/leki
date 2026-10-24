@@ -86,7 +86,7 @@ import java.time.ZoneId
 
 private enum class Page(val title: String) {
     Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"),
-    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), Cykl("Moduł Cykl"), People("Osoby"), About("O aplikacji"),
+    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), Modules("Moduły aplikacji"), Cykl("Moduł Cykl"), People("Osoby"), About("O aplikacji"),
 }
 
 @Composable
@@ -164,6 +164,8 @@ fun SettingsScreen(
                     Divider()
                     NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
                     Divider()
+                    NavRow(Ph.Table, "Moduły aplikacji", moduleSummary(c)) { pageName = Page.Modules.name }
+                    Divider()
                     NavRow(Ph.CalendarBlank, "Moduł Cykl", if (!c.cyklOn) "Ukryty" else Cykl.summary(store.cyklOf(store.activeId.value).db)?.let { "Widoczny, ${it.entries} ${plN(it.entries, "wpis", "wpisy", "wpisów")}" } ?: "Widoczny, brak danych") { pageName = Page.Cykl.name }
                     Divider()
                     NavRow(Ph.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME}") { pageName = Page.About.name }
@@ -210,6 +212,7 @@ fun SettingsScreen(
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
                 Page.Security -> item { SecuritySection() }
+                Page.Modules -> item { ModulesSection(s, store) }
                 Page.Cykl -> item { CyklSection(s, store, onOpenCykl, onOpenCyklReport) }
                 Page.People -> item { PeopleSection(s, store) }
                 Page.Data -> item {
@@ -365,20 +368,22 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
             }
             Hint("Cel wody 0 wyłącza licznik wody.")
             IntField("Dawka spóźniona po (min od pory, 0 = wyłączone)", c.lateMin, { v -> setCfg { it.copy(lateMin = v) } }, 0..600)
-            Column {
-                Text("Oznaczaj ciśnienie jako podwyższone od", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IntField("", c.hiSys, { v -> setCfg { it.copy(hiSys = v) } }, 100..250, Modifier.weight(1f))
-                    IntField("", c.hiDia, { v -> setCfg { it.copy(hiDia = v) } }, 50..150, Modifier.weight(1f))
+            if (c.bpOn) {
+                Column {
+                    Text("Oznaczaj ciśnienie jako podwyższone od", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IntField("", c.hiSys, { v -> setCfg { it.copy(hiSys = v) } }, 100..250, Modifier.weight(1f))
+                        IntField("", c.hiDia, { v -> setCfg { it.copy(hiDia = v) } }, 50..150, Modifier.weight(1f))
+                    }
                 }
-            }
-            Column {
-                Text("Oznaczaj ciśnienie jako niskie poniżej", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IntField("", c.loSys, { v -> setCfg { it.copy(loSys = v) } }, 60..130, Modifier.weight(1f))
-                    IntField("", c.loDia, { v -> setCfg { it.copy(loDia = v) } }, 30..100, Modifier.weight(1f))
+                Column {
+                    Text("Oznaczaj ciśnienie jako niskie poniżej", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IntField("", c.loSys, { v -> setCfg { it.copy(loSys = v) } }, 60..130, Modifier.weight(1f))
+                        IntField("", c.loDia, { v -> setCfg { it.copy(loDia = v) } }, 30..100, Modifier.weight(1f))
+                    }
+                    Hint("Progi ustaw według zaleceń lekarza. Aplikacja tylko oznacza wartości.", Modifier.padding(top = 6.dp))
                 }
-                Hint("Progi ustaw według zaleceń lekarza. Aplikacja tylko oznacza wartości.", Modifier.padding(top = 6.dp))
             }
             Column {
                 Text("Motyw", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
@@ -386,6 +391,43 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
             }
             LekiField("Dopisek na raporcie", reportNote, { reportNote = it; setCfg { c2 -> c2.copy(reportNote = it) } }, singleLine = false, minLines = 3, placeholder = "np. rozpoznanie, cel kuracji")
             LekiField("Zasady i notatki (przycisk Zasady u góry)", rules, { rules = it; store.update { st -> st.copy(rules = it) } }, singleLine = false, minLines = 5)
+        }
+    }
+}
+
+/** Podsumowanie widocznych zakładek (opcjonalnych) osoby, np. do wiersza w Ustawieniach. */
+private fun moduleSummary(c: AppSettings): String {
+    val shown = listOfNotNull("Ciśnienie".takeIf { c.bpOn }, "Badania".takeIf { c.labsOn }, "Cykl".takeIf { c.cyklOn })
+    return if (shown.size == 3) "Wszystkie widoczne" else if (shown.isEmpty()) "Tylko Leki i Raport" else "Widoczne: " + shown.joinToString(", ")
+}
+
+/**
+ * Moduły aplikacji: każda osoba wybiera, które zakładki są na dolnym pasku (Leki i Raport są zawsze). Ukrycie niczego nie kasuje, a ukryty moduł
+ * nie trafia do raportów. Przydatne, gdy np. osoba nie mierzy ciśnienia albo nie robi badań.
+ */
+@Composable
+private fun ModulesSection(s: AppState, store: Store) {
+    val people = store.profiles.value
+    val activeId = store.activeId.value
+    val c = s.settings
+    @Composable fun module(title: String, desc: String, on: Boolean, toggle: (AppSettings) -> AppSettings) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Hint(desc)
+            SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> if ((i == 1) != on) store.update { it.copy(settings = toggle(it.settings)) } })
+        }
+    }
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            BodyText("Wybierz zakładki, które mają być na dolnym pasku. Ukrycie niczego nie kasuje: dane zostają w aplikacji i w kopii zapasowej, a ukryte moduły nie wchodzą do raportów.")
+            if (people.size > 1) Hint("Dotyczy osoby: ${people.firstOrNull { it.id == activeId }?.name ?: ""}. Każda osoba ma własny wybór.")
+            module("Ciśnienie", "Pomiary, wykres i progi ciśnienia, skrót i widżet.", c.bpOn) { it.copy(bpOn = !it.bpOn) }
+            Divider()
+            module("Badania", "Wyniki badań, kontrole z wynikami i EKG z zegarka.", c.labsOn) { it.copy(labsOn = !it.labsOn) }
+            Divider()
+            module("Cykl", "Dziennik cyklu z prognozą (więcej w Ustawienia → Moduł Cykl).", c.cyklOn) { it.copy(cyklOn = !it.cyklOn) }
+            Divider()
+            Hint("Leki i Raport są zawsze widoczne. Ukryty moduł można w każdej chwili pokazać z powrotem.")
         }
     }
 }
@@ -684,10 +726,10 @@ private fun CsvSection(s: AppState) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Eksport do arkusza (CSV)", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
             Hint("Plik otworzysz w Excelu, LibreOffice lub Arkuszach Google. Zawiera dane zdrowotne: wysyłaj go tylko tam, gdzie chcesz.")
-            LekiButton("Ciśnienie (${s.bp.size})", { share("cisnienie-$today.csv", Csv.bp(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.bp.isNotEmpty())
-            LekiButton("Wyniki badań (${s.labs.size})", { share("wyniki-badan-$today.csv", Csv.labs(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.labs.isNotEmpty())
+            if (s.settings.bpOn || s.bp.isNotEmpty()) LekiButton("Ciśnienie (${s.bp.size})", { share("cisnienie-$today.csv", Csv.bp(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.bp.isNotEmpty())
+            if (s.settings.labsOn || s.labs.isNotEmpty()) LekiButton("Wyniki badań (${s.labs.size})", { share("wyniki-badan-$today.csv", Csv.labs(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.labs.isNotEmpty())
             LekiButton("Dawki leków (ostatnie 90 dni)", { share("dawki-$today.csv", Csv.doses(s, today.minusDays(89), today, today)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.meds.isNotEmpty())
-            LekiButton("EKG, podsumowanie (${s.ecgs.size})", { share("ekg-$today.csv", Csv.ecg(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.ecgs.isNotEmpty())
+            if (s.settings.labsOn || s.ecgs.isNotEmpty()) LekiButton("EKG, podsumowanie (${s.ecgs.size})", { share("ekg-$today.csv", Csv.ecg(s)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Table, enabled = s.ecgs.isNotEmpty())
         }
     }
 }

@@ -1,14 +1,13 @@
 import type { Db, History } from "./types.ts";
 import { T } from "./model.ts";
 import { diffDays } from "./dates.ts";
-import { MID, fertilityOn } from "./predict.ts";
 import type { Analysis } from "./analysis.ts";
 
 export interface Intimacy {
   sex: number; protected: number; unprotected: number; solo: number; pct: number;
   unprotectedAtRisk: number; atRiskTotal: number;
 }
-/** "W ryzyku" = stosunek w dniu, w którym szacowana szansa poczęcia ≥ progu MID. */
+/** "W ryzyku" = stosunek w dniu, w którym okno płodne jest co najmniej możliwe (poziom „możliwe” lub „bardzo prawdopodobne” w kalendarzu). */
 export const intimacyOf = (a: Analysis): Intimacy => {
   const sex = new Set<string>(), prot = new Set<string>(), solo = new Set<string>();
   for (const e of a.entries) {
@@ -18,7 +17,7 @@ export const intimacyOf = (a: Analysis): Intimacy => {
   }
   const days = [...sex];
   const secured = days.filter((d) => prot.has(d)).length;
-  const risk = days.filter((d) => fertilityOn(a.pred, d) >= MID);
+  const risk = days.filter((d) => a.info(d).level !== "low");
   return {
     sex: days.length, protected: secured, unprotected: days.length - secured, solo: solo.size,
     pct: days.length ? Math.round((secured / days.length) * 100) : 0,

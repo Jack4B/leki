@@ -452,15 +452,32 @@ const FERTILITY_BY_OFFSET                         = {
 };
 const MAX_FERTILITY = 0.33;
 const HIGH = 0.15;
-const MID = 0.02;
+const MID = 0.04;
+/** Poziomy okna płodnego: prawdopodobieństwo, że dany dzień należy do okna (6 dni kończących się w dniu owulacji). */
+const WIN_HIGH = 0.5;
+const WIN_MID = 0.2;
                                     
 const levelOf = (f        )        => (f >= HIGH ? "high" : f >= MID ? "mid" : "low");
+/** „Bardzo prawdopodobne” okno płodne: ≥50% szans, że dzień jest w oknie; „możliwe”: 20–50%. */
+const windowLevel = (q        )        => (q >= WIN_HIGH ? "high" : q >= WIN_MID ? "mid" : "low");
+
+/** Metoda kalendarzowa (np. Mayo Clinic, Family Planning Handbook): pierwszy dzień płodny = najkrótszy cykl − 18, ostatni = najdłuższy − 11 (z co najmniej 6 ostatnich cykli). */
+                                                                                     
+const calendarRule = (lengths          )                      => {
+  const l = lengths.slice(-12);
+  if (l.length < 6) return null;
+  return { from: Math.max(1, Math.min(...l) - 18), to: Math.max(1, Math.max(...l) - 11), n: l.length, standardDays: l.slice(-6).every((x) => x >= 26 && x <= 32) };
+};
 
                                                                           
                                                                
                       
                                                                                           
                                  
+                                                                                                                                               
+                              
+                                                                                                                                                  
+                                
                             
                                                                                 
                                      
@@ -476,11 +493,12 @@ const levelOf = (f        )        => (f >= HIGH ? "high" : f >= MID ? "mid" : "
 
 const sd = (p     )         => { const m = pmfMean(p); let v = 0; for (const [k, x] of p) v += x * (k - m) ** 2; return Math.sqrt(v); };
 
-const addOvulationWeights = (map                     , ovDates                     )       => {
+const addOvulationWeights = (map                     , ovDates                     , win                      )       => {
   for (const [ov, p] of ovDates) {
     for (let off = -5; off <= 1; off++) {
       const date = addDays(ov, off);
       map.set(date, (map.get(date) ?? 0) + p * FERTILITY_BY_OFFSET[off] );
+      if (win) win.set(date, (win.get(date) ?? 0) + p);
     }
   }
 };
@@ -501,6 +519,7 @@ const conditionOn = (p     , min        )             => {
 
 const predict = (hist         , entries         , settings          , today        )             => {
   const fertility = new Map                ();
+  const win = new Map                ();
   const prof = profileOf(settings.ageBand);
   const mode = settings.mode === "hormonal" || settings.mode === "pause" ? settings.mode : "normal";
   const luteal = lutealPmf(settings.lutealDays ?? 14, prof.lutealSpread);
@@ -516,17 +535,17 @@ const predict = (hist         , entries         , settings          , today     
   // 1) cykle zakończone: owulacja wstecz od rzeczywistego następnego okresu (albo od testu LH)
   for (const c of hist.cycles) {
     const lh = lhIn(c.start, c.end);
-    if (lh) { addOvulationWeights(fertility, lhPmf(lh)); continue; }
+    if (lh) { addOvulationWeights(fertility, lhPmf(lh), win); continue; }
     const ov = new Map                ();
     for (const [l, p] of luteal) addTo2(ov, addDays(c.end, -l), p);
-    addOvulationWeights(fertility, ov);
+    addOvulationWeights(fertility, ov, win);
   }
 
   const lengths = hist.cycles.map((c) => c.days);
   const base = cycleLengthPmf(lengths, settings.averageCycleLength ?? 29, prof);
   const recent = lengths.slice(-8);
   const out             = {
-    fertility, nextPeriods: [], lengthMedian: Math.round(pmfQuantile(base, 0.5)),
+    fertility, window: win, calendar: null, nextPeriods: [], lengthMedian: Math.round(pmfQuantile(base, 0.5)),
     lengthLow: Math.round(pmfQuantile(base, 0.1)), lengthHigh: Math.round(pmfQuantile(base, 0.9)),
     lengthSd: sd(base), confidence: "low", expectedOvulation: null, lhUsed: false, overdueDays: 0, nextRun: null, noForecast: false, mode,
   };
@@ -534,9 +553,10 @@ const predict = (hist         , entries         , settings          , today     
   const raw = recent.length < 3 ? "low" : out.lengthSd <= 2.5 ? (recent.length >= 6 ? "high" : "mid") : out.lengthSd <= 4.5 ? "mid" : "low";
   const rank = { low: 0, mid: 1, high: 2 }         ;
   out.confidence = rank[raw] <= rank[prof.confCap] ? raw : prof.confCap;
-  if (mode === "pause") { fertility.clear(); out.noForecast = true; return out; }   // ciąża, połóg, karmienie: żadnych prognoz
+  if (mode === "pause") { fertility.clear(); win.clear(); out.noForecast = true; return out; }
+  if (mode === "normal") out.calendar = calendarRule(lengths);   // ciąża, połóg, karmienie: żadnych prognoz
   const last = hist.lastStart;
-  if (!last) { if (mode === "hormonal") fertility.clear(); return out; }
+  if (!last) { if (mode === "hormonal") { fertility.clear(); win.clear(); } return out; }
 
   // 2) bieżący cykl: warunkowanie na to, że okresu jeszcze nie ma (okres może zacząć się dopiero dziś lub później)
   const cycleDay = Math.max(1, diffDays(last, today) + 1);
@@ -558,7 +578,7 @@ const predict = (hist         , entries         , settings          , today     
   if (!s0) {
     // historia nie ma tak długich cykli: prognozy z rozkładu nie ma, a wynik z rozkładu jednostajnego tylko udawałby pewność
     out.noForecast = true;
-    if (mode === "hormonal") fertility.clear();
+    if (mode === "hormonal") { fertility.clear(); win.clear(); }
     return out;
   }
 
@@ -572,12 +592,12 @@ const predict = (hist         , entries         , settings          , today     
     });
     const ovOffsets = convolve(S, negate(luteal));
     const ovDates = new Map                ();
-    if (k === 0 && lh0) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh0)); continue; }
+    if (k === 0 && lh0) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh0), win); continue; }
     // owulacja nie może wypaść w trakcie miesiączki
     const feasible = normalize(new Map([...ovOffsets].filter(([o]) => o >= hist.bleedLen)));
     const useOffsets = feasible.size ? feasible : ovOffsets;
     for (const [o, p] of useOffsets) addTo2(ovDates, addDays(last, o), p);
-    addOvulationWeights(fertility, ovDates);
+    addOvulationWeights(fertility, ovDates, win);
     if (k === 0) out.expectedOvulation = addDays(last, Math.round(pmfQuantile(useOffsets, 0.5)));
   }
   if (out.lhUsed) out.expectedOvulation = addDays(lh0 , 1);
@@ -586,16 +606,16 @@ const predict = (hist         , entries         , settings          , today     
 
   if (mode === "hormonal") {
     // hormonalna antykoncepcja: krwawienia są prognozowane, ale szans poczęcia i owulacji nie liczymy
-    fertility.clear(); out.expectedOvulation = null; out.lhUsed = false;
+    fertility.clear(); win.clear(); out.calendar = null; out.expectedOvulation = null; out.lhUsed = false;
     return out;
   }
 
-  // 4) najbliższe okno: pierwszy ciągły przedział dni z szansą ≥ MID, który nie skończył się przed dziś
+  // 4) najbliższe okno: pierwszy ciągły przedział dni, w którym okno płodne jest co najmniej „możliwe” (≥20%), i który nie skończył się przed dziś
   const run           = [];
   let found                    = null;
   for (let i = 0; i <= 90 && !found; i++) {
     const d = addDays(today, i);
-    if ((fertility.get(d) ?? 0) >= MID) run.push(d);
+    if ((win.get(d) ?? 0) >= WIN_MID) run.push(d);
     else if (run.length) found = mkRun(run, fertility);
   }
   if (!found && run.length) found = mkRun(run, fertility);
@@ -610,6 +630,7 @@ function mkRun(days          , f                     )             {
   return { from: days[0] , to: days.at(-1) , peak };
 }
 const fertilityOn = (p            , date        )         => p.fertility.get(date) ?? 0;
+const windowOn = (p            , date        )         => p.window.get(date) ?? 0;
 const meanOf = mean;
 
 
@@ -788,7 +809,7 @@ const figoSystem1 = (hist         , entries         , settings          , today 
 
 
                    
-                                                                                                       
+                                                                                                                       
  
                     
                                                                                        
@@ -808,12 +829,13 @@ const analyze = (db    , today        )           => {
   const info = (date        )          => {
     const bleed = hist.bleed.has(date);
     const f = fertilityOn(pred, date);
-    let level = levelOf(f);
+    const q = windowOn(pred, date);
+    let level = windowLevel(q);
     // przy niskiej pewności prognozy (mało cykli, duży rozrzut) przyszłe dni nie dostają poziomu „wysoka”, chyba że jest test LH
     if (level === "high" && pred.confidence === "low" && !pred.lhUsed && date >= today) level = "mid";
     return {
       bleed, predBleed: !bleed && predBleed.has(date) && (!lastBleed || date > lastBleed),
-      fertility: f, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
+      fertility: f, window: q, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
     };
   };
   const t = info(today);
@@ -842,12 +864,11 @@ const analyze = (db    , today        )           => {
 
 
 
-
                     
                                                                                  
                                                  
  
-/** "W ryzyku" = stosunek w dniu, w którym szacowana szansa poczęcia ≥ progu MID. */
+/** "W ryzyku" = stosunek w dniu, w którym okno płodne jest co najmniej możliwe (poziom „możliwe” lub „bardzo prawdopodobne” w kalendarzu). */
 const intimacyOf = (a          )           => {
   const sex = new Set        (), prot = new Set        (), solo = new Set        ();
   for (const e of a.entries) {
@@ -857,7 +878,7 @@ const intimacyOf = (a          )           => {
   }
   const days = [...sex];
   const secured = days.filter((d) => prot.has(d)).length;
-  const risk = days.filter((d) => fertilityOn(a.pred, d) >= MID);
+  const risk = days.filter((d) => a.info(d).level !== "low");
   return {
     sex: days.length, protected: secured, unprotected: days.length - secured, solo: solo.size,
     pct: days.length ? Math.round((secured / days.length) * 100) : 0,
@@ -1068,13 +1089,13 @@ const lanes = (rows           )           => {
   return html`${out}`;
 };
 
-/** Pasek względnej szansy poczęcia na najbliższe dni. */
+/** Pasek na najbliższe dni: wysokość = względna szansa poczęcia, kolor = poziom okna płodnego. */
 const strip = (a          , days = 21)           => {
   const bars = Array.from({ length: days }, (_, i) => {
     const d = addDays(a.today, i);
     const inf = a.info(d);
     const h = Math.max(4, Math.min(1, inf.fertility / MAX_FERTILITY) * 56);
-    const lv = inf.bleed ? "bleed" : levelOf(inf.fertility);
+    const lv = inf.bleed ? "bleed" : inf.level;
     return html`<button class="sb" data-act="day" data-date="${d}" aria-label="${d}, szansa: ${lv}">
       <span class="sbar-wrap"><span class="sbar lv-${lv}" style="height:${h}px"></span></span>
       <span class="sl">${i === 0 ? "dziś" : d.slice(8)}</span></button>`;
@@ -1172,14 +1193,18 @@ const viewToday = (a          , s         )           => {
     ? ["mid", t0 === "pos" ? "Okres spóźniony, test dodatni: umów wizytę u lekarza lub położnej" : `Okres spóźniony o ${p.overdueDays} d, poza własnym typowym zakresem`]
     : p.noForecast ? ["low", "Brak prognozy: okres spóźniony bardziej niż w dotychczasowych cyklach"]
     : p.mode === "hormonal" ? ["low", "Szansa poczęcia: prognoza wyłączona (antykoncepcja hormonalna)"]
-    : inf.level === "high" ? ["high", "Wysoka szansa poczęcia dziś"]
-    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Mniejsza szansa wg prognozy (nigdy zerowa)"];
+    : inf.level === "high" ? ["high", "Dziś okno płodne bardzo prawdopodobne"]
+    : inf.level === "mid" ? ["mid", "Dziś okno płodne możliwe (prognoza niepewna)"] : ["low", "Dziś poza przewidywanym oknem płodnym (poczęcie nadal możliwe)"];
   const age = a.settings.ageBand ?? "26-41";
   const conf = p.confidence === "high" ? "Pewność prognozy: wysoka, cykle są regularne."
     : p.confidence === "mid" ? `Pewność prognozy: średnia. Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d.`
     : `Pewność prognozy: niska (${a.hist.cycles.length < 3 ? "mało zapisanych cykli" : "cykle bardzo się różnią"}). Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
   const ageNote = age === "46-50" || age === "51+"
     ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): omów to z lekarzem.</p>` : "";
+  const cal = p.calendar, lastStart = a.hist.lastStart ;
+  const calTxt = p.mode !== "normal" ? "" : cal
+    ? html`<p class="note left">Metoda kalendarzowa (z ${cal.n} ostatnich cykli: najkrótszy − 18 do najdłuższy − 11): dni ${cal.from}–${cal.to} cyklu, czyli ${range(addDays(lastStart, cal.from - 1), addDays(lastStart, cal.to - 1))}. ${cal.standardDays ? "Wszystkie ostatnie cykle mają 26–32 dni, więc metoda dni standardowych wskazuje dni 8–19. " : "Przy różnych długościach cykli okno jest szerokie. "}To kontrola obok modelu, nie dokładniejsza prognoza.</p>`
+    : html`<p class="note left">Metoda kalendarzowa (najkrótszy cykl − 18 do najdłuższy − 11) wymaga co najmniej 6 zapisanych cykli (teraz: ${a.hist.cycles.length}).</p>`;
   const np = p.nextPeriods[0], run = p.nextRun;
   const rangeTxt = !np || np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
   const overdueHint = p.overdueDays > 0 && t0 !== "pos" && t0 !== "neg" ? html`<p class="note left">Jeśli był stosunek, rozważ test ciążowy. Przy ujemnym teście i dalszym braku okresu powtórz test po kilku dniach lub skontaktuj się z lekarzem.</p>` : "";
@@ -1189,7 +1214,7 @@ const viewToday = (a          , s         )           => {
       <div class="phase">${a.phase}</div>
       <div class="mute">typowo ${p.lengthMedian} d (w 80% przypadków ${p.lengthLow}–${p.lengthHigh})</div>
       <span class="chip ${chip[0]}">${chip[1]}</span>
-      <p class="note left">${conf}</p>${overdueHint}${ageNote}
+      <p class="note left">${conf}</p>${calTxt}${overdueHint}${ageNote}
       <p class="note left">Prognoza z dziennika nie jest metodą antykoncepcji ani dowodem ciąży lub jej braku.</p>
     </section>
     <div class="grid2">
@@ -1200,8 +1225,8 @@ const viewToday = (a          , s         )           => {
     ${inf.bleed && a.figo.anemia && f.flow === 0 ? html`<div class="warn"><b>Zapisz obfitość dzisiaj.</b> Przy anemii lekarz zapyta o ilość krwawienia, a zapis z dnia jest dokładniejszy niż pamięć.
       <button class="btn sec" data-act="day" data-date="${t}">Zapisz obfitość</button></div>` : ""}
     <section class="card"><h2>Najbliższe 21 dni</h2>${strip(a)}
-      <div class="legend"><span><i class="sw lv-high"></i>wysoka</span><span><i class="sw lv-mid"></i>podwyższona</span><span><i class="sw lv-low"></i>niska</span><span><i class="sw lv-bleed"></i>okres</span></div>
-      <p class="note">Wysokość słupka to względna szansa poczęcia przy stosunku w danym dniu, liczona z rozkładu możliwych owulacji. Płaskie, niskie słupki oznaczają, że prognoza jest niepewna.</p></section>
+      <div class="legend"><span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span><i class="sw lv-low"></i>poza oknem</span><span><i class="sw lv-bleed"></i>okres</span></div>
+      <p class="note">Kolor pokazuje, czy dzień wypada w oknie płodnym (około 6 dni kończących się w dniu owulacji: plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” to co najmniej 50% szans, że dzień jest w oknie, „możliwe” to 20–50%. Wysokość słupka to względna szansa poczęcia przy stosunku w tym dniu (największa tuż przed owulacją). Przy nieregularnych cyklach okno jest szerokie, a dni „bardzo prawdopodobnych” może nie być wcale.</p></section>
     <section class="card"><h2>Zapisz dziś</h2><div class="quick">
       ${quick("sex", "Stosunek", f.sex)}${quick("protected", "Zabezpieczone", f.prot)}${quick("him", "Solo — partner/ka", f.solo)}
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
@@ -1227,9 +1252,9 @@ const viewCalendar = (a          , s         )           => {
     <div class="wd"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
     <div class="cal">${cells}</div>
     <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw dashed"></i>prognoza okresu</span>
-      <span><i class="sw lv-high"></i>wysoka szansa</span><span><i class="sw lv-mid"></i>podwyższona</span><span>★ owulacja (szac.)</span>
+      <span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span>★ owulacja (szac.)</span>
       <span><i class="dot sex"></i>stosunek</span><span><i class="dot solo"></i>solo</span><span><i class="dot spot"></i>plamienie</span><span><i class="dot lh"></i>test LH+</span></div>
-    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
+    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Zielone dni to okno płodne: około 6 dni kończących się w dniu owulacji (plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” = co najmniej 50% szans, że dzień jest w oknie, „możliwe” = 20–50%. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
 };
 
 const pill = (ok         , na         )           => html`<span class="pill ${na ? "na" : ok ? "ok" : "bad"}">${na ? "za mało danych" : ok ? "w normie" : "poza normą"}</span>`;
@@ -1277,7 +1302,7 @@ const viewCharts = (a          , s         )           => {
     <section class="card"><h2>Intymność</h2>
       <div class="grid2 tight"><div class="stat"><small>Stosunki</small><strong>${i.sex}</strong><span>${i.pct}% z zabezpieczeniem</span></div>
       <div class="stat"><small>Solo (partner/ka)</small><strong>${i.solo}</strong></div>
-      <div class="stat wide2"><small>W dniach podwyższonej szansy</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
+      <div class="stat wide2"><small>W dniach okna płodnego</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
       <div class="scroll" id="mscroll">${monthChart(mo)}</div>
       <div class="legend"><span><i class="sw sexc"></i>stosunki</span><span><i class="sw soloc"></i>solo</span></div></section>
     <section class="card"><h2>Cykle</h2><table><thead><tr><th>Od</th><th>Do</th><th>Dni</th><th>Krwaw.</th></tr></thead><tbody>
@@ -1321,7 +1346,7 @@ const seg = (name        , max        , val        )           => html`<span cla
 
 const sheetDay = (a          , date        )           => {
   const f = flagsFor(a.entries, date), i = a.info(date);
-  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && "wysoka szansa", i.level === "mid" && "podwyższona szansa", i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
+  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && `okno płodne bardzo prawdopodobne (ok. ${Math.round(i.window * 100)}%)`, i.level === "mid" && `okno płodne możliwe (ok. ${Math.round(i.window * 100)}%)`, i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
   return html`<h2>${dfmt(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2>${tags ? html`<p class="mute">${tags}</p>` : ""}
     <input type="hidden" id="solotype" value="${f.soloType}">
     <div class="togs">${tog("period_start", "Start okresu", f.start)}${tog("period_end", "Koniec okresu", f.end)}${tog("spotting", "Plamienie", f.spot)}${tog("clot", "Skrzepy", f.clot)}

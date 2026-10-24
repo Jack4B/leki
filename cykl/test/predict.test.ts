@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, levelOf, profileOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
+import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, levelOf, windowLevel, calendarRule, profileOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
 import { buildHistory } from "../src/history.ts";
 import { analyze } from "../src/analysis.ts";
 import { addDays } from "../src/dates.ts";
@@ -217,5 +217,49 @@ describe("pewność, poziomy i tryby prognoz", () => {
     assert.equal(a.pred.fertility.size, 0);
     assert.equal(a.pred.overdueDays > 0 || a.phase === "Okres się spóźnia", false);
     assert.equal(a.phase, "Prognozy wyłączone");
+  });
+});
+
+describe("okno płodne: poziomy z prawdopodobieństwa, że dzień jest w oknie", () => {
+  const levels = (lens: number[], band?: "26-41" | "46-50" | "51+", off = 5, days = 45): string => {
+    const db = makeDb("2031-01-01", lens); if (band) db.settings.ageBand = band;
+    const l = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const a = analyze(db, addDays(l, off));
+    return Array.from({ length: days }, (_, i) => { const x = a.info(addDays(l, i)); return x.bleed ? "B" : x.predBleed ? "p" : x.level === "high" ? "H" : x.level === "mid" ? "m" : "."; }).join("");
+  };
+  test("regularne cykle 28 d: okno bardzo prawdopodobne w dniach 10–16 (zgodnie z metodą kalendarzową 10–17), poza nim nic", () => {
+    const s = levels([28, 28, 28, 28, 28, 28, 28]).slice(0, 28);
+    const high = [...s].flatMap((c, i) => (c === "H" ? [i + 1] : []));
+    assert.ok(high[0]! >= 9 && high[0]! <= 11 && high.at(-1)! >= 15 && high.at(-1)! <= 17, s);
+    assert.ok(!s.slice(20, 27).includes("H") && !s.slice(20, 27).includes("m"), "faza lutealna bez oznaczeń");
+  });
+  test("nieregularne cykle: brak „bardzo prawdopodobnych” dni, a „możliwe” nie zalewają całego miesiąca ani cyklu po prognozowanym okresie", () => {
+    for (const band of ["26-41", "46-50", "51+"] as const) {
+      const s = levels(PERI, band);
+      assert.ok(!s.includes("H"), `${band}: ${s}`);
+      const mid = [...s].filter((c) => c === "m").length;
+      assert.ok(mid >= 8 && mid <= 20, `${band}: ${mid} dni „możliwe” (${s})`);
+      const afterPred = s.slice(s.indexOf("p"));
+      assert.ok(!afterPred.includes("m"), `${band}: oznaczenia po prognozowanym okresie (${s})`);
+    }
+  });
+  test("poziomy mają progi 50% i 20%", () => {
+    assert.equal(windowLevel(0.5), "high"); assert.equal(windowLevel(0.49), "mid");
+    assert.equal(windowLevel(0.2), "mid"); assert.equal(windowLevel(0.19), "low");
+  });
+  test("prawdopodobieństwo okna dla jednego cyklu nie przekracza 1 i sumuje się do ok. 6–7 dni", () => {
+    const db = makeDb("2031-01-01", [28, 28, 28, 28, 28, 28, 28]);
+    const l = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const a = analyze(db, addDays(l, 5));
+    const first = [...a.pred.window].filter(([d]) => d >= l && d < addDays(l, 28));
+    assert.ok(first.every(([, q]) => q <= 1 + 1e-9));
+    const sum = first.reduce((x, [, q]) => x + q, 0);
+    assert.ok(Math.abs(sum - 7) < 0.1, `suma ${sum}`);   // okno = 7 dni: owulacja −5 … +1
+  });
+  test("metoda kalendarzowa: najkrótszy − 18 do najdłuższy − 11, od 6 cykli", () => {
+    assert.deepEqual(calendarRule([28, 28, 28, 28, 28, 31]), { from: 10, to: 20, n: 6, standardDays: true });
+    assert.equal(calendarRule([28, 28, 28, 28, 28]), null);
+    assert.equal(calendarRule([28, 28, 28, 28, 28, 33])!.standardDays, false);
+    assert.deepEqual(calendarRule(PERI.slice(0, 7)), { from: 9, to: 31, n: 7, standardDays: false });
   });
 });

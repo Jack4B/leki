@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.14.0-preview
+
+Moduły aplikacji do ukrywania per osoba, czytelniejsze okno płodne w Cyklu i dopracowany motyw modułu.
+
+- **Moduły aplikacji (Ustawienia → Moduły aplikacji):** każda osoba wybiera, które zakładki są na dolnym pasku: **Ciśnienie**, **Badania** (wyniki i EKG) i **Cykl**; Leki i Raport są zawsze. Ukrycie niczego nie kasuje (dane zostają w aplikacji i w kopii zapasowej), ukryty moduł znika też z raportów (dla lekarza i dla AI), z przycisków eksportu CSV, z progów ciśnienia w Ustawieniach i z pigułek raportu; „Przygotuj na wizytę” opisuje tylko widoczne moduły. Nowe pola kopii `bpOn` i `labsOn` (zapisywane tylko, gdy moduł ukryty; stare kopie mają wszystko widoczne). Przykład: osoba, która nie mierzy ciśnienia, ukrywa zakładkę Ciśnienie.
+- **Okno płodne w kalendarzu Cyklu:** poprzednia wersja (0.13) po obniżeniu progu zaznaczała „podwyższoną szansę” prawie w całym miesiącu (suma ogonów rozkładów z kilku cykli). Teraz kolor oznacza **prawdopodobieństwo, że dany dzień należy do okna płodnego** (6 dni kończących się w dniu owulacji, wg Wilcox i wsp. 1995): **„bardzo prawdopodobne” ≥50%**, **„możliwe” 20–50%**, reszta poza oknem. Przy regularnych cyklach 28 d okno ma 7 dni (dni 10–16), przy nieregularnych nie ma dni „bardzo prawdopodobnych”, a „możliwe” to kilkanaście dni jednego cyklu. Legenda i opisy mówią, co oznaczają kolory (kalendarz, pasek 21 dni, widok dnia z procentem). Wysokość słupka w pasku to nadal względna szansa poczęcia przy stosunku w tym dniu.
+- **Metoda kalendarzowa jako kontrola (od 6 cykli):** na ekranie Dziś jest okno wg standardowej reguły (najkrótszy cykl − 18 do najdłuższy − 11, np. Mayo Clinic, Family Planning Handbook), a gdy ostatnie 6 cykli ma 26–32 dni, także dni 8–19 metody dni standardowych. To tylko porównanie z modelem, nie dokładniejsza prognoza.
+- Obliczenia ryzyka stosunków („W dniach okna płodnego”, „w tym bez zabezpieczenia”) liczą się z tych samych poziomów, co kalendarz.
+- Moduł Cykl, wygląd: patrz niżej (punkt „Motyw”).
+
 ## 0.13.0-preview
 
 Cykl: przeróbka szczegółów dnia, przegląd medyczny algorytmów, pasma wieku 46–50 i powyżej 50 lat, poprawki z przeglądu UX.

@@ -2,7 +2,7 @@ import type { Cycle } from "./types.ts";
 import { html, raw } from "./html.ts";
 import type { SafeHtml } from "./html.ts";
 import { addDays, theilSen } from "./dates.ts";
-import { MAX_FERTILITY, levelOf } from "./predict.ts";
+import { MAX_FERTILITY } from "./predict.ts";
 import type { Analysis } from "./analysis.ts";
 import type { LaneRow, MonthRow } from "./report.ts";
 
@@ -55,13 +55,13 @@ export const lanes = (rows: LaneRow[]): SafeHtml => {
   return html`${out}`;
 };
 
-/** Pasek względnej szansy poczęcia na najbliższe dni. */
+/** Pasek na najbliższe dni: wysokość = względna szansa poczęcia, kolor = poziom okna płodnego. */
 export const strip = (a: Analysis, days = 21): SafeHtml => {
   const bars = Array.from({ length: days }, (_, i) => {
     const d = addDays(a.today, i);
     const inf = a.info(d);
     const h = Math.max(4, Math.min(1, inf.fertility / MAX_FERTILITY) * 56);
-    const lv = inf.bleed ? "bleed" : levelOf(inf.fertility);
+    const lv = inf.bleed ? "bleed" : inf.level;
     return html`<button class="sb" data-act="day" data-date="${d}" aria-label="${d}, szansa: ${lv}">
       <span class="sbar-wrap"><span class="sbar lv-${lv}" style="height:${h}px"></span></span>
       <span class="sl">${i === 0 ? "dziś" : d.slice(8)}</span></button>`;

@@ -138,7 +138,16 @@ data class Settings(
     val cyklOn: Boolean = false,
     /** Dziennik cyklu wspólny z inną osobą: jej identyfikator w aplikacji (w pliku kopii: „#numer” osoby); puste = własny dziennik. */
     val cyklFrom: String = "",
-)
+    /** Zakładka „Ciśnienie” jest widoczna (osoba, która nie mierzy ciśnienia, może ją ukryć; dane zostają). */
+    val bpOn: Boolean = true,
+    /** Zakładka „Badania” (wyniki i EKG) jest widoczna. */
+    val labsOn: Boolean = true,
+) {
+    /** Części raportu dla lekarza z uwzględnieniem ukrytych modułów: ukryty moduł nie trafia do raportu, nawet jeśli pigułka była włączona. */
+    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn)
+    /** To samo dla tekstu dla AI. */
+    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn)
+}
 
 data class AppState(
     val patient: String = "",

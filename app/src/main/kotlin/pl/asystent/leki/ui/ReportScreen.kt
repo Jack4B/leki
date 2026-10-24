@@ -88,7 +88,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                 LekiCard(Modifier.padding(bottom = 16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Wizyta u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ustawia raport na ostatnie 30 dni z ciśnieniem, całą historią wyników, przyjmowaniem i listą leków, kontrolami, EKG" + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
+                        BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
                         LekiButton("Przygotuj na wizytę", {
                             preset = 30; fromStr = ""; toStr = ""; customRange = false
                             setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true) }
@@ -124,13 +124,13 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     BodyText("Raport w formie tabel i wykresów do wydruku lub zapisu jako PDF, np. na wizytę.")
                     Overline("Co dołączyć", Modifier.padding(top = 16.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ToggleChip("Ciśnienie", rp.bp) { setRp { it.copy(bp = !it.bp) } }
-                        ToggleChip("Wyniki badań", rp.labs) { setRp { it.copy(labs = !it.labs) } }
+                        if (s.settings.bpOn) ToggleChip("Ciśnienie", rp.bp) { setRp { it.copy(bp = !it.bp) } }
+                        if (s.settings.labsOn) ToggleChip("Wyniki badań", rp.labs) { setRp { it.copy(labs = !it.labs) } }
                         ToggleChip("Przyjmowanie leków", rp.meds) { setRp { it.copy(meds = !it.meds) } }
                         ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
-                        ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
                         if (!store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) {
@@ -172,7 +172,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         }
                         LekiButton(if (s.analyses.isEmpty()) "Wklej lub wczytaj odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
-                    if (rp.labs) {
+                    if (rp.labs && s.settings.labsOn) {
                         Spacer8()
                         ToggleChip("Badania tylko z wybranego okresu", rp.labsPeriod) { setRp { it.copy(labsPeriod = !it.labsPeriod) } }
                         Hint("Bez tego raport pokazuje całą historię wyników do końca okresu.", Modifier.padding(top = 6.dp))
@@ -200,11 +200,11 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Leki i harmonogram", ai.meds) { setAi { it.copy(meds = !it.meds) } }
                         ToggleChip("Zmiany dawek", ai.history) { setAi { it.copy(history = !it.history) } }
                         ToggleChip("Zgodność z planem", ai.adherence) { setAi { it.copy(adherence = !it.adherence) } }
-                        ToggleChip("Ciśnienie", ai.bp) { setAi { it.copy(bp = !it.bp) } }
-                        ToggleChip("Badania", ai.labs) { setAi { it.copy(labs = !it.labs) } }
+                        if (s.settings.bpOn) ToggleChip("Ciśnienie", ai.bp) { setAi { it.copy(bp = !it.bp) } }
+                        if (s.settings.labsOn) ToggleChip("Badania", ai.labs) { setAi { it.copy(labs = !it.labs) } }
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
-                        ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn) ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
                         if (!store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }

@@ -128,17 +128,17 @@
     // menu jest wizualnie na górze, więc ma być też pierwsze w kolejności fokusu
     var tabsNav = document.querySelector(".tabs");
     if (tabsNav) document.body.insertBefore(tabsNav, app);
-    var LV = { high: "wysoka", mid: "podwyższona", low: "niska", bleed: "okres" };
+    var LV = { high: "okno płodne bardzo prawdopodobne", mid: "okno płodne możliwe", low: "poza oknem płodnym", bleed: "okres" };
     function labels() {
       document.querySelectorAll(".sb[aria-label]").forEach(function (b) {
-        var l = b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return "szansa: " + (LV[k] || k); });
+        var l = b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return LV[k] || k; });
         l = l.replace(/^(\d{4}-\d{2}-\d{2})/, function (d) { return new Date(d + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" }); });
         b.setAttribute("aria-label", l);
       });
       document.querySelectorAll(".day[data-date]").forEach(function (b) {
         var d = new Date(b.getAttribute("data-date") + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
-        var s = [b.classList.contains("bleed") && "okres", b.classList.contains("pred") && "prognoza okresu", b.classList.contains("lv-high") && "wysoka szansa",
-          b.classList.contains("lv-mid") && "podwyższona szansa", b.querySelector(".dot.sex") && "stosunek", b.querySelector(".dot.spot") && "plamienie",
+        var s = [b.classList.contains("bleed") && "okres", b.classList.contains("pred") && "prognoza okresu", b.classList.contains("lv-high") && "okno płodne bardzo prawdopodobne",
+          b.classList.contains("lv-mid") && "okno płodne możliwe", b.querySelector(".dot.sex") && "stosunek", b.querySelector(".dot.spot") && "plamienie",
           b.querySelector(".dot.lh") && "test LH", b.querySelector(".ov") && "owulacja (szacunkowo)"].filter(Boolean).join(", ");
         b.setAttribute("aria-label", s ? d + ": " + s : d);
       });

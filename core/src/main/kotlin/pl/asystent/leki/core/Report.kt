@@ -98,7 +98,7 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
 
     fun html(s: AppState, per: Period, today: LocalDate, now: LocalDateTime): String {
         val c = s.settings
-        val P = c.rp
+        val P = c.effectiveRp()
         val list = s.bp.filter { it.date >= per.from && it.date <= per.to }.sortedWith(bpOrder)
         val st = bpStats(list)
         val tt = ArrayList<String>()

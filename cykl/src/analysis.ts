@@ -1,14 +1,14 @@
 import type { Db, Entry, History, Settings } from "./types.ts";
 import { addDays } from "./dates.ts";
 import { buildHistory } from "./history.ts";
-import { predict, levelOf, fertilityOn } from "./predict.ts";
+import { predict, windowLevel, fertilityOn, windowOn } from "./predict.ts";
 import type { Prediction, Level } from "./predict.ts";
 import { figoSystem1, strawHint, trendOf } from "./health.ts";
 import type { Figo, Straw, Trend } from "./health.ts";
 import { diffDays } from "./dates.ts";
 
 export interface DayInfo {
-  bleed: boolean; predBleed: boolean; fertility: number; level: Level; ovulation: boolean; lh: boolean;
+  bleed: boolean; predBleed: boolean; fertility: number; window: number; level: Level; ovulation: boolean; lh: boolean;
 }
 export interface Analysis {
   today: string; entries: Entry[]; settings: Settings; hist: History; pred: Prediction;
@@ -28,12 +28,13 @@ export const analyze = (db: Db, today: string): Analysis => {
   const info = (date: string): DayInfo => {
     const bleed = hist.bleed.has(date);
     const f = fertilityOn(pred, date);
-    let level = levelOf(f);
+    const q = windowOn(pred, date);
+    let level = windowLevel(q);
     // przy niskiej pewności prognozy (mało cykli, duży rozrzut) przyszłe dni nie dostają poziomu „wysoka”, chyba że jest test LH
     if (level === "high" && pred.confidence === "low" && !pred.lhUsed && date >= today) level = "mid";
     return {
       bleed, predBleed: !bleed && predBleed.has(date) && (!lastBleed || date > lastBleed),
-      fertility: f, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
+      fertility: f, window: q, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
     };
   };
   const t = info(today);

@@ -1,7 +1,7 @@
 import type { Db } from "./types.ts";
 import { html, raw } from "./html.ts";
 import type { SafeHtml } from "./html.ts";
-import { diffDays, iso, plN } from "./dates.ts";
+import { addDays, diffDays, iso, plN } from "./dates.ts";
 import { analyze } from "./analysis.ts";
 import type { Analysis } from "./analysis.ts";
 import { flagsFor } from "./model.ts";
@@ -56,14 +56,18 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
     ? ["mid", t0 === "pos" ? "Okres spóźniony, test dodatni: umów wizytę u lekarza lub położnej" : `Okres spóźniony o ${p.overdueDays} d, poza własnym typowym zakresem`]
     : p.noForecast ? ["low", "Brak prognozy: okres spóźniony bardziej niż w dotychczasowych cyklach"]
     : p.mode === "hormonal" ? ["low", "Szansa poczęcia: prognoza wyłączona (antykoncepcja hormonalna)"]
-    : inf.level === "high" ? ["high", "Wysoka szansa poczęcia dziś"]
-    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Mniejsza szansa wg prognozy (nigdy zerowa)"];
+    : inf.level === "high" ? ["high", "Dziś okno płodne bardzo prawdopodobne"]
+    : inf.level === "mid" ? ["mid", "Dziś okno płodne możliwe (prognoza niepewna)"] : ["low", "Dziś poza przewidywanym oknem płodnym (poczęcie nadal możliwe)"];
   const age = a.settings.ageBand ?? "26-41";
   const conf = p.confidence === "high" ? "Pewność prognozy: wysoka, cykle są regularne."
     : p.confidence === "mid" ? `Pewność prognozy: średnia. Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d.`
     : `Pewność prognozy: niska (${a.hist.cycles.length < 3 ? "mało zapisanych cykli" : "cykle bardzo się różnią"}). Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
   const ageNote = age === "46-50" || age === "51+"
     ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): omów to z lekarzem.</p>` : "";
+  const cal = p.calendar, lastStart = a.hist.lastStart!;
+  const calTxt = p.mode !== "normal" ? "" : cal
+    ? html`<p class="note left">Metoda kalendarzowa (z ${cal.n} ostatnich cykli: najkrótszy − 18 do najdłuższy − 11): dni ${cal.from}–${cal.to} cyklu, czyli ${range(addDays(lastStart, cal.from - 1), addDays(lastStart, cal.to - 1))}. ${cal.standardDays ? "Wszystkie ostatnie cykle mają 26–32 dni, więc metoda dni standardowych wskazuje dni 8–19. " : "Przy różnych długościach cykli okno jest szerokie. "}To kontrola obok modelu, nie dokładniejsza prognoza.</p>`
+    : html`<p class="note left">Metoda kalendarzowa (najkrótszy cykl − 18 do najdłuższy − 11) wymaga co najmniej 6 zapisanych cykli (teraz: ${a.hist.cycles.length}).</p>`;
   const np = p.nextPeriods[0], run = p.nextRun;
   const rangeTxt = !np || np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
   const overdueHint = p.overdueDays > 0 && t0 !== "pos" && t0 !== "neg" ? html`<p class="note left">Jeśli był stosunek, rozważ test ciążowy. Przy ujemnym teście i dalszym braku okresu powtórz test po kilku dniach lub skontaktuj się z lekarzem.</p>` : "";
@@ -73,7 +77,7 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
       <div class="phase">${a.phase}</div>
       <div class="mute">typowo ${p.lengthMedian} d (w 80% przypadków ${p.lengthLow}–${p.lengthHigh})</div>
       <span class="chip ${chip[0]}">${chip[1]}</span>
-      <p class="note left">${conf}</p>${overdueHint}${ageNote}
+      <p class="note left">${conf}</p>${calTxt}${overdueHint}${ageNote}
       <p class="note left">Prognoza z dziennika nie jest metodą antykoncepcji ani dowodem ciąży lub jej braku.</p>
     </section>
     <div class="grid2">
@@ -84,8 +88,8 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
     ${inf.bleed && a.figo.anemia && f.flow === 0 ? html`<div class="warn"><b>Zapisz obfitość dzisiaj.</b> Przy anemii lekarz zapyta o ilość krwawienia, a zapis z dnia jest dokładniejszy niż pamięć.
       <button class="btn sec" data-act="day" data-date="${t}">Zapisz obfitość</button></div>` : ""}
     <section class="card"><h2>Najbliższe 21 dni</h2>${strip(a)}
-      <div class="legend"><span><i class="sw lv-high"></i>wysoka</span><span><i class="sw lv-mid"></i>podwyższona</span><span><i class="sw lv-low"></i>niska</span><span><i class="sw lv-bleed"></i>okres</span></div>
-      <p class="note">Wysokość słupka to względna szansa poczęcia przy stosunku w danym dniu, liczona z rozkładu możliwych owulacji. Płaskie, niskie słupki oznaczają, że prognoza jest niepewna.</p></section>
+      <div class="legend"><span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span><i class="sw lv-low"></i>poza oknem</span><span><i class="sw lv-bleed"></i>okres</span></div>
+      <p class="note">Kolor pokazuje, czy dzień wypada w oknie płodnym (około 6 dni kończących się w dniu owulacji: plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” to co najmniej 50% szans, że dzień jest w oknie, „możliwe” to 20–50%. Wysokość słupka to względna szansa poczęcia przy stosunku w tym dniu (największa tuż przed owulacją). Przy nieregularnych cyklach okno jest szerokie, a dni „bardzo prawdopodobnych” może nie być wcale.</p></section>
     <section class="card"><h2>Zapisz dziś</h2><div class="quick">
       ${quick("sex", "Stosunek", f.sex)}${quick("protected", "Zabezpieczone", f.prot)}${quick("him", "Solo — partner/ka", f.solo)}
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
@@ -111,9 +115,9 @@ export const viewCalendar = (a: Analysis, s: UiState): SafeHtml => {
     <div class="wd"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
     <div class="cal">${cells}</div>
     <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw dashed"></i>prognoza okresu</span>
-      <span><i class="sw lv-high"></i>wysoka szansa</span><span><i class="sw lv-mid"></i>podwyższona</span><span>★ owulacja (szac.)</span>
+      <span><i class="sw lv-high"></i>okno płodne: bardzo prawdopodobne</span><span><i class="sw lv-mid"></i>okno płodne: możliwe</span><span>★ owulacja (szac.)</span>
       <span><i class="dot sex"></i>stosunek</span><span><i class="dot solo"></i>solo</span><span><i class="dot spot"></i>plamienie</span><span><i class="dot lh"></i>test LH+</span></div>
-    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
+    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Zielone dni to okno płodne: około 6 dni kończących się w dniu owulacji (plemniki żyją do 5 dni, komórka jajowa około doby). „Bardzo prawdopodobne” = co najmniej 50% szans, że dzień jest w oknie, „możliwe” = 20–50%. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
 };
 
 const pill = (ok: boolean, na: boolean): SafeHtml => html`<span class="pill ${na ? "na" : ok ? "ok" : "bad"}">${na ? "za mało danych" : ok ? "w normie" : "poza normą"}</span>`;
@@ -161,7 +165,7 @@ export const viewCharts = (a: Analysis, s: UiState): SafeHtml => {
     <section class="card"><h2>Intymność</h2>
       <div class="grid2 tight"><div class="stat"><small>Stosunki</small><strong>${i.sex}</strong><span>${i.pct}% z zabezpieczeniem</span></div>
       <div class="stat"><small>Solo (partner/ka)</small><strong>${i.solo}</strong></div>
-      <div class="stat wide2"><small>W dniach podwyższonej szansy</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
+      <div class="stat wide2"><small>W dniach okna płodnego</small><strong>${i.atRiskTotal}</strong><span>w tym bez zabezpieczenia: ${i.unprotectedAtRisk}</span></div></div>
       <div class="scroll" id="mscroll">${monthChart(mo)}</div>
       <div class="legend"><span><i class="sw sexc"></i>stosunki</span><span><i class="sw soloc"></i>solo</span></div></section>
     <section class="card"><h2>Cykle</h2><table><thead><tr><th>Od</th><th>Do</th><th>Dni</th><th>Krwaw.</th></tr></thead><tbody>
@@ -205,7 +209,7 @@ const seg = (name: string, max: number, val: number): SafeHtml => html`<span cla
 
 export const sheetDay = (a: Analysis, date: string): SafeHtml => {
   const f = flagsFor(a.entries, date), i = a.info(date);
-  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && "wysoka szansa", i.level === "mid" && "podwyższona szansa", i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
+  const tags = [i.bleed && "okres", i.predBleed && "prognoza okresu", i.level === "high" && `okno płodne bardzo prawdopodobne (ok. ${Math.round(i.window * 100)}%)`, i.level === "mid" && `okno płodne możliwe (ok. ${Math.round(i.window * 100)}%)`, i.ovulation && "owulacja (szac.)"].filter(Boolean).join(" · ");
   return html`<h2>${dfmt(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2>${tags ? html`<p class="mute">${tags}</p>` : ""}
     <input type="hidden" id="solotype" value="${f.soloType}">
     <div class="togs">${tog("period_start", "Start okresu", f.start)}${tog("period_end", "Koniec okresu", f.end)}${tog("spotting", "Plamienie", f.spot)}${tog("clot", "Skrzepy", f.clot)}

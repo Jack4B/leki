@@ -154,8 +154,11 @@ class MainActivity : FragmentActivity() {
 }
 
 private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia", "Cykl")
-/** Kolejność zakładek na dolnym pasku; „Cykl” (numer 5) jest opcjonalny i wstawiony przed Raportem. Ustawienia (numer 4) są pod ikoną koła zębatego w nagłówku. Numery zakładek się nie zmieniają. */
-private fun visibleTabs(cykl: Boolean): List<Int> = if (cykl) listOf(0, 1, 2, 5, 3) else listOf(0, 1, 2, 3)
+/**
+ * Kolejność zakładek na dolnym pasku. Leki (0) i Raport (3) są zawsze; Ciśnienie (1), Badania (2) i „Cykl” (5, przed Raportem) każda osoba
+ * może ukryć w Ustawieniach → Moduły (dane zostają). Ustawienia (numer 4) są pod ikoną koła zębatego w nagłówku. Numery zakładek się nie zmieniają.
+ */
+private fun visibleTabs(c: pl.asystent.leki.core.Settings): List<Int> = listOfNotNull(0, 1.takeIf { c.bpOn }, 2.takeIf { c.labsOn }, 5.takeIf { c.cyklOn }, 3)
 private const val TAB_CYKL = 5
 
 /** Kolor przycisku „Cofnij” na ciemnym (jasny motyw) lub jasnym (ciemny motyw) pasku komunikatu: kontrast co najmniej 5,5:1. */
@@ -192,8 +195,8 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
         }
         CompositionLocalProvider(LocalToast provides toast, LocalUndo provides undo, LocalLock provides lock) {
             var rawTab by rememberSaveable { mutableIntStateOf(0) }
-            // moduł ukryty w Ustawieniach, a zakładka była otwarta (np. po przywróceniu stanu): wracamy do pierwszej
-            val tab = if (rawTab == TAB_CYKL && !s.settings.cyklOn) 0 else rawTab
+            // moduł ukryty w Ustawieniach (albo po zmianie osoby), a zakładka była otwarta: wracamy do pierwszej
+            val tab = if (rawTab in 0..5 && rawTab != 4 && rawTab !in visibleTabs(s.settings)) 0 else rawTab
             val setTab: (Int) -> Unit = { rawTab = it }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
             LaunchedEffect(requestedTab) { requestedTab?.let { setTab(it); onTabHandled() } }
@@ -235,7 +238,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                 bottomBar = {
                     NavigationBar(containerColor = pal.surface) {
                         val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix, Ph.CalendarBlank)
-                        val shown = visibleTabs(s.settings.cyklOn)
+                        val shown = visibleTabs(s.settings)
                         shown.forEach { i ->
                             val label = tabs[i]
                             NavigationBarItem(

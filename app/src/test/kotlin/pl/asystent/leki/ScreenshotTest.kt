@@ -214,6 +214,7 @@ class ScreenshotTest {
         val demo = pl.asystent.leki.core.CyklData("""{"entries":[{"type":"period_start","date":"2024-01-08"},{"type":"period_start","date":"2024-02-05"},{"type":"period_end","date":"2024-02-09"}],"cycles":{},"settings":{}}""")
         SettingsScreen(state.copy(settings = state.settings.copy(cyklOn = true), cykl = demo), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Cykl")
     }
+    @Test fun ustawieniaModuly() = slices("ustawienia-moduly", 1) { SettingsScreen(state.copy(settings = state.settings.copy(bpOn = false)), store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Modules") }
     @Test fun ustawieniaCyklUkryty() = slices("ustawienia-cykl-ukryty", 1) { SettingsScreen(state, store, importer = {}, newMedRequest = false, onNewMedHandled = {}, listState = it, initialPage = "Cykl") }
     private fun twoPeople(): Store = Store(File(System.getProperty("java.io.tmpdir"), "leki-people-" + System.nanoTime())).also { st ->
         st.updateAll { it.copy(settings = it.settings.copy(cyklOn = false)) }
