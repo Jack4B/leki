@@ -28,11 +28,16 @@ jobs:
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
           LEKI_RELEASE_KEYSTORE_BASE64: ${{ secrets.LEKI_RELEASE_KEYSTORE_BASE64 }}
+          LEKI_KEYSTORE_PASSWORD: ${{ secrets.LEKI_KEYSTORE_PASSWORD }}
+          LEKI_KEY_ALIAS: ${{ secrets.LEKI_KEY_ALIAS }}
+          LEKI_KEY_PASSWORD: ${{ secrets.LEKI_KEY_PASSWORD }}
+        # Gradle zawsze dostaje jawną ścieżkę klucza (LEKI_KEYSTORE_PATH itd. przez GITHUB_ENV), żeby podpis nie zależał od domyślnego miejsca klucza debug.
         run: |
           mkdir -p ~/.android
           if [ -n "$LEKI_RELEASE_KEYSTORE_BASE64" ]; then
             echo "$LEKI_RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "LEKI_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            { echo "LEKI_KEYSTORE_PATH=$RUNNER_TEMP/release.jks"; echo "LEKI_KEYSTORE_PASSWORD=$LEKI_KEYSTORE_PASSWORD"
+              echo "LEKI_KEY_ALIAS=$LEKI_KEY_ALIAS"; echo "LEKI_KEY_PASSWORD=$LEKI_KEY_PASSWORD"; } >> "$GITHUB_ENV"
             echo release > key-source.txt
             echo "Użyto klucza release z sekretów."
           elif [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
@@ -45,11 +50,12 @@ jobs:
             echo tymczasowy > key-source.txt
             echo "::warning::Brak sekretów podpisu: APK podpisany nowym, tymczasowym kluczem (aktualizacja na wierzch i Obtainium nie zadziałają)."
           fi
+          if [ ! -f "$RUNNER_TEMP/release.jks" ] || [ -z "$LEKI_RELEASE_KEYSTORE_BASE64" ]; then
+            # klucz debug: standardowe, publicznie znane hasła debug (nie są to sekrety), podane tylko w CI
+            { echo "LEKI_KEYSTORE_PATH=$HOME/.android/debug.keystore"; echo "LEKI_KEYSTORE_PASSWORD=android"
+              echo "LEKI_KEY_ALIAS=androiddebugkey"; echo "LEKI_KEY_PASSWORD=android"; } >> "$GITHUB_ENV"
+          fi
       - name: Testy logiki i zbudowanie APK
-        env:
-          LEKI_KEYSTORE_PASSWORD: ${{ secrets.LEKI_KEYSTORE_PASSWORD }}
-          LEKI_KEY_ALIAS: ${{ secrets.LEKI_KEY_ALIAS }}
-          LEKI_KEY_PASSWORD: ${{ secrets.LEKI_KEY_PASSWORD }}
         run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
       - name: Sprawdź, że APK nie ma uprawnienia INTERNET
         run: |
@@ -58,9 +64,6 @@ jobs:
           "$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | tee permissions.txt
           if grep -q 'android.permission.INTERNET' permissions.txt; then echo "::error::APK ma uprawnienie INTERNET, a aplikacja ma działać bez sieci"; exit 1; fi
       - name: Nazwij plik według wersji
-        env:
-          LEKI_KEYSTORE_PASSWORD: ${{ secrets.LEKI_KEYSTORE_PASSWORD }}
-          LEKI_KEY_ALIAS: ${{ secrets.LEKI_KEY_ALIAS }}
         run: |
           VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           cp app/build/outputs/apk/release/app-release.apk "asystent-lekow-${VERSION}.apk"
@@ -72,7 +75,7 @@ jobs:
           OUT=$("$APKSIGNER" verify -v --print-certs "asystent-lekow-${VERSION}.apk" 2>&1 || true)
           echo "$OUT" | head -20
           FP=$(echo "$OUT" | grep -i 'certificate SHA-256 digest' | head -1 | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f' || true)
-          if [ -n "${LEKI_KEYSTORE_PATH:-}" ]; then KS_FILE="$LEKI_KEYSTORE_PATH"; KS_PASS="$LEKI_KEYSTORE_PASSWORD"; KS_ALIAS="$LEKI_KEY_ALIAS"; else KS_FILE=~/.android/debug.keystore; KS_PASS=android; KS_ALIAS=androiddebugkey; fi
+          KS_FILE="$LEKI_KEYSTORE_PATH"; KS_PASS="$LEKI_KEYSTORE_PASSWORD"; KS_ALIAS="$LEKI_KEY_ALIAS"
           KS=$(keytool -list -v -keystore "$KS_FILE" -storepass "$KS_PASS" -alias "$KS_ALIAS" | sed -n 's/^.*SHA256: //p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')
           echo "Klucz w pliku: ${KS}"; echo "Podpis APK:    ${FP}"
           [ -n "$FP" ] || { echo "::error::Nie udało się odczytać podpisu APK"; exit 1; }
