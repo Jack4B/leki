@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.14.1-preview
+
+CI sprząta wydania: po każdej kompilacji zostają **2 ostatnie** wydania `-b<numer>` (było 5), a starsze są usuwane razem z tagami. Dodatkowo usuwane są **osierocone tagi** kompilacji (tag bez wydania, np. po ręcznym usunięciu wydania). Dzięki temu lista Releases pozostaje krótka bez ręcznego sprzątania. Bez zmian w aplikacji.
+
 ## 0.14.0-preview
 
 Moduły aplikacji do ukrywania per osoba, czytelniejsze okno płodne w Cyklu i dopracowany motyw modułu.

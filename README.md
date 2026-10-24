@@ -173,7 +173,7 @@ Wskazówki: cała tabela w kadrze, tekst poziomo, bez cienia i odblasków. PDF p
 
 ## Pobranie APK z GitHuba
 
-Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków <wersja> (kompilacja N)** (sekcja **Assets**: plik `asystent-lekow-<wersja>.apk` i suma kontrolna `.sha256`). Każde wypchnięcie zmian na gałąź tworzy nowe wydanie testowe (prerelease) z tagiem `v<wersja>-b<N>`; zostaje 5 ostatnich. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków <wersja> (kompilacja N)** (sekcja **Assets**: plik `asystent-lekow-<wersja>.apk` i suma kontrolna `.sha256`). Każde wypchnięcie zmian na gałąź tworzy nowe wydanie testowe (prerelease) z tagiem `v<wersja>-b<N>`; zostają 2 ostatnie (aktualna i poprzednia); starsze wydania i osierocone tagi kompilacji CI usuwa automatycznie. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
 
 Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików). Wymagany Android 8.0 lub nowszy.
 
@@ -222,7 +222,7 @@ Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychcza
 
 ### Aktualizacje przez Obtainium
 
-[Obtainium](https://obtainium.imranr.dev/) sprawdza wydania w GitHubie i instaluje aktualizacje. Każda kompilacja ma własne wydanie z unikalnym tagiem w postaci `v<wersja>-b<numer>` (np. `v0.5.1-preview-b16`), więc Obtainium widzi każdą nową kompilację. Zostaje 5 ostatnich wydań kompilacji, starsze są usuwane automatycznie.
+[Obtainium](https://obtainium.imranr.dev/) sprawdza wydania w GitHubie i instaluje aktualizacje. Każda kompilacja ma własne wydanie z unikalnym tagiem w postaci `v<wersja>-b<numer>` (np. `v0.5.1-preview-b16`), więc Obtainium widzi każdą nową kompilację. Zostają 2 ostatnie wydania kompilacji (aktualne i poprzednie, do cofnięcia), starsze wydania i osierocone tagi `-b<numer>` są usuwane automatycznie przez CI (z tej sesji nie da się ich usuwać ręcznie przez API).
 
 1. W Obtainium: **Dodaj aplikację**, adres `https://github.com/Jack4B/leki`.
 2. Włącz **Uwzględniaj wersje wstępne** (Include prereleases), bo wydania są oznaczone jako testowe.
