@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.14.5-preview
+
+Punkt z listy „Otwarte uwagi z review”: numer wersji przy lokalnej kompilacji.
+
+- **`versionCode` z wersji:** bez `-PversionCode=N` numer kompilacji wynika z `appVersionName` (`major*10000 + minor*100 + patch`, np. 0.14.5-preview daje 1405) zamiast stałego 1. CI nadal podaje numer przebiegu, więc wydania z Releases się nie zmieniają. Uwaga: lokalny numer jest wyższy niż numer przebiegu CI, więc APK z Releases nie zainstaluje się na wierzch lokalnej kompilacji (najpierw kopia danych i odinstalowanie).
+- Zmiana dotyczy tylko skryptu budowania `app`; sprawdza ją CI (bez `-PversionCode` nie budujemy lokalnie).
+
 ## 0.14.4-preview
 
 Poprawki z review PR #1 (Nexus): dwa P1 dotyczące ochrony danych w `Store`, trzy P2 (limit dawki, CSP, testy magazynu osób).

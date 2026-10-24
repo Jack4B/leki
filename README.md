@@ -242,7 +242,7 @@ Wymagane: Java 21 i Android SDK (`ANDROID_HOME`).
 ./gradlew checkChangelog :core:test :app:assembleRelease
 ```
 
-APK: `app/build/outputs/apk/release/app-release.apk`. Numer wersji jest w `gradle.properties` (`appVersionName`), a `-PversionCode=N` ustawia numer kompilacji (workflow podaje numer przebiegu).
+APK: `app/build/outputs/apk/release/app-release.apk`. Numer wersji jest w `gradle.properties` (`appVersionName`), a `-PversionCode=N` ustawia numer kompilacji (workflow podaje numer przebiegu). Bez niego numer wynika z wersji (`major*10000 + minor*100 + patch`, np. 0.14.5-preview daje 1405); taki lokalny numer jest wyższy niż numer przebiegu CI, więc APK z Releases nie zainstaluje się na wierzch lokalnej kompilacji.
 
 Samą logikę (moduł `core`) można budować i testować bez Androida: `./gradlew :core:test` w projekcie zawierającym tylko ten moduł.
 
