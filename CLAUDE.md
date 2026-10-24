@@ -73,7 +73,7 @@ Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w 
 - `abiFilters` bez x86_64: OCR (ML Kit) nie zadziała na emulatorze x86_64. Do testów dodać x86_64 w debug.
 - Testy: `app` ma tylko zrzuty Paparazzi (`continue-on-error`). Brak testów `Store` (zapis atomowy, uszkodzony plik), `AutoBackup` (seal/open, rotacja), `Reminders.reschedule`, intencji SEND/VIEW. CI nie uruchamia `lint`.
 - Gałąź domyślna ma nazwę wygenerowaną (`ccr-…`). Rozważyć zmianę na `main`. PR #1 (`cykl-modul`, 0.14.x) czeka na scalenie.
-- Testy `Store` są w `app` (`android.util.AtomicFile`), więc wymagają wyciągnięcia logiki zapisu/odczytu do `core` albo atrap. Zadanie `fix/store-tests` po scaleniu PR #1.
+- Logika magazynu osób jest w `core` (`Profiles`, `ProfilesTest`). Sam zapis na dysk (`AtomicFile`) zostaje w `Store` (`app`) bez testów na JVM; zadanie `fix/store-tests` może to uzupełnić (Robolectric albo atrapa `FileIo`).
 
 ## Tryb pracy (wydajność, tokeny, testy)
 

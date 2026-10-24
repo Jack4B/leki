@@ -2,11 +2,14 @@
 
 ## 0.14.4-preview
 
-Poprawki P1 z review PR #1 (Nexus), oba dotyczą ochrony danych w `Store`.
+Poprawki z review PR #1 (Nexus): dwa P1 dotyczące ochrony danych w `Store`, trzy P2 (limit dawki, CSP, testy magazynu osób).
 
-- **Uszkodzony plik osoby:** osoba odtworzona po uszkodzonym pliku (pusty stan) nie jest już oznaczana do zapisu przy zmianach automatycznych (data kopii zapasowej, wspólny motyw), więc jej pusty stan nie nadpisuje oryginału. Automatyczna kopia zapasowa jest **wstrzymana**, dopóki nie zapadnie decyzja (wczytanie kopii, usunięcie osoby albo przycisk „Zaczynam od nowa”), bo pusta osoba wypierałaby rotacją dobre kopie. Wszystkie odtworzone osoby są zbierane w liście (wcześniej zapamiętywana była tylko ostatnia), a komunikat na ekranie Leki wymienia pliki i ma przycisk „Zaczynam od nowa”. Uszkodzone pliki zostają obok danych (`*.uszkodzony.json`).
-- **Wczytanie kopii „Zastąp wszystkie dane”:** kolejność zapisu to teraz nowe pliki, potem lista osób, dopiero na końcu kasowanie starych plików osób i zapasu sprzed osób (`state.przed-osobami.json`); kasowanie jest pomijane, gdy zapis się nie udał. Zabicie procesu w trakcie nie traci danych (zostają stare albo nowe).
-- Testy `Store` (w module `app`, wymagają wyciągnięcia logiki do `core` albo atrap Androida) są zaplanowane w osobnym PR `fix/store-tests`; zmiany sprawdza CI (kompilacja i zrzuty ekranów), zachowania nie sprawdzono na telefonie.
+- **Uszkodzony plik osoby (P1):** osoba odtworzona po uszkodzonym pliku (pusty stan) nie jest już oznaczana do zapisu przy zmianach automatycznych (data kopii zapasowej, wspólny motyw), więc jej pusty stan nie nadpisuje oryginału. Automatyczna kopia zapasowa jest **wstrzymana**, dopóki nie zapadnie decyzja (wczytanie kopii, usunięcie osoby albo przycisk „Zaczynam od nowa”), bo pusta osoba wypierałaby rotacją dobre kopie. Wszystkie odtworzone osoby są zbierane w liście (wcześniej zapamiętywana była tylko ostatnia), a komunikat na ekranie Leki wymienia pliki i ma przycisk „Zaczynam od nowa”. Uszkodzone pliki zostają obok danych (`*.uszkodzony.json`).
+- **Wczytanie kopii „Zastąp wszystkie dane” (P1):** kolejność zapisu to nowe pliki, potem lista osób, dopiero na końcu kasowanie starych plików osób; kasowanie jest pomijane, gdy zapis się nie udał. Zabicie procesu w trakcie nie traci danych (zostają stare albo nowe). **Zapas sprzed osób (`state.przed-osobami.json`) nie jest już kasowany przy wczytaniu kopii** (zmiana względem 0.14.3); znika dopiero z pierwszą osobą albo przy „Usuń wszystkie dane”.
+- **Limit dawki (P2):** stała `Backup.MAX_DOSE` = 1000 z uzasadnieniem w kodzie (dawki w mg, np. 500 czy 850, były po cichu odrzucane przy wczytaniu; limit nie zależy od jednostki) i test granicy 1000/1001.
+- **CSP strony Cykl (P2):** `cykl/src/index.html` ma własny `<meta>` z polityką treści (`default-src 'none'`, skrypt i style tylko wbudowane, obrazy `data:`/`blob:`, `connect-src blob: data:` dla zapisu pliku przez most). Ten sam napis jest w `Cykl.CSP` (aplikacja dokłada go przy składaniu strony), test w `cykl/test` pilnuje zgodności. `cykl.html` przebudowany. Usunięcie `unsafe-inline` zostaje w backlogu.
+- **Testy magazynu osób (P2):** logika `Store` bez dysku przeniesiona do `core` (`Profiles`): odczyt listy osób i danych z odtwarzaniem po uszkodzeniu, plany wczytania kopii i dopisywania osób z pliku (wolne identyfikatory, powtórzone imiona, wspólny dziennik „#numer”, limit osób), kolejność zapisu. `ProfilesTest` ma 29 testów. Sam zapis na dysk (`AtomicFile`) zostaje w `Store` (`app`) i nie ma testów na JVM.
+- Zmiany w `app` (Store, ekran Leki, `LekiApp`) sprawdza CI (kompilacja, zrzuty); na telefonie nie sprawdzano.
 
 ## 0.14.3-preview
 
