@@ -117,18 +117,18 @@ input[type=text],select,.btn{min-height:48px}
 :root[data-theme="light"]{
   --field:#f1f4f2;--cal-mid-bg:#e1f0ea;--cal-mid-line:#3f8f7b;
   --cal-bleed-bg:#f9dedc;--cal-bleed-ink:#b3261e;--cal-bleed-line:#c8574f;--cal-pred-bg:#fbeceb;
-  --track:#a8b8b0;--dot-sex:#b3261e;--dot-solo:#1f6f86;--dot-spot:#8a5200;--dot-lh:#0b6b58;
+  --dot-sex:#b3261e;--dot-solo:#1f6f86;--dot-spot:#8a5200;--dot-lh:#0b6b58;
 }
 :root[data-theme="dark"]{
   --field:#1c2924;--cal-mid-bg:#172c26;--cal-mid-line:#33806c;
   --cal-bleed-bg:#6a2a27;--cal-bleed-ink:#ffdad6;--cal-bleed-line:#e0766f;--cal-pred-bg:#2f1d1c;
-  --track:#44574e;--dot-sex:#f2867f;--dot-solo:#6cc4d8;--dot-spot:#f0b35a;--dot-lh:#4dc2a5;
+  --dot-sex:#f2867f;--dot-solo:#6cc4d8;--dot-spot:#f0b35a;--dot-lh:#4dc2a5;
 }
 :root{--ink-on-accent:#fff}
 :root[data-theme="dark"]{--ink-on-accent:#06201a}
 
 /* komórki kalendarza */
-.day{border-width:2px;font-weight:600}
+.day{border-width:2px;font-weight:600;line-height:1.2}
 .day.lv-high{background:var(--green);color:var(--ink-on-accent);font-weight:800}
 .day.lv-mid{background:var(--cal-mid-bg);border:1px solid var(--cal-mid-line);padding-top:4px}
 .day.bleed{background:var(--cal-bleed-bg);color:var(--cal-bleed-ink);border:1px solid var(--cal-bleed-line);padding-top:4px;font-weight:800}
@@ -163,7 +163,7 @@ input[type=text],select,.btn{min-height:48px}
 .cal-card .legend .sw.lv-mid{background:var(--cal-mid-bg);border:1px solid var(--cal-mid-line);box-sizing:border-box}
 .sbar.lv-mid{background:var(--cal-mid-line)}
 .rmid{stroke:var(--cal-mid-line);opacity:1}
-.track{fill:var(--track)}                              /* ścieżka osi cykli: odcinki okresu i okna płodnego odcinają się od niej na co najmniej 3:1 */
+.bleedb,.winb{stroke:var(--surface);stroke-width:1.5px}   /* odcinek okresu i okna płodnego oddzielony od ścieżki pasem tła, więc kontrast liczy się względem powierzchni, nie szarej ścieżki */
 
 /* pola, przyciski wyboru i tła wewnętrzne: ta sama „wklęsła” barwa co w aplikacji (w ciemnym jaśniejsza od tła, nie czarna) */
 .q,.tog,.seg button,.chipb,input[type=text],textarea,select,input[type=file],.detail,.grid2.tight .stat{background:var(--field)}
