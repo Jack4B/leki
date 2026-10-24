@@ -205,8 +205,14 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         synchronized(lock) {
             if (states.size <= 1 || id !in states) return false
             states.remove(id); dirty.remove(id)
+            // osoby, które korzystały z dziennika usuwanej osoby, wracają do własnego (inaczej nowa osoba o tym samym id przejęłaby ten wskaźnik)
+            states.keys.toList().forEach { k ->
+                val st = states.getValue(k)
+                if (st.settings.cyklFrom == id) { states[k] = st.copy(settings = st.settings.copy(cyklFrom = "")); dirty.add(k) }
+            }
             gone = listOf(fileOf(id), fileOf(id) + ".bak", sideFile(id))
-            if (active == id) { active = states.keys.first(); _state.value = states.getValue(active) }
+            if (active == id) active = states.keys.first()
+            _state.value = states.getValue(active)
         }
         // pliki kasujemy pod blokadą zapisu (nie zagnieżdżoną w `lock`), żeby trwający zapis nie odtworzył pliku usuniętej osoby
         synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } } }
@@ -270,6 +276,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         }
         // najpierw dane nowych osób, potem lista osób (zabicie procesu w tym oknie nie zostawi pustych osób na liście)
         writeDirty(); publishProfiles(); writeIndex()
+        scheduleSave()   // przypomnienia i widżet mają od razu uwzględnić dodane osoby
         return added
     }
 
