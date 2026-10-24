@@ -43,11 +43,17 @@ import pl.asystent.leki.core.Cykl
 import pl.asystent.leki.core.CyklData
 import pl.asystent.leki.core.plN
 
-/** Kółko z pierwszą literą imienia: pokazuje, czyje dane są teraz na ekranie. */
+// pary (tło, litera) dla kolejnych osób: kontrast litery co najmniej 5:1 w obu motywach
+private val tintsLight = listOf(0xFFDDEEE8 to 0xFF0B6B58, 0xFFDCE8F7 to 0xFF1F4F8F, 0xFFF3E3F4 to 0xFF7A2C84, 0xFFFBE6D6 to 0xFF8A3F00, 0xFFE7E6F9 to 0xFF4A3FA8, 0xFFF8DCE3 to 0xFF9C1F46)
+private val tintsDark = listOf(0xFF17332B to 0xFF4DC2A5, 0xFF17283F to 0xFF8DB8F2, 0xFF34203A to 0xFFD9A3E3, 0xFF3A2615 to 0xFFF0B27A, 0xFF25224A to 0xFFB7B0F5, 0xFF3D1D28 to 0xFFF2A0B8)
+
+/** Kółko z pierwszą literą imienia w kolorze przypisanym osobie: pokazuje, czyje dane są teraz na ekranie. */
 @Composable
 fun PersonAvatar(name: String, modifier: Modifier = Modifier, size: Int = 24) {
-    Box(modifier.size(size.dp).clip(CircleShape).background(pal.accentSoft), contentAlignment = Alignment.Center) {
-        Text(name.trim().take(1).uppercase().ifEmpty { "?" }, style = TextStyle(fontSize = (size * 0.5).sp, fontWeight = FontWeight.SemiBold, color = pal.accent))
+    val tints = if (pal.dark) tintsDark else tintsLight
+    val (bg, fg) = tints[Math.floorMod(name.trim().hashCode(), tints.size)]
+    Box(modifier.size(size.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color(bg)), contentAlignment = Alignment.Center) {
+        Text(name.trim().take(1).uppercase().ifEmpty { "?" }, style = TextStyle(fontSize = (size * 0.5).sp, fontWeight = FontWeight.SemiBold, color = androidx.compose.ui.graphics.Color(fg)))
     }
 }
 
@@ -62,13 +68,13 @@ fun PersonSwitcher(store: Store, profiles: List<ProfileInfo>, activeId: String, 
     val name = profiles.firstOrNull { it.id == activeId }?.name ?: profiles.firstOrNull()?.name ?: "Osoba 1"
     Box(modifier) {
         Row(
-            Modifier.heightIn(min = 36.dp).clip(CtlShape).clickable(role = Role.Button) { open = true }
-                .semantics { contentDescription = "Osoba: $name. Dotknij, żeby zmienić osobę" }.padding(end = 6.dp),
+            Modifier.heightIn(min = 48.dp).clip(CtlShape).clickable(role = Role.Button, onClickLabel = "Zmień osobę") { open = true }
+                .semantics { contentDescription = "Osoba: $name" }.padding(end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PersonAvatar(name)
             Spacer(Modifier.width(8.dp))
-            Text(name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), maxLines = 1)
+            Text(name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Icon(Ph.CaretRight, contentDescription = null, tint = pal.ink3, modifier = Modifier.size(14.dp).rotate(90f))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = pal.surface) {
@@ -86,7 +92,7 @@ fun PersonSwitcher(store: Store, profiles: List<ProfileInfo>, activeId: String, 
             )
             DropdownMenuItem(
                 text = { Text("Zarządzaj osobami", style = TextStyle(fontSize = 15.sp, color = pal.ink2)) },
-                leadingIcon = { Icon(Ph.GearSix, contentDescription = null, tint = pal.ink3, modifier = Modifier.size(20.dp)) },
+                leadingIcon = { Icon(Ph.User, contentDescription = null, tint = pal.ink3, modifier = Modifier.size(20.dp)) },
                 onClick = { open = false; onManage() },
             )
         }
@@ -99,6 +105,7 @@ fun PersonSwitcher(store: Store, profiles: List<ProfileInfo>, activeId: String, 
 fun AddPersonDialog(store: Store, onDismiss: () -> Unit) {
     val toast = LocalToast.current
     var name by remember { mutableStateOf("") }
+    val taken = name.isNotBlank() && store.profiles.value.any { it.name.equals(name.trim(), ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nowa osoba", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
@@ -106,15 +113,16 @@ fun AddPersonDialog(store: Store, onDismiss: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 BodyText("Każda osoba ma osobne leki, ciśnienie, badania, raporty i dziennik cyklu. Wspólne są tylko wygląd i blokada aplikacji.")
                 LekiField("Imię", name, { name = it }, placeholder = "np. Anna")
+                if (taken) ErrorText("Osoba o takim imieniu już jest. Dodaj coś, co je odróżni (np. inicjał nazwiska).")
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = {
+            TextButton(enabled = name.isNotBlank() && !taken, onClick = {
                 val label = name.trim()
                 val id = store.addProfile(label)
                 onDismiss()
-                if (id == null) toast("Osiągnięto limit osób (${Backup.MAX_PROFILES}).") else { store.switchTo(id); toast("Dodano osobę: $label. Teraz widzisz jej dane.") }
-            }) { Text("Dodaj", color = if (name.isNotBlank()) pal.accent else pal.ink3, fontWeight = FontWeight.SemiBold) }
+                if (id == null) toast("Osiągnięto limit osób (${Backup.MAX_PROFILES}).") else { store.switchTo(id); toast("Dodano osobę: $label. Teraz widać dane tej osoby.") }
+            }) { Text("Dodaj", color = if (name.isNotBlank() && !taken) pal.accent else pal.ink3, fontWeight = FontWeight.SemiBold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj", color = pal.ink2) } },
         containerColor = pal.surface,
@@ -141,7 +149,7 @@ fun PeopleSection(s: AppState, store: Store) {
                 Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     PersonAvatar(info.name, size = 36)
                     Column(Modifier.weight(1f)) {
-                        Text(info.name + if (info.id == activeId) " (teraz)" else "", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        Text(info.name + if (info.id == activeId) " (wybrana osoba)" else "", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
                         // tylko to, co ma dane (zera nic nie mówią)
                         val parts = listOfNotNull(
                             st.meds.size.takeIf { it > 0 }?.let { "$it ${plN(it, "lek", "leki", "leków")}" },
@@ -154,7 +162,7 @@ fun PeopleSection(s: AppState, store: Store) {
                             style = TextStyle(fontSize = 12.5.sp, color = pal.ink3),
                         )
                     }
-                    if (info.id != activeId) LekiButton("Przełącz", { store.switchTo(info.id) }, small = true, tonal = true)
+                    if (info.id != activeId) LekiButton("Przełącz", { store.switchTo(info.id) }, Modifier.semantics { contentDescription = "Przełącz na: ${info.name}" }, small = true, tonal = true)
                 }
             }
         }
@@ -184,14 +192,14 @@ fun PeopleSection(s: AppState, store: Store) {
     removeId?.let { id ->
         val who = all.firstOrNull { it.first.id == id }?.first?.name ?: "tę osobę"
         ConfirmDialog(
-            "Usunąć osobę: $who?", "Znikną wszystkie jej dane: leki, odhaczenia, pomiary ciśnienia, wyniki badań, EKG, analizy i dziennik cyklu. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
+            "Usunąć osobę: $who?", "Znikną wszystkie dane tej osoby: leki, odhaczenia, pomiary ciśnienia, wyniki badań, EKG, analizy i dziennik cyklu. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
             "Usuń osobę", onConfirm = { removeId = null; if (store.removeProfile(id)) toast("Usunięto osobę: $who") }, onDismiss = { removeId = null }, danger = true,
         )
     }
     moveTo?.let { dest ->
         val from = active?.first
         ConfirmDialog(
-            "Przenieść dziennik cyklu?", "Dziennik cyklu (wpisy, choroby i leki z modułu) przejdzie od: ${from?.name} do: ${dest.name}. U ${from?.name} moduł zostanie ukryty i pusty. Możesz to cofnąć zaraz po przeniesieniu.",
+            "Przenieść dziennik cyklu?", "Dziennik cyklu (wpisy, choroby i leki z modułu) przejdzie z osoby: ${from?.name} do osoby: ${dest.name}. Dla osoby ${from?.name} moduł zostanie ukryty i pusty. Możesz to cofnąć zaraz po przeniesieniu.",
             "Przenieś", onConfirm = {
                 moveTo = null
                 val src = store.profileState(activeId) ?: return@ConfirmDialog

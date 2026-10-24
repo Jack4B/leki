@@ -404,20 +404,21 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
             val ok = runCatching { Platform.writeToUri(ctx, uri, Cykl.exportText(store.state.value.cykl.db)) }.isSuccess
-            toast(if (ok) "Zapisano całą bazę cyklu" else "Nie udało się zapisać pliku.")
+            toast(if (ok) "Zapisano dziennik cyklu" else "Nie udało się zapisać pliku.")
         }
     }
 
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             BodyText("Dziennik cyklu z prognozą okna płodnego, trendem długości cykli i raportem dla lekarza. Działa w całości na telefonie, bez internetu.")
+            store.profiles.value.let { ps -> if (ps.size > 1) Hint("Dotyczy osoby: ${ps.firstOrNull { it.id == store.activeId.value }?.name ?: ""}. Każda osoba ma własny dziennik.") }
             SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> store.update { it.copy(settings = it.settings.copy(cyklOn = i == 1)) } })
             Hint(if (on) "Zakładka „Cykl” jest na dolnym pasku, przed Raportem." else "Zakładka jest ukryta. Wpisane dane zostają w aplikacji i wchodzą do kopii zapasowej.")
             if (on) LekiButton("Otwórz moduł", onOpen, Modifier.fillMaxWidth(), primary = true, icon = Ph.CalendarBlank)
         }
     }
     Spacer(Modifier.height(18.dp))
-    Overline("Dane modułu")
+    Overline("Dziennik cyklu")
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val span = sum?.let { x -> x.first?.let { a -> x.last?.let { b -> ", od ${plDate(LocalDate.parse(a))} do ${plDate(LocalDate.parse(b))}" } } } ?: ""
@@ -426,16 +427,22 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
                 else "Zapisano ${sum.entries} ${plN(sum.entries, "wpis", "wpisy", "wpisów")}, w tym ${sum.periods} ${plN(sum.periods, "początek okresu", "początki okresu", "początków okresu")}$span.",
             )
             LekiButton("Wczytaj plik z dziennikiem (JSON)", { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.UploadSimple)
-            if (here > 0) LekiButton("Zapisz całą bazę do pliku (JSON)", { saver.launch("cykl-baza-${LocalDate.now()}.json") }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.DownloadSimple)
-            Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.")
-            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu. Eksport CSV nie zawiera danych z tego modułu, a raporty tylko opcjonalne, opisowe „Podsumowanie cyklu” (domyślnie wyłączone).")
+            if (here > 0) LekiButton("Zapisz dziennik cyklu do pliku (JSON)", { saver.launch("cykl-baza-${LocalDate.now()}.json") }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.DownloadSimple)
+            Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić." + if (!on) " Po wczytaniu włącz widoczność modułu powyżej." else "")
+            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu.")
+            Hint("Eksport CSV nie zawiera dziennika cyklu. Raporty zawierają tylko opcjonalne, opisowe „Podsumowanie cyklu” (domyślnie wyłączone), nigdy wpisów intymnych.")
+            if (s.cykl.prev.isNotEmpty()) LekiButton("Przywróć poprzednią wersję dziennika", {
+                val old = s.cykl
+                store.update { it.copy(cykl = it.cykl.copy(db = it.cykl.prev, prev = it.cykl.db)) }
+                undo("Przywrócono poprzednią wersję dziennika") { store.update { it.copy(cykl = old) } }
+            }, Modifier.fillMaxWidth(), tonal = true)
             if (!s.cykl.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
         }
     }
     incoming?.let { inc ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { incoming = null },
-            title = { Text("Wczytać ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+            title = { Text("Wczytać ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}" + store.profiles.value.let { ps -> if (ps.size > 1) " do dziennika osoby: " + (ps.firstOrNull { it.id == store.activeId.value }?.name ?: "") else "" } + "?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     BodyText("Teraz w aplikacji: $here ${plN(here, "wpis", "wpisy", "wpisów")}." + if (inc.skipped > 0) " Pominięto ${inc.skipped} ${plN(inc.skipped, "wpis", "wpisy", "wpisów")} ze złą datą lub bez typu." else "")

@@ -64,3 +64,23 @@ body{padding-top:calc(76px + env(safe-area-inset-top,0px))}
 .ma{stroke:var(--ink);opacity:.7}
 .sbar.lv-low{background:var(--line2)}
 .legend .sw.dashed{background:var(--pred-bg);border:2px dashed var(--rose);box-sizing:border-box}
+
+/* Kontrast i cele dotyku (przegląd UX): tekst na kapsułkach, kropki na polach, obrysy przycisków, minimum 48 px */
+:root[data-theme="dark"] .chip.high{color:#a8ecd9}
+:root[data-theme="light"] .chip.low,:root[data-theme="light"] .pill.na{color:#44564e}
+.day .dot{box-shadow:0 0 0 1.5px var(--surface)}
+.day.lv-high .dot.lh{background:var(--surface)}
+:root[data-theme="light"] .sbar.lv-mid{background:#7fb8a6}
+:root[data-theme="light"]{--line2:#7a8b83}
+:root[data-theme="dark"]{--line2:#5c7168}
+.tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tabs button{min-height:48px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:340px){.tabs button{font-size:12px;padding:0 2px}}
+body{padding-top:calc(84px + env(safe-area-inset-top,0px))}
+.sheet{max-height:calc(100vh - 84px - env(safe-area-inset-top,0px))}
+.chipb,.seg button{min-height:48px}
+.icon{width:48px;height:48px}
+.toast-btn{min-height:48px;min-width:48px;padding:0 10px}
+.sl,.ov,.lane-l,.ax{font-size:11px}.val{font-size:12px}
+.card,.stat{border-radius:18px}
+.tabs svg{flex:0 0 18px;min-width:18px}

@@ -71,7 +71,7 @@
       if (el && !el.hidden) { el.style.bottom = "0.5px"; requestAnimationFrame(function () { el.style.bottom = ""; }); }
     });
     var tabs = document.querySelector(".tabs");
-    if (tabs) { tabs.style.bottom = "0.5px"; requestAnimationFrame(function () { tabs.style.bottom = ""; }); }
+    if (tabs) { tabs.style.top = "0.5px"; requestAnimationFrame(function () { tabs.style.top = ""; }); }
   }
   window.addEventListener("resize", function () { clearTimeout(settle); settle = setTimeout(relayout, 120); });
 
@@ -79,6 +79,33 @@
   document.addEventListener("DOMContentLoaded", function () {
     var sheet = document.getElementById("sheet");
     if (!sheet || !window.MutationObserver) return;
-    new MutationObserver(function () { H.sheet(!sheet.hidden); }).observe(sheet, { attributes: true, attributeFilter: ["hidden"] });
+    new MutationObserver(function () {
+      H.sheet(!sheet.hidden);
+      // czytnik ekranu: po otwarciu arkusza fokus przechodzi na jego nagłówek
+      if (!sheet.hidden) { var h = sheet.querySelector("h2"); if (h) { h.tabIndex = -1; h.focus(); } }
+    }).observe(sheet, { attributes: true, attributeFilter: ["hidden"] });
+  });
+
+  // Dostępność: strona przerysowuje całą zawartość, więc nie jest „na żywo” (czytnik ekranu nie czyta jej od nowa),
+  // a kafelki dni dostają opis po polsku (data, okres, prognoza, szansa, zapisy)
+  document.addEventListener("DOMContentLoaded", function () {
+    var app = document.getElementById("app");
+    if (!app) return;
+    app.removeAttribute("aria-live");
+    var LV = { high: "wysoka", mid: "podwyższona", low: "niska", bleed: "okres" };
+    function labels() {
+      document.querySelectorAll(".sb[aria-label]").forEach(function (b) {
+        b.setAttribute("aria-label", b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return "szansa: " + (LV[k] || k); }));
+      });
+      document.querySelectorAll(".day[data-date]").forEach(function (b) {
+        var d = new Date(b.getAttribute("data-date") + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+        var s = [b.classList.contains("bleed") && "okres", b.classList.contains("pred") && "prognoza okresu", b.classList.contains("lv-high") && "wysoka szansa",
+          b.classList.contains("lv-mid") && "podwyższona szansa", b.querySelector(".dot.sex") && "stosunek", b.querySelector(".dot.spot") && "plamienie",
+          b.querySelector(".dot.lh") && "test LH", b.querySelector(".ov") && "owulacja (szacunkowo)"].filter(Boolean).join(", ");
+        b.setAttribute("aria-label", s ? d + ": " + s : d);
+      });
+    }
+    if (window.MutationObserver) new MutationObserver(labels).observe(app, { childList: true });
+    labels();
   });
 })();

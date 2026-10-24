@@ -70,6 +70,7 @@ import pl.asystent.leki.ui.CardShape
 import pl.asystent.leki.ui.CtlShape
 import pl.asystent.leki.ui.CyklScreen
 import pl.asystent.leki.ui.PersonSwitcher
+import pl.asystent.leki.ui.LocalPersonName
 import pl.asystent.leki.ui.Divider
 import pl.asystent.leki.ui.IconAction
 import pl.asystent.leki.ui.LabsScreen
@@ -157,6 +158,10 @@ private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia
 private fun visibleTabs(cykl: Boolean): List<Int> = if (cykl) listOf(0, 1, 2, 5, 3) else listOf(0, 1, 2, 3)
 private const val TAB_CYKL = 5
 
+/** Kolor przycisku „Cofnij” na ciemnym (jasny motyw) lub jasnym (ciemny motyw) pasku komunikatu: kontrast co najmniej 5,5:1. */
+@Composable
+private fun snackAction(): androidx.compose.ui.graphics.Color = if (pal.dark) androidx.compose.ui.graphics.Color(0xFF0B6B58) else androidx.compose.ui.graphics.Color(0xFF7FD9C0)
+
 @Composable
 fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}, incoming: IncomingAi? = null, onIncomingHandled: () -> Unit = {}) {
     val s by store.state.collectAsStateWithLifecycle()
@@ -203,13 +208,14 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             BackHandler(enabled = tab != 0) { setTab(0) }
 
             val overlays = remember { OverlayHost() }
-            CompositionLocalProvider(LocalOverlayHost provides overlays) {
+            val whoName = profiles.firstOrNull { it.id == activeId }?.name?.takeIf { profiles.size > 1 }
+            CompositionLocalProvider(LocalOverlayHost provides overlays, LocalPersonName provides whoName) {
             Box(Modifier.fillMaxSize()) {
             Scaffold(
                 // pod pełnoekranowym edytorem czytnik ekranu nie ma czytać zasłoniętej aplikacji
                 modifier = if (overlays.entries.isNotEmpty() || lock?.locked == true) Modifier.clearAndSetSemantics {} else Modifier,
                 containerColor = pal.bg,
-                snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape) } },
+                snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = snackAction(), shape = CtlShape) } },
                 topBar = {
                     Column(Modifier.fillMaxWidth().background(pal.bg).statusBarsPadding()) {
                         Row(
@@ -221,7 +227,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                                 PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true })
                             }
                             IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
-                            IconAction(Ph.GearSix, "Ustawienia", { setTab(4) })
+                            IconAction(Ph.GearSix, "Ustawienia", { setTab(4) }, selected = tab == 4)
                         }
                         Divider()
                     }
@@ -269,7 +275,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             OverlayLayer(overlays)
             // komunikaty muszą być widoczne także nad pełnoekranowym edytorem, który zasłania pasek główny
             if (overlays.entries.isNotEmpty()) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(bottom = 88.dp)) { data ->
-                Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = pal.accent, shape = CtlShape)
+                Snackbar(data, containerColor = pal.ink, contentColor = pal.bg, actionColor = snackAction(), shape = CtlShape)
             }
             // ekran blokady jest ostatni, więc zasłania wszystko, także edytory i komunikaty
             if (lock != null && lock.locked) LockScreen(lock)

@@ -101,7 +101,10 @@ export const start = (): void => {
     next: () => { state.month = shiftMonth(state.month, 1); render(); },
     day: (el) => showSheet(sheetDay(analyze(state.db, state.today), el.dataset.date!)),
     close: closeSheet,
-    flip: (el) => mutate(toggleEntry(state.db.entries, state.today, el.dataset.type!), "Zapisane"),
+    flip: (el) => {
+      const was = el.getAttribute("aria-pressed") === "true";
+      mutate(toggleEntry(state.db.entries, state.today, el.dataset.type!), (was ? "Usunięto: " : "Dodano: ") + (el.textContent ?? "").trim());
+    },
     range: (el) => { state.range = Number(el.dataset.n); state.selCycle = null; forceEnd = true; render(); },
     cyc: (el) => { state.selCycle = Number(el.dataset.i); render(); },
     undo: () => {

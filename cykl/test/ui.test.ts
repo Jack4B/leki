@@ -56,6 +56,12 @@ describe("widoki (czyste renderery)", () => {
     const out = renderTab({ ...st, db }).value;
     assert.ok(out.includes('data-type="period_start"') && out.includes('data-type="period_end"'));
   });
+  test("Dziś: ostatni początek okresu sprzed ponad 90 dni nie daje „dnia cyklu 700+” ani zalecenia testu ciążowego", () => {
+    const old = { ...mkState("dzis"), today: "2036-01-01" };
+    const out = renderTab(old).value;
+    assert.ok(out.includes("Brak świeżych wpisów") && !out.includes("test ciążowy") && !/dzień cyklu/.test(out));
+    assert.ok(renderTab(mkState("dzis")).value.includes("dzień cyklu"));
+  });
   test("arkusz dnia i raport escapują notatkę i dane zdrowotne", () => {
     const s = mkState("dane");
     const sheet = sheetDay(analyze(s.db, s.today), "2031-10-20").value;

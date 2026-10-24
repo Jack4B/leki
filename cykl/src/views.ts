@@ -38,9 +38,17 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
   const head = top("Dziś", dfmt(t, { weekday: "long", day: "numeric", month: "long" }), s.theme);
   if (!a.hist.lastStart) {
     return html`${head}<div class="card hero"><div class="phase">Zacznij od startu okresu</div>
-      <p class="mute">Dodaj datę ostatniego okresu albo zaimportuj kopię z Luny (zakładka Dane).</p>
+      <p class="mute">Dodaj datę ostatniego okresu albo wczytaj plik z dziennikiem cyklu (zakładka Dane).</p>
       <button class="btn" data-act="flip" data-type="period_start">Dodaj start okresu dziś</button>
       <button class="btn sec" data-act="tab" data-tab="dane">Importuj kopię</button></div>`;
+  }
+  // Ostatni zapisany początek okresu sprzed ponad 90 dni: prognoza byłaby wprowadzająca w błąd (dzień cyklu 700+, „okres spóźniony”)
+  const gap = diffDays(a.hist.lastStart, t);
+  if (gap > 90) {
+    return html`${head}<div class="card hero"><div class="phase">Brak świeżych wpisów</div>
+      <p class="mute">Ostatni zapisany początek okresu: ${dfmt(a.hist.lastStart, { day: "numeric", month: "long", year: "numeric" })} (${gap} dni temu). Prognoza potrzebuje niedawnych danych.</p>
+      <button class="btn" data-act="flip" data-type="period_start">Dodaj start okresu dziś</button>
+      <button class="btn sec" data-act="tab" data-tab="kal">Wskaż datę w kalendarzu</button></div>`;
   }
   const inf = a.info(t), f = flagsFor(a.entries, t), p = a.pred;
   const chip = inf.bleed ? ["per", "Miesiączka trwa"] : p.overdueDays > 0
@@ -130,7 +138,7 @@ export const viewCharts = (a: Analysis, s: UiState): SafeHtml => {
     <section class="card"><h2>FIGO System 1</h2>
       <div class="axis"><b>Częstość</b>${f.avg} dni ${pill(f.freqOk, !f.nCycles)}<div class="mute">${f.freq}</div></div>
       <div class="axis"><b>Regularność</b>wahanie ${f.variation} dni ${pill(f.regOk, !f.enoughReg)}<div class="mute">próg ${f.lim} dni (wiek ${f.band})</div></div>
-      <div class="axis"><b>Czas trwania</b>${f.bMin == null ? "brak końców okresu" : `${f.bMin}–${f.bMax} dni`} ${pill(f.durOk, f.bMin == null)}</div>
+      <div class="axis"><b>Czas trwania</b>${f.bMin == null ? "brak końców okresu" : (f.bMin === f.bMax ? `${f.bMin} dni` : `${f.bMin}–${f.bMax} dni`)} ${pill(f.durOk, f.bMin == null)}</div>
       <div class="axis"><b>Plamienie poza okresem</b>${f.imb.length} ${pill(!f.imb.length, false)}</div>
       <label class="lab" for="age">Wiek (próg regularności)</label>
       <select id="age" data-change="age">${(["18-25", "26-41", "42-45"] as const).map((b) => html`<option value="${b}"${b === f.band ? raw(" selected") : ""}>${b} lat</option>`)}</select></section>
@@ -157,7 +165,7 @@ export const viewData = (a: Analysis, s: UiState): SafeHtml => {
     ${s.host ? "" : html`<section class="card"><h2>Wygląd</h2><div class="chips">${(["auto", "light", "dark"] as Theme[]).map((t) => html`<button class="chipb${s.theme === t ? " on" : ""}" data-act="theme" data-theme="${t}">${THEME_LABEL[t]}</button>`)}</div>
       <p class="note">Auto podąża za ustawieniem telefonu.</p></section>`}
     <section class="card"><h2>Kopia</h2><button class="btn" data-act="export">Pobierz kopię (JSON)</button>
-      <p class="note">Ten sam format co Luna, można go wczytać tu lub w Lunie. Kopia zawiera też dane o zdrowiu, jeśli zostały wpisane.</p></section>
+      <p class="note">To cały dziennik cyklu w formacie JSON; można go wczytać z powrotem w tym module. Kopia zawiera też dane o zdrowiu, jeśli zostały wpisane.</p></section>
     <section class="card"><h2>Import</h2><input type="file" id="file" accept=".json,application/json" data-change="file">
       <textarea id="paste" rows="3" placeholder="…albo wklej JSON"></textarea><button class="btn sec" data-act="import">Wczytaj</button>
       <p class="note">Po wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.</p></section>
@@ -173,7 +181,7 @@ export const viewData = (a: Analysis, s: UiState): SafeHtml => {
       <label class="check"><input type="checkbox" id="wd" data-change="dates"${s.withDates ? raw(" checked") : ""}> Dołącz daty stosunków</label>
       <textarea id="brief" rows="10" readonly>${brief}</textarea>
       <button class="btn" data-act="copy">Kopiuj raport</button><button class="btn sec" data-act="dlb">Pobierz .txt</button></section>
-    <section class="card"><h2>Zarządzanie</h2><button class="btn danger" data-act="wipe">Usuń wszystkie dane z tego urządzenia</button></section>`;
+    <section class="card"><h2>Zarządzanie</h2><button class="btn danger" data-act="wipe">Usuń cały dziennik cyklu</button></section>`;
 };
 
 const tog = (t: string, label: string, on: boolean): SafeHtml => html`<button type="button" class="tog${on ? " on" : ""}" data-tog="${t}" aria-pressed="${on}">${label}</button>`;
@@ -199,7 +207,7 @@ export const sheetImport = (incoming: number, current: number): SafeHtml => html
   <p class="mute">Teraz w aplikacji: ${current} ${plN(current, "wpis", "wpisy", "wpisów")}.</p><button class="btn" data-act="merge">Połącz (dodaj brakujące)</button>
   <button class="btn sec" data-act="replace">Zastąp wszystko</button><button class="btn sec" data-act="close">Anuluj</button>
   <p class="note">Przed zastąpieniem aplikacja zachowuje poprzednią wersję danych w pamięci przeglądarki.</p>`;
-export const sheetWipe = (): SafeHtml => html`<h2>Usunąć wszystko?</h2><p class="mute">Tej operacji nie da się cofnąć. Najpierw pobierz kopię.</p>
+export const sheetWipe = (): SafeHtml => html`<h2>Usunąć dziennik cyklu?</h2><p class="mute">Tej operacji nie da się cofnąć. Najpierw pobierz kopię.</p>
   <button class="btn danger" data-act="wipe-yes">Tak, usuń dane</button><button class="btn sec" data-act="close">Anuluj</button>`;
 
 export const renderTab = (s: UiState): SafeHtml => {

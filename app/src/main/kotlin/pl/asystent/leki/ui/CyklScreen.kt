@@ -165,13 +165,15 @@ fun CyklScreen(store: Store, modifier: Modifier = Modifier) {
                         settings.allowContentAccess = false
                         settings.blockNetworkLoads = true
                         settings.setSupportZoom(false)
+                        // skala czcionki systemu jawnie (nie zależy od wersji WebView), z górnym ograniczeniem, żeby układ modułu się mieścił
+                        settings.textZoom = (c.resources.configuration.fontScale * 100).toInt().coerceIn(100, 150)
                         settings.setGeolocationEnabled(false)
                         setBackgroundColor(bg)
                         addJavascriptInterface(
                             CyklBridge(store, pid, dark, onSave = { f ->
                                 pendingFile = f
                                 saver.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(f.mime).putExtra(Intent.EXTRA_TITLE, f.name))
-                            }, onSheet = { sheetOpen = it }, onError = { toast("Moduł Cykl: błąd skryptu ($it)") }, context = c.applicationContext),
+                            }, onSheet = { sheetOpen = it }, onError = { toast("Moduł Cykl napotkał błąd. Zamknij zakładkę i otwórz ją ponownie.") }, context = c.applicationContext),
                             "LekiHost",
                         )
                         webViewClient = object : WebViewClient() {
