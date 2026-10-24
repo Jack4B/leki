@@ -374,9 +374,23 @@ private fun ReminderSection(s: AppState, store: Store) {
             runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         }
     }
+    var testAfterPermission by remember { mutableStateOf(false) }
+    // próbne powiadomienie: najpierw zgoda (Android 13+ pyta dopiero na żądanie), potem kanał, dopiero wtedy wysyłka
+    fun runTest() {
+        when {
+            !Reminders.canNotify(ctx) || Reminders.channelBlocked(ctx) -> {
+                toast("Powiadomienia tej aplikacji są wyłączone w systemie. Otwieram ustawienia, włącz je i spróbuj ponownie.")
+                Reminders.openNotificationSettings(ctx)
+            }
+            else -> { Reminders.sendTest(ctx); toast("Pierwsze powiadomienie widać od razu, drugie (z alarmu) przyjdzie za kilka sekund.") }
+        }
+    }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         tick++
-        if (granted) enable() else toast("Brak zgody na powiadomienia. Włącz je w ustawieniach telefonu.")
+        if (testAfterPermission) {
+            testAfterPermission = false
+            if (granted) runTest() else { toast("Brak zgody na powiadomienia. Otwieram ustawienia telefonu."); Reminders.openNotificationSettings(ctx) }
+        } else if (granted) enable() else { toast("Brak zgody na powiadomienia. Włącz je w ustawieniach telefonu."); Reminders.openNotificationSettings(ctx) }
     }
     fun toggle() {
         if (c.remindOn) { store.update { it.copy(settings = it.settings.copy(remindOn = false)) }; return }
@@ -391,9 +405,13 @@ private fun ReminderSection(s: AppState, store: Store) {
             LekiButton(if (c.remindOn) "Wyłącz przypomnienia" else "Włącz przypomnienia", { toggle() }, Modifier.fillMaxWidth(), primary = !c.remindOn)
             IntField("Ile minut przed porą dawki (0 = równo o porze)", c.remindLead, { v -> store.update { it.copy(settings = it.settings.copy(remindLead = v)) } }, 0..120)
             LinkButton("Wyślij testowe powiadomienie", {
-                if (!Reminders.canNotify(ctx)) toast("Brak zgody na powiadomienia. Włącz je w ustawieniach telefonu.")
-                else { Reminders.scheduleTest(ctx); toast("Powiadomienie pojawi się za kilka sekund. Możesz zablokować ekran.") }
+                if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    testAfterPermission = true
+                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else runTest()
             })
+            Hint("Test wysyła dwa powiadomienia: od razu i po kilku sekundach z alarmu. Gdy przyjdzie tylko pierwsze, telefon wstrzymuje aplikację w tle (np. Realme, Oppo, Xiaomi): zezwól jej na pracę w tle i autostart.")
+            LinkButton("Ustawienia aplikacji w telefonie", { Reminders.openAppSettings(ctx) })
             val notifyOk = tick >= 0 && Reminders.canNotify(ctx)
             if (c.remindOn) Hint(if (!notifyOk) "Powiadomienia są wyłączone w ustawieniach telefonu, więc przypomnienia się nie pokażą." else "Zaplanowane przypomnienia: $planned.")
             if (c.remindOn && !notifyOk) LekiButton("Zezwól na powiadomienia", {

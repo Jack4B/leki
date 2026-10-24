@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.10.2-preview
+
+Naprawa „Wyślij testowe powiadomienie” (zgłoszone na telefonie z Androidem 16).
+
+- **Przyczyna:** Android 13+ pyta o zgodę na powiadomienia dopiero na żądanie, a przycisk testu jej nie wywoływał: gdy zgoda nie była jeszcze udzielona, pokazywał tylko komunikat „Brak zgody”, bez żadnego powiadomienia.
+- **Teraz:** przycisk najpierw prosi o zgodę, a gdy powiadomienia (lub sam kanał przypomnień) są wyłączone w systemie, otwiera właściwe ustawienia telefonu. Dotyczy to też przycisków „Zezwól na powiadomienia” po odmowie.
+- **Test w dwóch krokach:** powiadomienie pokazuje się od razu (sprawdza zgodę i kanał), a drugie przychodzi po kilku sekundach z alarmu (sprawdza, czy system dowozi alarmy w tle). Gdy przyjdzie tylko pierwsze, telefon wstrzymuje aplikację w tle (częste w Realme, Oppo, Xiaomi): w Ustawieniach pojawiła się wskazówka i skrót „Ustawienia aplikacji w telefonie” (zgoda na pracę w tle i autostart).
+
 ## 0.10.1-preview
 
 Poprawki po niezależnym przeglądzie kodu wersji 0.10.0 (drugi agent) oraz po błędach kompilacji.

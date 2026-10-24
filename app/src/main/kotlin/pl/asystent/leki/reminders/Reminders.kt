@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import pl.asystent.leki.MainActivity
@@ -37,6 +39,7 @@ object Reminders {
     const val ACTION_UNDO = "pl.asystent.leki.REMIND_UNDO"
     const val SNOOZE_MIN = 15
     private const val SNOOZE_BASE = 10_000_000
+    private const val TEST_NOW_ID = 5
 
     /** Osobny identyfikator odłożonego przypomnienia dla każdej pory dnia i dnia, żeby odłożenie dwóch pór nie nadpisywało się (ponad zakresem zwykłych id, które sięgają ok. 2 000 000). */
     fun snoozeId(date: String, slot: String): Int = SNOOZE_BASE + Math.floorMod("$date|$slot".hashCode(), 100_000)
@@ -97,13 +100,35 @@ object Reminders {
         }
     }
 
-    /** Natychmiastowe powiadomienie próbne (po kilku sekundach). */
-    fun scheduleTest(ctx: Context) {
+    /** Kanał powiadomień wyłączony przez użytkownika w ustawieniach systemu (zgoda ogólna może być przy tym udzielona). */
+    fun channelBlocked(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 26) return false
+        ensureChannel(ctx)
+        return ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE
+    }
+
+    /** Otwiera ustawienia powiadomień aplikacji (a gdy zablokowany jest sam kanał, ustawienia tego kanału). */
+    fun openNotificationSettings(ctx: Context) {
+        val i = if (Build.VERSION.SDK_INT >= 26 && channelBlocked(ctx)) Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL)
+        else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        runCatching { ctx.startActivity(i.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+
+    /** Ustawienia aplikacji w systemie (tam producenci telefonów trzymają zgodę na pracę w tle i autostart). */
+    fun openAppSettings(ctx: Context) {
+        runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+
+    /**
+     * Próba w dwóch krokach, żeby odróżnić przyczyny: powiadomienie pokazane od razu (sprawdza zgodę i kanał)
+     * oraz drugie z alarmu po kilku sekundach (sprawdza, czy system dowozi alarmy w tle).
+     */
+    fun sendTest(ctx: Context) {
+        show(ctx, TEST_NOW_ID, "Test 1/2: powiadomienia działają", "Za chwilę przyjdzie drugie, z alarmu w tle.")
         ensureChannel(ctx)
         val am = ctx.getSystemService(AlarmManager::class.java)
-        val pi = pending(ctx, 2, "Asystent leków", "Tak będzie wyglądać przypomnienie.", true) ?: return
-        val at = System.currentTimeMillis() + 8000
-        setAlarm(am, at, pi, canScheduleExact(ctx))
+        val pi = pending(ctx, 2, "Test 2/2: alarm w tle działa", "Tak będzie wyglądać przypomnienie o dawkach.", true) ?: return
+        setAlarm(am, System.currentTimeMillis() + 8000, pi, canScheduleExact(ctx))
     }
 
     /** Odłożenie przypomnienia o dawkach: ten sam dzwonek za [SNOOZE_MIN] minut (przy dzwonku aplikacja i tak sprawdzi, co zostało do wzięcia). */

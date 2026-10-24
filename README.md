@@ -150,7 +150,7 @@ Wersja 0.3 ma inny identyfikator (`pl.asystent.leki`), więc instaluje się **ob
 
 1. W starej aplikacji: **Ustawienia → Dane → Zaszyfrowana kopia** (albo Pobierz JSON) i zapisz plik.
 2. W nowej aplikacji: **Ustawienia → Dane → Wczytaj kopię z pliku**, wybierz plik (przy zaszyfrowanym wpisz hasło).
-3. Włącz przypomnienia w **Ustawienia → Przypomnienia o lekach** (Android poprosi o zgodę na powiadomienia).
+3. Włącz przypomnienia w **Ustawienia → Przypomnienia o lekach** (Android poprosi o zgodę na powiadomienia). Przycisk **„Wyślij testowe powiadomienie”** też o nią prosi i wysyła dwa powiadomienia: od razu oraz po kilku sekundach z alarmu. Gdy przychodzi tylko pierwsze, zezwól aplikacji na pracę w tle i autostart (Realme, Oppo, Xiaomi: Ustawienia aplikacji w telefonie → Bateria).
 4. Dopiero gdy wszystko się zgadza, odinstaluj starą aplikację.
 
 Format kopii (wersja 3) jest taki sam we wszystkich wersjach. Starsze pliki (wersje 1 i 2 aplikacji sprzed Androida) nie są już obsługiwane.
@@ -254,6 +254,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - [ ] **Powiększony podgląd EKG:** czy dotknięcie karty nieprawidłowości zawsze ustawia wykres na zdarzeniu (przyczyny wcześniejszego przesuwania nie ustalono; wprowadzono zabezpieczenia i przycisk „Wróć do zdarzenia”).
 - [ ] **Blokada aplikacji:** włączenie, odblokowanie odciskiem i PIN-em, opóźnienia (zaraz, 30 s, 5 min), zachowanie po wyborze pliku lub zdjęcia, opcja blokady zrzutów ekranu.
 - [ ] **Zapas leków:** wpisanie liczby, odliczanie odhaczonych dawek, prognoza, kolory paska (zielony, pomarańczowy, czerwony), ostrzeżenie na ekranie Leki.
+- [ ] **Test powiadomień** (Ustawienia → Przypomnienia): zgoda, powiadomienie od razu i drugie po ok. 8 s także przy zablokowanym ekranie.
 - [ ] **Powiadomienia o zapasie i o kopii zapasowej** (9:00 i 10:00 w dniu, w którym stają się aktualne) oraz zgoda na powiadomienia.
 - [ ] **Widżet i skrót** „dodaj pomiar ciśnienia” (przytrzymanie ikony aplikacji, widżet z ekranu głównego).
 - [ ] **Dodawanie leku ze zdjęcia opakowania** na kilku różnych opakowaniach (nazwa, moc, substancja, jednostka, liczba sztuk).
