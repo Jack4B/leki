@@ -59,8 +59,9 @@ object Platform {
         ctx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(content.toByteArray(Charsets.UTF_8)) } ?: error("Nie można zapisać pliku")
     }
 
+    /** Czyta plik kopii zapasowej strumieniowo z limitem [pl.asystent.leki.core.Backup.MAX_IMPORT_BYTES]; za duży plik: [pl.asystent.leki.core.Backup.TooLargeException]. */
     fun readFromUri(ctx: Context, uri: Uri): String =
-        ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Nie można otworzyć pliku")
+        pl.asystent.leki.core.Backup.decodeImport(readBytesLimited(ctx, uri, pl.asystent.leki.core.Backup.MAX_IMPORT_BYTES))
 
     /** Czyta plik z limitem rozmiaru: zwraca najwyżej [max] + 1 bajtów, więc za duży plik da się rozpoznać bez wczytywania go w całości do pamięci. */
     fun readBytesLimited(ctx: Context, uri: Uri, max: Int): ByteArray =

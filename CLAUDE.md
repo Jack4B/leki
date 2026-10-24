@@ -8,3 +8,26 @@
 - Format kopii zapasowej (wersja 3) musi pozostać wczytywalny, także pliki z poprzednich wersji (`core/src/test/resources/fixtures`). Nowe pola dodawaj z wartościami domyślnymi w `Backup.normalize()`.
 - Teksty w interfejsie po polsku, neutralne płciowo.
 - Przed wypchnięciem uruchom lokalnie testy modułu `core` (`./gradlew :core:test`, gdy jest dostępny SDK, albo osobny projekt z samym `core`). Moduł `app` buduje CI.
+
+## Współpraca z Nexus (reviewer)
+
+- Żadnych pushy na gałąź domyślną. Każda zmiana trafia na gałąź `feat/...` albo `fix/...` i idzie przez PR.
+- Opis PR mówi: co się zmieniło, jak to przetestowano (`./gradlew :core:test`) i jakie są ryzyka.
+- Nexus robi review w komentarzach PR z prefiksem `[Nexus]` i priorytetem P0/P1/P2.
+- Przed pracą nad PR przeczytaj review: `gh pr view <nr> --comments`.
+- Popraw wszystkie P0/P1 i odpowiedz na każdy komentarz: „Poprawione w <commit>” albo uzasadnienie.
+- Nigdy nie scalaj sam. Scalenie następuje dopiero po `[Nexus] APPROVE` i decyzji Karesha.
+- Jeśli Nexus dodał commit na gałęzi PR, zrób `git pull` przed dalszą pracą.
+
+### Otwarte uwagi z review (P2 i testy)
+
+- `state.json` z danymi zdrowotnymi jest jawnym JSON w `filesDir` (`Store.kt`). Blokada biometryczna zasłania tylko UI. Rozważyć szyfrowanie kluczem z Android Keystore z migracją.
+- `Store.read`: przy uszkodzonym pliku kopiowany jest tylko `state.json` (bez `.bak`), a pierwszy zapis nadpisuje dane pustym stanem. Kopiować też `.bak` i blokować zapis do decyzji użytkownika.
+- Ręczne `Thread {}` w `Reminders.kt` (receivery z `goAsync`, limit ok. 10 s) i w `AutoBackup.maybeRun` (PBKDF2 600 tys. iteracji). Przenieść AutoBackup do WorkManager.
+- `versionCode` domyślnie 1 przy buildzie lokalnym (`app/build.gradle.kts`). Wyliczać go z `appVersionName`.
+- Brak R8/minifikacji w release (potrzebne przed Google Play, z regułami dla ML Kit i serialization). Brak AAB (`bundleRelease`).
+- Job `zrzuty` w CI ma `contents: write` i nadpisuje wydanie `zrzuty-ekranow` przy każdym pushu. Lepiej publikować artefakt z `contents: read`.
+- Mieszane JDK: `core` używa toolchain 21, `app` ma `jvmTarget 17`. Ujednolicić albo opisać.
+- `abiFilters` bez x86_64: OCR (ML Kit) nie zadziała na emulatorze x86_64. Do testów dodać x86_64 w debug.
+- Testy: `app` ma tylko zrzuty Paparazzi (`continue-on-error`). Brak testów `Store` (zapis atomowy, uszkodzony plik), `AutoBackup` (seal/open, rotacja), `Reminders.reschedule`, intencji SEND/VIEW. CI nie uruchamia `lint`.
+- Gałąź domyślna ma nazwę wygenerowaną (`ccr-…`), a `cykl-modul` ma nowsze, niescalone commity. Ustalić `main` i scalić przez PR.

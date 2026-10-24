@@ -185,6 +185,8 @@ Nowy APK instaluje się **na wierzch** (bez odinstalowywania) i dane zostają, a
 3. **Zachowaj kopię klucza** (plik albo napis base64) w menedżerze haseł, poza repozytorium. Bez niego nie da się podpisać aktualizacji tym samym podpisem, a zgubienie klucza oznacza jednorazową reinstalację aplikacji (z kopii zapasowej danych). Klucz nigdy nie może trafić do repozytorium (`*.keystore` jest w `.gitignore`, a repozytorium jest publiczne).
 4. Po poprawnej konfiguracji opis każdego wydania zawiera linię „Podpis: stały klucz” z odciskiem certyfikatu (SHA-256). Ten odcisk ma być taki sam w każdej wersji.
 
+**Klucz release (opcjonalnie, zalecane przed Google Play):** ustaw sekrety `LEKI_RELEASE_KEYSTORE_BASE64` (plik `.jks` w base64), `LEKI_KEYSTORE_PASSWORD`, `LEKI_KEY_ALIAS` i `LEKI_KEY_PASSWORD`. Gdy są ustawione, mają pierwszeństwo przed `DEBUG_KEYSTORE_BASE64`. Lokalnie te same nazwy działają jako zmienne środowiskowe (z `LEKI_KEYSTORE_PATH` zamiast base64) albo jako `-P...`. **Uwaga:** zmiana klucza oznacza, że APK nie zainstaluje się na wierzch wersji podpisanej kluczem debug (trzeba odinstalować aplikację po zrobieniu kopii). Wydania są publikowane tylko z gałęzi domyślnej i z tagów `v*`.
+
 Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
 
 ### Aktualizacje przez Obtainium
