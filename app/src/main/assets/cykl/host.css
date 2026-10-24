@@ -85,3 +85,18 @@ body{padding-top:calc(84px + env(safe-area-inset-top,0px))}
 .card,.stat{border-radius:18px}
 .tabs svg{flex:0 0 18px;min-width:18px}
 :root[data-theme="dark"] .pill.ok{color:#a8ecd9}
+
+/* Szczegóły dnia, import i inne okna modułu: zwykła strona w przepływie dokumentu zamiast arkusza przypiętego do dołu okna
+   (przypięty arkusz na telefonie wysuwał się poza widoczny obszar i było widać tylko wąski pasek). Reszta strony jest wtedy schowana. */
+.mask{display:none!important}
+.sheet{position:static;left:auto;right:auto;bottom:auto;max-height:none;overflow:visible;max-width:480px;margin:0 auto 12px;
+  border:1px solid var(--line);border-radius:18px;padding:16px;animation:none}
+.sheet .grab{display:none}
+.sheet h2{font-size:20px;margin-bottom:6px}
+.sheet .sheet-bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0 0 10px}
+.sheet .sheet-bar .btn{display:inline-block;width:auto;margin:0;padding:0 16px;min-height:48px}
+.sheet .togs{gap:10px}
+.sheet .tog{min-height:52px}
+.sheet .seg button{min-height:48px}
+.sheet-open #app{display:none}
+

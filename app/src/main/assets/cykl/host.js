@@ -75,15 +75,45 @@
   }
   window.addEventListener("resize", function () { clearTimeout(settle); settle = setTimeout(relayout, 120); });
 
-  // arkusz szczegółów otwarty: przycisk Wstecz ma go zamknąć, a nie wychodzić z zakładki
+  // okno szczegółów (dzień, import, usuwanie) jest zwykłą stroną w przepływie dokumentu (patrz host.css): reszta strony się chowa,
+  // a po zamknięciu wraca przewinięcie. Przycisk Wstecz ma je zamknąć, a nie wychodzić z zakładki.
   document.addEventListener("DOMContentLoaded", function () {
     var sheet = document.getElementById("sheet");
     if (!sheet || !window.MutationObserver) return;
+    var savedY = 0, wasOpen = false;
     new MutationObserver(function () {
-      H.sheet(!sheet.hidden);
-      // czytnik ekranu: po otwarciu arkusza fokus przechodzi na jego nagłówek
-      if (!sheet.hidden) { var h = sheet.querySelector("h2"); if (h) { h.tabIndex = -1; h.focus(); } }
+      var open = !sheet.hidden;
+      H.sheet(open);
+      if (open && !wasOpen) { savedY = window.pageYOffset || 0; }
+      document.documentElement.classList.toggle("sheet-open", open);
+      if (open) {
+        // pasek na górze: powrót i (przy dniu) szybki zapis, bo formularz jest długi
+        if (!sheet.querySelector(".sheet-bar")) {
+          var bar = document.createElement("div");
+          bar.className = "sheet-bar";
+          var back = document.createElement("button");
+          back.type = "button"; back.className = "btn sec"; back.setAttribute("data-act", "close"); back.textContent = "‹ Wróć";
+          bar.appendChild(back);
+          var save = sheet.querySelector("[data-act=save-day]");
+          if (save) {
+            var top = document.createElement("button");
+            top.type = "button"; top.className = "btn"; top.setAttribute("data-act", "save-day");
+            top.setAttribute("data-date", save.getAttribute("data-date") || ""); top.textContent = "Zapisz";
+            bar.appendChild(top);
+          }
+          sheet.insertBefore(bar, sheet.firstChild);
+        }
+        window.scrollTo(0, 0);
+        var h = sheet.querySelector("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+      } else if (wasOpen) {
+        window.scrollTo(0, savedY);
+      }
+      wasOpen = open;
     }).observe(sheet, { attributes: true, attributeFilter: ["hidden"] });
+    // menu u góry zamyka otwarte okno, zanim zmieni kartę
+    document.addEventListener("click", function (e) {
+      if (!sheet.hidden && e.target.closest && e.target.closest(".tabs [data-act=tab]")) document.getElementById("mask").click();
+    }, true);
   });
 
   // Dostępność: strona przerysowuje całą zawartość, więc nie jest „na żywo” (czytnik ekranu nie czyta jej od nowa),
