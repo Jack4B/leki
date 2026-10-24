@@ -147,23 +147,30 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     fun withSharedCykl(s: AppState, id: String): AppState = s.copy(cykl = cyklOf(id))
 
     /**
-     * Stany wszystkich osób do zapisu w kopii zapasowej, z datą ostatniej kopii; wspólny dziennik cyklu jest zapisany jako „#numer osoby”
-     * (numer w kopii), bo identyfikatory osób po wczytaniu kopii są nadawane od nowa.
+     * Stany osób do zapisu w kopii zapasowej, z datą ostatniej kopii. [only] = null: wszystkie osoby; inaczej tylko wybrane (w kolejności aplikacji).
+     * Wspólny dziennik cyklu jest zapisany jako „#numer osoby” (numer w kopii), bo identyfikatory po wczytaniu są nadawane od nowa;
+     * gdy właściciel wspólnego dziennika nie wchodzi do kopii, jego dziennik jest dołączony do osoby, która z niego korzysta (kopia ma być kompletna).
      */
-    fun exportStates(today: java.time.LocalDate = java.time.LocalDate.now()): List<AppState> = synchronized(lock) {
-        val ids = states.keys.toList()
-        states.map { (id, st) ->
-            val link = st.settings.cyklFrom
-            val idx = if (link.isNotEmpty() && cyklOwner(id) == link) ids.indexOf(link) else -1
-            st.copy(lastBackup = today, settings = st.settings.copy(cyklFrom = if (idx >= 0) "#$idx" else ""))
+    fun exportStates(today: java.time.LocalDate = java.time.LocalDate.now(), only: Set<String>? = null): List<AppState> = synchronized(lock) {
+        val ids = states.keys.filter { only == null || it in only }.ifEmpty { states.keys.toList() }
+        ids.map { id ->
+            val st = states.getValue(id)
+            val owner = cyklOwner(id)
+            var cykl = st.cykl
+            var link = ""
+            if (owner != id) { if (owner in ids) link = "#" + ids.indexOf(owner) else cykl = states.getValue(owner).cykl }
+            st.copy(lastBackup = today, cykl = cykl, settings = st.settings.copy(cyklFrom = link))
         }
     }
 
-    /** Kopia wszystkich osób jako tekst (z dzisiejszą datą ostatniej kopii); starsze wersje aplikacji wczytają z niej pierwszą osobę. */
-    fun backupText(today: java.time.LocalDate = java.time.LocalDate.now()): String = Backup.exportAll(exportStates(today))
+    /** Kopia wybranych osób ([only] = null: wszystkich) jako tekst; starsze wersje aplikacji wczytają z niej pierwszą osobę. */
+    fun backupText(today: java.time.LocalDate = java.time.LocalDate.now(), only: Set<String>? = null): String = Backup.exportAll(exportStates(today, only))
 
-    /** Oznacza, że kopia wszystkich osób została zrobiona. */
-    fun markBackup(day: java.time.LocalDate) = updateAll { it.copy(lastBackup = day) }
+    /** Oznacza, że kopia została zrobiona: dla wybranych osób ([only]) albo wszystkich. */
+    fun markBackup(day: java.time.LocalDate, only: Set<String>? = null) {
+        if (only == null) updateAll { it.copy(lastBackup = day) }
+        else only.forEach { id -> updateProfile(id) { it.copy(lastBackup = day) } }
+    }
 
     /** Stan wszystkich osób (pierwsza to `p1`), np. do kopii zapasowej i przypomnień. */
     fun allStates(): List<Pair<ProfileInfo, AppState>> = synchronized(lock) {
@@ -244,6 +251,34 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         writeIndex()
         writeDirty()     // od razu: zabicie procesu w oknie opóźnionego zapisu nie może zostawić nowego indeksu przy starych danych
         scheduleSave()
+    }
+
+    /**
+     * Dodaje osoby z pliku kopii do tych, które są na telefonie (nic nie jest zastępowane). Zwraca identyfikatory dodanych osób.
+     * Wspólny dziennik cyklu („#numer”) wskazuje osobę z tego samego pliku; powtórzone imię dostaje dopisek „(z pliku)”.
+     */
+    fun addProfilesFrom(list: List<AppState>): List<String> {
+        val added = ArrayList<String>()
+        synchronized(lock) {
+            val theme = states.getValue(active).settings.theme
+            val names = states.values.map { it.patient.trim().lowercase() }.toMutableSet()
+            for (s in list) {
+                if (states.size >= Backup.MAX_PROFILES) break
+                val id = generateSequence(2) { it + 1 }.map { "p$it" }.first { it !in states && !File(dir, fileOf(it)).exists() }
+                val n = s.patient.trim()
+                val name = if (n.isNotEmpty() && n.lowercase() in names) "$n (z pliku)" else n
+                names.add(name.lowercase())
+                states[id] = s.copy(patient = name, settings = s.settings.copy(theme = theme)); dirty.add(id); added.add(id)
+            }
+            added.forEach { id ->
+                val st = states.getValue(id)
+                val l = st.settings.cyklFrom
+                val target = if (l.startsWith("#")) l.drop(1).toIntOrNull()?.takeIf { it in added.indices }?.let { added[it] } else null
+                states[id] = st.copy(settings = st.settings.copy(cyklFrom = if (target != null && target != id) target else ""))
+            }
+        }
+        publishProfiles(); writeIndex(); scheduleSave()
+        return added
     }
 
     /** „Usuń wszystkie dane”: wszystkie osoby i pliki pomocnicze (zapas sprzed osób, kopie uszkodzonych plików) znikają, zostaje jedna pusta osoba. */

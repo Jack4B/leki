@@ -216,3 +216,24 @@ fun PeopleSection(s: AppState, store: Store) {
         )
     }
 }
+
+/**
+ * Wybór, które osoby obejmuje kopia zapasowa (puste = wszystkie). Pojawia się tylko, gdy w aplikacji jest więcej niż jedna osoba.
+ * Kopia wybranych osób nadaje się do wczytania na innym telefonie (np. osoby, która ma tam własną aplikację).
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun BackupScopePicker(profiles: List<ProfileInfo>, selected: Set<String>, onChange: (Set<String>) -> Unit) {
+    if (profiles.size < 2) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Co ma zawierać kopia", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ToggleChip("Wszystkie osoby", selected.isEmpty()) { onChange(emptySet()) }
+            profiles.forEach { p -> ToggleChip(p.name, p.id in selected) { onChange(if (p.id in selected) selected - p.id else selected + p.id) } }
+        }
+        Hint(
+            if (selected.isEmpty()) "Kopia obejmuje wszystkie osoby (do wczytania na tym samym albo nowym telefonie)."
+            else "Kopia obejmie tylko: " + profiles.filter { it.id in selected }.joinToString(", ") { it.name } + ". Wspólny dziennik cyklu zostanie dołączony do osoby, która z niego korzysta. Automatyczna kopia do folderu zawsze obejmuje wszystkie osoby.",
+        )
+    }
+}

@@ -116,7 +116,8 @@ Wykres ma stałą skalę czasu, więc przy długim okresie nie zlewa się w kres
 
 Pod nazwą aplikacji w nagłówku jest wybór osoby (kółko z inicjałem i imię). Dotknięcie pokazuje listę osób, „Dodaj osobę” i „Zarządzaj osobami” (Ustawienia → Osoby). Każda osoba ma **osobne** leki, odhaczenia, ciśnienie, badania, EKG, analizy AI, ustawienia raportów, kontrole i dziennik cyklu, więc raporty (dla lekarza i dla AI), badania i wszystkie wykresy zawsze dotyczą wybranej osoby. Wspólne są tylko wygląd (motyw), blokada aplikacji i ustawienia automatycznej kopii. Do 8 osób.
 
-- **Kopie zapasowe** (zwykła, zaszyfrowana hasłem, „Kopiuj JSON”, automatyczna do folderu) zawierają wszystkie osoby. Starsza wersja aplikacji wczyta z nich pierwszą osobę.
+- **Kopie zapasowe** (zwykła, zaszyfrowana hasłem, „Kopiuj JSON”, automatyczna do folderu) domyślnie zawierają wszystkie osoby. W Ustawienia → Kopie zapasowe i dane można wybrać **tylko niektóre osoby** (np. żeby przenieść dane jednej osoby na jej telefon); wtedy wspólny dziennik cyklu jest dołączany do osoby, która z niego korzysta. Automatyczna kopia do folderu zawsze obejmuje wszystkich.
+- **Wczytywanie kopii na innym telefonie:** zainstaluj aplikację, w Ustawieniach wybierz „Wczytaj kopię z pliku” (pasuje do kopii wszystkich albo wybranych osób, także zaszyfrowanej). Gdy w aplikacji już ktoś jest, możesz **dopisać osoby z pliku** zamiast zastępować wszystko. Starsza wersja aplikacji wczyta z nich pierwszą osobę.
 - **Przypomnienia** działają dla wszystkich osób; przy więcej niż jednej osobie tytuł powiadomienia zaczyna się od imienia.
 - **Wspólny dziennik cyklu:** Ustawienia → Moduł Cykl → „Czyj dziennik”: osoby mogą współdzielić jeden dziennik (wpisy zmieniane przez jedną są widoczne u drugiej). Dane są zapisane u osoby-właściciela; raporty i „Podsumowanie cyklu” korzystają z dziennika wspólnego. Działa w jednej aplikacji na jednym telefonie; między dwoma telefonami nie ma synchronizacji (aplikacja nie ma sieci), można przenosić plik dziennika lub kopię zapasową.
 - **Przeniesienie dziennika cyklu:** Ustawienia → Osoby → „Przenieś do: …” (gdy wybrana osoba ma dziennik, a inna go nie ma).
@@ -308,6 +309,8 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 - Numery zdarzeń także w podglądzie EKG na ekranie (na wydruku PDF już są).
 
 ### Pomysły (do decyzji po testach)
+
+- **Synchronizacja między telefonami (tylko koncepcja, nie wdrażamy):** dziś dane przenosi się plikiem (kopia całości albo wybranych osób, najlepiej zaszyfrowana) i można go zostawiać w folderze synchronizowanym przez inną aplikację (Syncthing, Filen, Dysk). Opcje na później: (1) **folder synchronizowany + scalanie przy wczytaniu** (bez sieci w aplikacji; dla dziennika cyklu scalanie jest już „dopisz brakujące”, dla reszty potrzebne znaczniki czasu wpisów); (2) **przekaźnik na własnym serwerze (np. ct8) z szyfrowaniem end-to-end**: serwer trzyma tylko zaszyfrowane paczki, klucz powstaje przy sparowaniu (kod QR), aplikacja wysyła i pobiera paczki, a scalanie robi po stronie telefonu; wymaga uprawnienia INTERNET (zmiana zasady „aplikacja nie łączy się z siecią”), więc najlepiej jako osobny, opcjonalny wariant aplikacji; (3) **wymiana bezpośrednia bez serwera** (kod QR z pakietem albo udostępnianie pliku). Rekomendacja: najpierw (1)+(3), przekaźnik dopiero po długich testach i decyzji o INTERNET.
 
 - Szyfrowanie samego pliku danych w telefonie (blokada aplikacji go nie szyfruje).
 - Wykres ciśnienia z podziałem na rano i wieczór.

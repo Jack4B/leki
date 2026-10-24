@@ -113,7 +113,10 @@ fun SettingsScreen(
     var encrypt by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var showEnded by rememberSaveable { mutableStateOf(false) }
-    val saveJson = rememberJsonSaver(s, store)
+    // zakres kopii: puste = wszystkie osoby
+    var backupIds by remember { mutableStateOf(setOf<String>()) }
+    val backupOnly: Set<String>? = backupIds.takeIf { it.isNotEmpty() }
+    val saveJson = rememberJsonSaver(s, store) { backupIds.takeIf { it.isNotEmpty() } }
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
     LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
@@ -211,13 +214,14 @@ fun SettingsScreen(
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             BodyText("Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
+                            BackupScopePicker(store.profiles.value, backupIds) { backupIds = it }
                             LekiButton("Zaszyfrowana kopia (hasło)", { encrypt = true }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
                             Hint("Zalecane do chmury (Dysk Google, Filen). Dane są szyfrowane na tym urządzeniu, zanim opuszczą telefon.")
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), tonal = true, icon = Ph.DownloadSimple)
                                 LekiButton("Kopiuj JSON", {
-                                    if (Platform.copyText(ctx, "Kopia danych", store.backupText())) {
-                                        store.markBackup(LocalDate.now()); toast("Skopiowano dane JSON")
+                                    if (Platform.copyText(ctx, "Kopia danych", store.backupText(only = backupOnly))) {
+                                        store.markBackup(LocalDate.now(), backupOnly); toast("Skopiowano dane JSON")
                                     } else toast("Za dużo danych na schowek. Użyj „Zapisz JSON” albo zaszyfrowanej kopii.")
                                 }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
                             }
@@ -279,7 +283,7 @@ fun SettingsScreen(
             s.event(id)?.let { ev -> store.update { it.deleteEvent(id) }; undo("Usunięto kontrolę: ${ev.title}") { store.update { it.saveEvent(ev) } } }
             eventEdit = null; eventNew = false
         }, onDismiss = { eventEdit = null; eventNew = false })
-    if (encrypt) EncryptBackupDialog(s, store) { encrypt = false }
+    if (encrypt) EncryptBackupDialog(s, store, backupOnly) { encrypt = false }
     if (confirmClear) ConfirmDialog(
         "Usunąć wszystkie dane?", "Znikną dane wszystkich osób: leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań, dziennik cyklu (jeśli go używasz) i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
         "Usuń wszystko", onConfirm = { store.wipeAll(); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,

@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.12.1-preview
+
+Kopia zapasowa całości albo wybranych osób oraz dopisywanie osób z pliku (np. żeby przenieść dane jednej osoby na jej własny telefon).
+
+- **Zakres kopii:** Ustawienia → Kopie zapasowe i dane → „Co ma zawierać kopia”: „Wszystkie osoby” albo wybrane osoby (przyciski przełączane). Dotyczy zaszyfrowanej kopii, „Zapisz JSON” i „Kopiuj JSON”; nazwa pliku z wybranymi osobami ma dopisek `-wybrane`. Data „ostatniej kopii” jest oznaczana tylko dla osób, które weszły do kopii. **Automatyczna kopia do folderu zawsze obejmuje wszystkie osoby.** Gdy wybrana osoba korzysta ze wspólnego dziennika cyklu, którego właściciel nie wchodzi do kopii, dziennik jest dołączany do niej (kopia jest kompletna); gdy właściciel też wchodzi, powiązanie zostaje.
+- **Wczytywanie kopii:** okno ma teraz trzy wybory: **„Dodaj osoby z pliku”** (zostawia dane z telefonu i dopisuje osoby z kopii; powtórzone imię dostaje dopisek „(z pliku)”, wspólny dziennik wskazuje nowe osoby, limit 8 osób), **„Zastąp wszystkie dane”** albo anulowanie. Na świeżej aplikacji bez danych jest tylko „Wczytaj kopię”.
+- Magazyn: `Store.exportStates(only)`, `backupText(only)`, `markBackup(day, only)`, `addProfilesFrom`. Symulacja magazynu ma nowy scenariusz (S8): jedna osoba, dwie osoby, pusty wybór, dopisanie do telefonu z osobą, powtórzone imię, limit osób, restart.
+
 ## 0.12.0-preview
 
 Przebudowa pod **kilka osób** w jednej aplikacji (np. osoba prowadząca dane i druga osoba, której dane uzupełnia) oraz nowy układ nawigacji.

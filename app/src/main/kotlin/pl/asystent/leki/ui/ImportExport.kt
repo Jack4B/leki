@@ -92,10 +92,27 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
     }
 
     when (val p = pending) {
-        is Pending.Replace -> ConfirmDialog(
-            "Wczytać tę kopię?",
-            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}${if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else ""}. Wczytanie zastąpi wszystkie dane na tym urządzeniu (także dane pozostałych osób)${store.profiles.value.size.let { n -> if (p.all.size < n) ". Na tym urządzeniu jest $n ${plN(n, "osoba", "osoby", "osób")}, a w pliku ${p.all.size}, więc po wczytaniu zostanie ${p.all.size}" else "" }}. Jeśli masz tu coś ważnego, najpierw zrób kopię.",
-            "Zastąp dane", onConfirm = { store.replaceAll(p.all); toast("Wczytano kopię danych") }, onDismiss = { pending = null },
+        is Pending.Replace -> androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pending = null },
+            title = { Text("Wczytać tę kopię?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    BodyText("W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}" + (if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else "") + ".")
+                    // świeża aplikacja bez żadnych danych: zwykłe wczytanie, bez wyboru
+                    val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty
+                    if (emptyHere) LekiButton("Wczytaj kopię", { store.replaceAll(p.all); pending = null; toast("Wczytano kopię danych") }, Modifier.fillMaxWidth(), primary = true)
+                    else BodyText("„Zastąp wszystkie dane” usuwa wszystko, co jest teraz na tym telefonie (" + store.profiles.value.let { ps -> "${ps.size} ${plN(ps.size, "osoba", "osoby", "osób")}" } + "), a w jej miejsce wczytuje kopię. „Dodaj osoby z pliku” zostawia dane z telefonu i dopisuje osoby z kopii. Jeśli masz tu coś ważnego, najpierw zrób kopię.")
+                    if (!emptyHere) LekiButton("Dodaj osoby z pliku", {
+                        val ids = store.addProfilesFrom(p.all)
+                        pending = null
+                        if (ids.isEmpty()) toast("Nie dodano nikogo: osiągnięto limit osób (${Backup.MAX_PROFILES}).") else { store.switchTo(ids.first()); toast("Dodano ${ids.size} ${plN(ids.size, "osobę", "osoby", "osób")} z pliku") }
+                    }, Modifier.fillMaxWidth(), primary = true)
+                    if (!emptyHere) LekiButton("Zastąp wszystkie dane", { store.replaceAll(p.all); pending = null; toast("Wczytano kopię danych") }, Modifier.fillMaxWidth(), danger = true)
+                    LinkButton("Anuluj", { pending = null })
+                }
+            },
+            confirmButton = {},
+            containerColor = pal.surface,
         )
         is Pending.Labs -> {
             val pr = s.previewLabsMerge(p.file)
@@ -146,7 +163,7 @@ private fun DecryptDialog(env: JsonElement, onDecrypted: (String) -> Unit, onDis
 
 /** Tworzenie zaszyfrowanej kopii: hasło, szyfrowanie na urządzeniu, potem zapis lub udostępnienie pliku. */
 @Composable
-fun EncryptBackupDialog(s: AppState, store: Store, onDismiss: () -> Unit) {
+fun EncryptBackupDialog(s: AppState, store: Store, only: Set<String>? = null, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val scope = rememberCoroutineScope()
@@ -155,7 +172,7 @@ fun EncryptBackupDialog(s: AppState, store: Store, onDismiss: () -> Unit) {
     var err by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var out by remember { mutableStateOf<String?>(null) }
-    val name = "leki-${LocalDate.now()}.zaszyfrowane.json"
+    val name = "leki-${LocalDate.now()}${if (only != null) "-wybrane" else ""}.zaszyfrowane.json"
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val data = out
         if (uri != null && data != null) {
@@ -187,11 +204,11 @@ fun EncryptBackupDialog(s: AppState, store: Store, onDismiss: () -> Unit) {
                     pw != pw2 -> err = "Hasła się różnią."
                     else -> {
                         busy = true
-                        val snapshot = store.backupText()
+                        val snapshot = store.backupText(only = only)
                         scope.launch {
                             val r = withContext(Dispatchers.Default) { runCatching { BackupCrypto.encrypt(pw, snapshot) } }
                             busy = false
-                            r.onSuccess { out = it; store.markBackup(LocalDate.now()) }.onFailure { err = "Nie udało się zaszyfrować na tym urządzeniu." }
+                            r.onSuccess { out = it; store.markBackup(LocalDate.now(), only) }.onFailure { err = "Nie udało się zaszyfrować na tym urządzeniu." }
                         }
                     }
                 }
@@ -205,20 +222,22 @@ fun EncryptBackupDialog(s: AppState, store: Store, onDismiss: () -> Unit) {
 
 /** Zapis zwykłej kopii JSON do pliku wybranego przez użytkownika. */
 @Composable
-fun rememberJsonSaver(s: AppState, store: Store): () -> Unit {
+fun rememberJsonSaver(s: AppState, store: Store, only: () -> Set<String>? = { null }): () -> Unit {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     var content by remember { mutableStateOf<String?>(null) }
+    var savedOnly by remember { mutableStateOf<Set<String>?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val data = content
         if (uri != null && data != null) {
             val ok = runCatching { Platform.writeToUri(ctx, uri, data) }.isSuccess
             toast(if (ok) "Zapisano plik JSON" else "Nie udało się zapisać pliku.")
-            if (ok) store.markBackup(LocalDate.now())
+            if (ok) store.markBackup(LocalDate.now(), savedOnly)
         }
     }
     return {
-        content = store.backupText()
-        launcher.launch("leki-cisnienie-${LocalDate.now()}.json")
+        savedOnly = only()
+        content = store.backupText(only = savedOnly)
+        launcher.launch("leki-kopia-${LocalDate.now()}${if (savedOnly != null) "-wybrane" else ""}.json")
     }
 }
