@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import pl.asystent.leki.BuildConfig
 import pl.asystent.leki.Platform
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import pl.asystent.leki.LocalLock
 import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppLock
@@ -54,6 +57,8 @@ import pl.asystent.leki.core.Med
 import pl.asystent.leki.core.MedDraft
 import pl.asystent.leki.core.Settings as AppSettings
 import pl.asystent.leki.core.Slot
+import pl.asystent.leki.core.Cykl
+import pl.asystent.leki.core.CyklData
 import pl.asystent.leki.core.ThemeMode
 import pl.asystent.leki.core.deleteEvent
 import pl.asystent.leki.core.deleteSlot
@@ -80,14 +85,15 @@ import java.time.ZoneId
 
 private enum class Page(val title: String) {
     Home("Ustawienia"), Meds("Leki"), Slots("Pory dnia"), Events("Kontrole i przypomnienia"),
-    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), About("O aplikacji"),
+    General("Ogólne"), Reminders("Przypomnienia"), Security("Blokada aplikacji"), Data("Kopie zapasowe i dane"), Cykl("Moduł Cykl"), People("Osoby"), About("O aplikacji"),
 }
 
 @Composable
 fun SettingsScreen(
     s: AppState, store: Store, importer: () -> Unit, newMedRequest: Boolean, onNewMedHandled: () -> Unit, modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
-    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {},
+    showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {}, onOpenCykl: () -> Unit = {},
+    showPeopleRequest: Boolean = false, onShowPeopleHandled: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
@@ -110,6 +116,7 @@ fun SettingsScreen(
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
     LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
+    LaunchedEffect(showPeopleRequest) { if (showPeopleRequest) { pageName = Page.People.name; onShowPeopleHandled() } }
     LaunchedEffect(showEventsRequest) { if (showEventsRequest) { pageName = Page.Events.name; onShowEventsHandled() } }
     LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
 
@@ -127,6 +134,11 @@ fun SettingsScreen(
         if (page == Page.Home) {
             item {
                 Text("Ustawienia", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                Overline("Osoby")
+                LekiCard {
+                    NavRow(Ph.User, "Osoby", store.profiles.value.let { l -> "${l.size} ${plN(l.size, "osoba", "osoby", "osób")}: " + l.joinToString(", ") { it.name } }) { pageName = Page.People.name }
+                }
+                Spacer(Modifier.height(22.dp))
                 Overline("Plan")
                 LekiCard {
                     NavRow(Ph.Pill, "Leki", if (active.isEmpty()) "Brak aktywnych leków" else "${active.size} ${plN(active.size, "aktywny", "aktywne", "aktywnych")}") { pageName = Page.Meds.name }
@@ -145,6 +157,8 @@ fun SettingsScreen(
                     NavRow(Ph.LockKey, "Blokada aplikacji", if (LocalLock.current?.enabled == true) "Włączona" else "Wyłączona") { pageName = Page.Security.name }
                     Divider()
                     NavRow(Ph.FloppyDisk, "Kopie zapasowe i dane", "Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) { pageName = Page.Data.name }
+                    Divider()
+                    NavRow(Ph.CalendarBlank, "Moduł Cykl", if (!c.cyklOn) "Ukryty" else Cykl.summary(s.cykl.db)?.let { "Widoczny, ${it.entries} ${plN(it.entries, "wpis", "wpisy", "wpisów")}" } ?: "Widoczny, brak danych") { pageName = Page.Cykl.name }
                     Divider()
                     NavRow(Ph.Info, "O aplikacji", "Wersja ${BuildConfig.VERSION_NAME}") { pageName = Page.About.name }
                 }
@@ -190,6 +204,8 @@ fun SettingsScreen(
                 Page.General -> item { GeneralSection(s, store, ::setCfg) }
                 Page.Reminders -> item { ReminderSection(s, store) }
                 Page.Security -> item { SecuritySection() }
+                Page.Cykl -> item { CyklSection(s, store, onOpenCykl) }
+                Page.People -> item { PeopleSection(s, store) }
                 Page.Data -> item {
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -199,8 +215,8 @@ fun SettingsScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 LekiButton("Zapisz JSON", saveJson, Modifier.weight(1f), tonal = true, icon = Ph.DownloadSimple)
                                 LekiButton("Kopiuj JSON", {
-                                    if (Platform.copyText(ctx, "Kopia danych", Backup.export(s.copy(lastBackup = LocalDate.now())))) {
-                                        store.update { it.copy(lastBackup = LocalDate.now()) }; toast("Skopiowano dane JSON")
+                                    if (Platform.copyText(ctx, "Kopia danych", store.backupText())) {
+                                        store.markBackup(LocalDate.now()); toast("Skopiowano dane JSON")
                                     } else toast("Za dużo danych na schowek. Użyj „Zapisz JSON” albo zaszyfrowanej kopii.")
                                 }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
                             }
@@ -264,7 +280,7 @@ fun SettingsScreen(
         }, onDismiss = { eventEdit = null; eventNew = false })
     if (encrypt) EncryptBackupDialog(s, store) { encrypt = false }
     if (confirmClear) ConfirmDialog(
-        "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
+        "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań, dziennik cyklu (jeśli go używasz) i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
         "Usuń wszystko", onConfirm = { store.replace(AppState()); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
     )
 }
@@ -349,12 +365,109 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
             }
             Column {
                 Text("Motyw", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                SegRow(listOf("Auto", "Jasny", "Ciemny"), ThemeMode.values().indexOf(c.theme), { i -> setCfg { it.copy(theme = ThemeMode.values()[i]) } })
+                SegRow(listOf("Auto", "Jasny", "Ciemny"), ThemeMode.values().indexOf(c.theme), { i -> store.updateAll { it.copy(settings = it.settings.copy(theme = ThemeMode.values()[i])) } })
             }
             LekiField("Dopisek na raporcie", reportNote, { reportNote = it; setCfg { c2 -> c2.copy(reportNote = it) } }, singleLine = false, minLines = 3, placeholder = "np. rozpoznanie, cel kuracji")
             LekiField("Zasady i notatki (przycisk Zasady u góry)", rules, { rules = it; store.update { st -> st.copy(rules = it) } }, singleLine = false, minLines = 5)
         }
     }
+}
+
+/** Moduł „Cykl”: pokazanie i ukrycie zakładki, wczytanie i zapis pliku z całą bazą, podsumowanie danych i ich usunięcie. Ukrycie niczego nie kasuje. */
+@Composable
+private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
+    val ctx = LocalContext.current
+    val toast = LocalToast.current
+    val undo = LocalUndo.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var confirm by remember { mutableStateOf(false) }
+    var incoming by remember { mutableStateOf<Cykl.Incoming?>(null) }
+    val on = s.settings.cyklOn
+    val sum = remember(s.cykl.db) { Cykl.summary(s.cykl.db) }
+    val here = sum?.entries ?: 0
+
+    // wczytanie pliku po stronie aplikacji: nie zależy od okna modułu (WebView), a robi to samo co jego „Import”
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val bytes = withContext(Dispatchers.IO) { runCatching { Platform.readBytesLimited(ctx, uri, Cykl.MAX_CHARS) }.getOrNull() }
+            when {
+                bytes == null -> toast("Nie można otworzyć pliku.")
+                bytes.size > Cykl.MAX_CHARS -> toast("Plik jest za duży na dziennik cyklu.")
+                else -> {
+                    val text = bytes.toString(Charsets.UTF_8)
+                    val r = withContext(Dispatchers.Default) { Cykl.readIncoming(text) }
+                    if (r == null) toast("To nie jest plik z dziennikiem cyklu (potrzebna lista wpisów z typem i datą).") else incoming = r
+                }
+            }
+        }
+    }
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            val ok = runCatching { Platform.writeToUri(ctx, uri, Cykl.exportText(store.state.value.cykl.db)) }.isSuccess
+            toast(if (ok) "Zapisano całą bazę cyklu" else "Nie udało się zapisać pliku.")
+        }
+    }
+
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            BodyText("Dziennik cyklu z prognozą okna płodnego, trendem długości cykli i raportem dla lekarza. Działa w całości na telefonie, bez internetu.")
+            SegRow(listOf("Ukryty", "Widoczny"), if (on) 1 else 0, { i -> store.update { it.copy(settings = it.settings.copy(cyklOn = i == 1)) } })
+            Hint(if (on) "Zakładka „Cykl” jest na dolnym pasku, przed Raportem." else "Zakładka jest ukryta. Wpisane dane zostają w aplikacji i wchodzą do kopii zapasowej.")
+            if (on) LekiButton("Otwórz moduł", onOpen, Modifier.fillMaxWidth(), primary = true, icon = Ph.CalendarBlank)
+        }
+    }
+    Spacer(Modifier.height(18.dp))
+    Overline("Dane modułu")
+    LekiCard {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val span = sum?.let { x -> x.first?.let { a -> x.last?.let { b -> ", od ${plDate(LocalDate.parse(a))} do ${plDate(LocalDate.parse(b))}" } } } ?: ""
+            BodyText(
+                if (sum == null || sum.entries == 0) "Brak zapisanych wpisów."
+                else "Zapisano ${sum.entries} ${plN(sum.entries, "wpis", "wpisy", "wpisów")}, w tym ${sum.periods} ${plN(sum.periods, "początek okresu", "początki okresu", "początków okresu")}$span.",
+            )
+            LekiButton("Wczytaj plik z dziennikiem (JSON)", { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.UploadSimple)
+            if (here > 0) LekiButton("Zapisz całą bazę do pliku (JSON)", { saver.launch("cykl-baza-${LocalDate.now()}.json") }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.DownloadSimple)
+            Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.")
+            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu. Raporty, eksport CSV i tekst dla AI nie zawierają danych z tego modułu.")
+            if (!s.cykl.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
+        }
+    }
+    incoming?.let { inc ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { incoming = null },
+            title = { Text("Wczytać ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    BodyText("Teraz w aplikacji: $here ${plN(here, "wpis", "wpisy", "wpisów")}." + if (inc.skipped > 0) " Pominięto ${inc.skipped} ${plN(inc.skipped, "wpis", "wpisy", "wpisów")} ze złą datą lub bez typu." else "")
+                    LekiButton("Połącz (dodaj brakujące)", {
+                        if (incoming == null) return@LekiButton            // drugie dotknięcie przed zamknięciem okna nic nie robi
+                        val old = store.state.value.cykl
+                        val m = Cykl.merge(old.db, inc.db)
+                        incoming = null
+                        if (m == null || m.db.length > Cykl.MAX_CHARS) toast("Nie udało się połączyć danych (po połączeniu baza byłaby za duża).") else {
+                            store.update { st -> Cykl.merge(st.cykl.db, inc.db)?.let { r -> st.copy(cykl = st.cykl.copy(db = r.db)) } ?: st }
+                            undo("Dodano ${m.added} ${plN(m.added, "nowy wpis", "nowe wpisy", "nowych wpisów")}") { store.update { it.copy(cykl = old) } }
+                        }
+                    }, Modifier.fillMaxWidth(), primary = true)
+                    LekiButton("Zastąp wszystko", {
+                        if (incoming == null) return@LekiButton
+                        val old = store.state.value.cykl
+                        incoming = null
+                        // poprzednia baza zostaje jako zapas, tak jak w module
+                        store.update { st -> st.copy(cykl = CyklData(db = inc.db, prev = st.cykl.db.ifEmpty { st.cykl.prev })) }
+                        undo("Wczytano ${inc.entries} ${plN(inc.entries, "wpis", "wpisy", "wpisów")}") { store.update { it.copy(cykl = old) } }
+                    }, Modifier.fillMaxWidth(), tonal = true)
+                    LinkButton("Anuluj", { incoming = null })
+                }
+            },
+            confirmButton = {},
+            containerColor = pal.surface,
+        )
+    }
+    if (confirm) ConfirmDialog(
+        "Usunąć dane modułu Cykl?", "Znikną wszystkie wpisy dziennika cyklu z tego urządzenia, także poprzednia wersja bazy. Tej operacji nie da się cofnąć, chyba że masz kopię zapasową.",
+        "Usuń dane", onConfirm = { store.update { it.copy(cykl = CyklData()) }; toast("Usunięto dane modułu Cykl") }, onDismiss = { confirm = false }, danger = true,
+    )
 }
 
 @Composable

@@ -104,13 +104,13 @@ object Backup {
         val rp = ReportParts(
             bp = rpIn["bp"].bool(rpD.bp), labs = rpIn["labs"].bool(rpD.labs), labsPeriod = rpIn["labsPeriod"].bool(rpD.labsPeriod),
             meds = rpIn["meds"].bool(rpD.meds), plan = rpIn["plan"].bool(rpD.plan), events = rpIn["events"].bool(rpD.events),
-            analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "", ecg = rpIn["ecg"].bool(rpD.ecg),
+            analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "", ecg = rpIn["ecg"].bool(rpD.ecg), cykl = rpIn["cykl"].bool(rpD.cykl),
         )
         val aD = AiParts()
         val ai = AiParts(
             meds = aiIn["meds"].bool(aD.meds), history = aiIn["history"].bool(aD.history), adherence = aiIn["adherence"].bool(aD.adherence),
             bp = aiIn["bp"].bool(aD.bp), labs = aiIn["labs"].bool(aD.labs), events = aiIn["events"].bool(aD.events),
-            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), name = aiIn["name"].bool(aD.name),
+            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), cykl = aiIn["cykl"].bool(aD.cykl), name = aiIn["name"].bool(aD.name),
             context = aiIn["context"].str()?.take(2000) ?: "",
             detail = intOr(aiIn["detail"], aD.detail, 0, 1),
         )
@@ -128,6 +128,7 @@ object Backup {
             remindLead = intOr(rmIn["lead"], 0, 0, 120),
             stockWarnDays = intOr(rmIn["stock"], D.stockWarnDays, 0, 60),
             backupRemindDays = intOr(rmIn["backup"], D.backupRemindDays, 0, 365),
+            cyklOn = st["cyklOn"].bool(false),
         )
 
         val slots = d["slots"].arr().orEmpty().mapNotNull { x ->
@@ -261,6 +262,7 @@ object Backup {
             slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses, ecgs = ecgs,
             timerEnd = d["timerEnd"].number()?.toLong() ?: 0L,
             timerMed = d["timerMed"].strOr(), timerNote = d["timerNote"].strOr(),
+            cykl = Cykl.fromJson(d["cykl"]),
         )
     }
 
@@ -284,17 +286,18 @@ object Backup {
             putJsonObject("rp") {
                 put("bp", c.rp.bp); put("labs", c.rp.labs); put("labsPeriod", c.rp.labsPeriod)
                 put("meds", c.rp.meds); put("plan", c.rp.plan); put("events", c.rp.events)
-                put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId); put("ecg", c.rp.ecg)
+                put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId); put("ecg", c.rp.ecg); if (c.rp.cykl) put("cykl", true)
             }
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
                 put("bp", c.ai.bp); put("labs", c.ai.labs); put("events", c.ai.events)
-                put("notes", c.ai.notes); put("ecg", c.ai.ecg); put("name", c.ai.name); put("context", c.ai.context); put("detail", c.ai.detail)
+                put("notes", c.ai.notes); put("ecg", c.ai.ecg); if (c.ai.cykl) put("cykl", true); put("name", c.ai.name); put("context", c.ai.context); put("detail", c.ai.detail)
             }
             put("lateMin", c.lateMin); put("waterGoal", c.waterGoal); put("glassMl", c.glassMl)
             put("hiSys", c.hiSys); put("hiDia", c.hiDia); put("loSys", c.loSys); put("loDia", c.loDia)
             put("theme", c.theme.id); put("reportNote", c.reportNote)
             putJsonObject("remind") { put("on", c.remindOn); put("lead", c.remindLead); put("stock", c.stockWarnDays); put("backup", c.backupRemindDays) }
+            if (c.cyklOn) put("cyklOn", true)
         }
         put("rules", s.rules)
         putJsonArray("slots") { s.slots.forEach { add(buildJsonObject { put("id", it.id); put("name", it.name); put("time", it.time.hhmm()) }) } }
@@ -374,15 +377,40 @@ object Backup {
             }
         }
         put("timerEnd", s.timerEnd); put("timerMed", s.timerMed); put("timerNote", s.timerNote)
+        // sekcja tylko, gdy moduł ma dane: kopie osób, które go nie używają, wyglądają jak dotąd
+        if (!s.cykl.isEmpty) put("cykl", Cykl.toJson(s.cykl))
     }
 
     private fun numberOrInt(d: Double): JsonPrimitive = if (d % 1.0 == 0.0 && Math.abs(d) < 1e15) JsonPrimitive(d.toLong()) else JsonPrimitive(d)
 
-    /** Plik kopii z obwolutą, jak w poprzednich wersjach aplikacji. */
-    fun export(s: AppState, now: Instant = Instant.now()): String = json.encodeToString(
+    /** Plik kopii z obwolutą, jak w poprzednich wersjach aplikacji (jedna osoba). */
+    fun export(s: AppState, now: Instant = Instant.now()): String = exportAll(listOf(s), now)
+
+    /**
+     * Kopia wszystkich osób w aplikacji. `data` to pierwsza osoba (starsze wersje aplikacji wczytają tylko ją, jak dotąd),
+     * a pozostałe są w `profiles`. Przy jednej osobie plik jest identyczny z dawnym.
+     */
+    fun exportAll(states: List<AppState>, now: Instant = Instant.now()): String = json.encodeToString(
         JsonElement.serializer(),
-        buildJsonObject { put("app", "asystent-lekow"); put("version", 3); put("exportedAt", now.toString()); put("data", toJson(s)) },
+        buildJsonObject {
+            put("app", "asystent-lekow"); put("version", 3); put("exportedAt", now.toString()); put("data", toJson(states.first()))
+            if (states.size > 1) putJsonArray("profiles") { states.drop(1).forEach { add(buildJsonObject { put("data", toJson(it)) }) } }
+        },
     )
+
+    /** Wszystkie osoby z pliku kopii: pierwsza z `data`, kolejne z `profiles` (uszkodzone wpisy pomijane). */
+    fun parseAll(o: JsonElement): List<AppState> {
+        val first = parseState(o)
+        val more = (o.obj()["profiles"].arr() ?: JsonArray(emptyList())).mapNotNull { x ->
+            val d = x.obj()["data"]
+            if (d is JsonObject && d["days"] is JsonObject && (d["v"].number() ?: 3.0) == 3.0) normalize(d) else null
+        }.take(MAX_PROFILES - 1)
+        return listOf(first) + more
+    }
+
+    fun parseAll(text: String): List<AppState> = parseAll(parseEnvelope(text))
+
+    const val MAX_PROFILES = 8
 
     /** Stan zapisywany w pamięci aplikacji (bez obwoluty, zwarty). */
     fun serialize(s: AppState): String = compact.encodeToString(JsonElement.serializer(), toJson(s))

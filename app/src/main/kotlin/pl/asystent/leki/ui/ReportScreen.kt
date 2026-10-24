@@ -131,6 +131,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
                         ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                        if (!s.cykl.isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) {
                         val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
@@ -204,6 +205,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
                         ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
+                        if (!s.cykl.isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))

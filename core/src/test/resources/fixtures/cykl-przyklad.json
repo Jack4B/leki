@@ -1,0 +1,444 @@
+{
+  "entries": [
+    {
+      "type": "period_start",
+      "date": "2024-01-08"
+    },
+    {
+      "type": "flow",
+      "date": "2024-01-08",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-01-09",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-01-10",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-01-11",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-01-12",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-01-12"
+    },
+    {
+      "type": "pain",
+      "date": "2024-01-08",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-01-24",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-02-08"
+    },
+    {
+      "type": "flow",
+      "date": "2024-02-08",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-02-09",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-02-10",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-02-11",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-02-12",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-02-12"
+    },
+    {
+      "type": "pain",
+      "date": "2024-02-08",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-02-19",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-03-05"
+    },
+    {
+      "type": "flow",
+      "date": "2024-03-05",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-03-06",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-03-07",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-03-08",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-03-09",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-03-09"
+    },
+    {
+      "type": "pain",
+      "date": "2024-03-05",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-03-25",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-04-09"
+    },
+    {
+      "type": "flow",
+      "date": "2024-04-09",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-04-10",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-04-11",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-04-12",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-04-13",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-04-13"
+    },
+    {
+      "type": "pain",
+      "date": "2024-04-09",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-04-22",
+      "result": "pos"
+    },
+    {
+      "type": "note",
+      "date": "2024-04-11",
+      "text": "Przykładowa notatka"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-05-07"
+    },
+    {
+      "type": "flow",
+      "date": "2024-05-07",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-05-08",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-05-09",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-05-10",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-05-11",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-05-11"
+    },
+    {
+      "type": "pain",
+      "date": "2024-05-07",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-05-25",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-06-09"
+    },
+    {
+      "type": "flow",
+      "date": "2024-06-09",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-06-10",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-06-11",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-06-12",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-06-13",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-06-13"
+    },
+    {
+      "type": "pain",
+      "date": "2024-06-09",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-06-21",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-07-06"
+    },
+    {
+      "type": "flow",
+      "date": "2024-07-06",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-07-07",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-07-08",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-07-09",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-07-10",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-07-10"
+    },
+    {
+      "type": "pain",
+      "date": "2024-07-06",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-07-21",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-08-05"
+    },
+    {
+      "type": "flow",
+      "date": "2024-08-05",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-08-06",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-08-07",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-08-08",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-08-09",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-08-09"
+    },
+    {
+      "type": "pain",
+      "date": "2024-08-05",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-08-26",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-09-10"
+    },
+    {
+      "type": "flow",
+      "date": "2024-09-10",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-09-11",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-09-12",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-09-13",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-09-14",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-09-14"
+    },
+    {
+      "type": "pain",
+      "date": "2024-09-10",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-09-24",
+      "result": "pos"
+    },
+    {
+      "type": "period_start",
+      "date": "2024-10-09"
+    },
+    {
+      "type": "flow",
+      "date": "2024-10-09",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-10-10",
+      "value": 3
+    },
+    {
+      "type": "flow",
+      "date": "2024-10-11",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-10-12",
+      "value": 2
+    },
+    {
+      "type": "flow",
+      "date": "2024-10-13",
+      "value": 1
+    },
+    {
+      "type": "period_end",
+      "date": "2024-10-13"
+    },
+    {
+      "type": "pain",
+      "date": "2024-10-09",
+      "value": 2
+    },
+    {
+      "type": "lh",
+      "date": "2024-10-26",
+      "result": "pos"
+    }
+  ],
+  "cycles": {},
+  "settings": {
+    "lutealDays": 13,
+    "lastExport": "2025-01-01"
+  }
+}

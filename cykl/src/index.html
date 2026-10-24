@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" id="tc" content="#f6f1ea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Cykl</title>
+<script>try{var t=localStorage.getItem("cykl_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<main class="wrap" id="app" aria-live="polite"></main>
+<nav class="tabs" aria-label="Widoki">
+  <button data-act="tab" data-tab="dzis"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>Dziś</button>
+  <button data-act="tab" data-tab="kal"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Kalendarz</button>
+  <button data-act="tab" data-tab="wyk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Wykresy</button>
+  <button data-act="tab" data-tab="dane"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg>Dane</button>
+</nav>
+<div id="mask" class="mask" hidden></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Szczegóły" hidden></div>
+<div id="toast" class="toast" role="status"></div>
+<script>
+/*JS*/
+</script>
+</body>
+</html>

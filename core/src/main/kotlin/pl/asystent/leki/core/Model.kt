@@ -82,10 +82,12 @@ data class ReportParts(
     val analysis: Boolean = true,
     /** Czy dołączyć zapisy EKG z zegarka z wybranego okresu. */
     val ecg: Boolean = true,
+    /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (tylko gdy moduł ma dane; domyślnie wyłączone). */
+    val cykl: Boolean = false,
     /** Id wybranej analizy; puste = najnowsza. */
     val analysisId: String = "",
 ) {
-    val any get() = bp || labs || meds || plan || events || analysis || ecg
+    val any get() = bp || labs || meds || plan || events || analysis || ecg || cykl
 }
 
 /**
@@ -104,6 +106,8 @@ data class AiParts(
     val notes: Boolean = true,
     /** Czy dołączyć zapisy EKG z zegarka (wskaźniki i odstępy RR, bez surowego przebiegu). */
     val ecg: Boolean = true,
+    /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (domyślnie wyłączone). */
+    val cykl: Boolean = false,
     val name: Boolean = false,
     val context: String = "",
     /** Szczegółowość odpowiedzi, o którą prosi polecenie: 0 = krótko (ok. 350 słów), 1 = szczegółowo (ok. 1000 słów). */
@@ -130,6 +134,8 @@ data class Settings(
     val stockWarnDays: Int = 7,
     /** Przypomnienie o kopii zapasowej, gdy ostatnia jest starsza niż tyle dni (0 = wyłączone). */
     val backupRemindDays: Int = 30,
+    /** Moduł „Cykl” (dziennik cyklu) jest opcjonalny: domyślnie ukryty, dane zostają po jego ukryciu. */
+    val cyklOn: Boolean = false,
 )
 
 data class AppState(
@@ -151,6 +157,8 @@ data class AppState(
     val timerEnd: Long = 0,
     val timerMed: String = "",
     val timerNote: String = "",
+    /** Baza modułu „Cykl” (dane zdrowotne, tylko na tym urządzeniu i w kopii zapasowej). */
+    val cykl: CyklData = CyklData(),
 ) {
     fun day(d: LocalDate): DayRec = days[d] ?: DayRec()
     fun med(id: String): Med? = meds.firstOrNull { it.id == id }

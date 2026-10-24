@@ -78,22 +78,22 @@ object AutoBackup {
     }
 
     /** Wywoływane po każdym zapisie danych: gdy kopia jest należna, robi ją w osobnym wątku (szyfrowanie trwa chwilę), a po sukcesie woła [onDone] z dzisiejszą datą. */
-    fun maybeRun(ctx: Context, s: AppState, onDone: (LocalDate) -> Unit) {
+    fun maybeRun(ctx: Context, states: List<AppState>, onDone: (LocalDate) -> Unit) {
         val today = LocalDate.now()
         if (!due(ctx, today) || !running.compareAndSet(false, true)) return
         Thread {
-            try { if (runNow(ctx, s).isSuccess) onDone(today) } finally { running.set(false) }
+            try { if (runNow(ctx, states).isSuccess) onDone(today) } finally { running.set(false) }
         }.start()
     }
 
     /** Robi kopię teraz (wywołuj poza głównym wątkiem). Zwraca nazwę pliku albo błąd z komunikatem po polsku. */
-    fun runNow(ctx: Context, s: AppState): Result<String> = synchronized(lock) {
+    fun runNow(ctx: Context, states: List<AppState>): Result<String> = synchronized(lock) {
         prefs(ctx).edit().putLong("attempt", System.currentTimeMillis()).apply()
         val r = runCatching {
             val c = config(ctx)
             val tree = c.folder ?: error("Nie wybrano folderu.")
             val today = LocalDate.now()
-            var content = Backup.export(s.copy(lastBackup = today))
+            var content = Backup.exportAll(states.map { it.copy(lastBackup = today) })
             if (c.encrypted) {
                 val pw = prefs(ctx).getString("pw", null)?.let { open(it) } ?: error("Brak hasła do szyfrowania. Ustaw je ponownie.")
                 content = BackupCrypto.encrypt(pw, content)

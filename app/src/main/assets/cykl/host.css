@@ -1,0 +1,46 @@
+/* Wygląd modułu „Cykl” dopasowany do aplikacji (te same barwy, krój i przyciski). Nakładka na style modułu, bez zmian w jego kodzie.
+   Motyw jest zawsze jawny (light/dark), bo wybiera go aplikacja. */
+:root[data-theme="light"]{
+  --bg:#f1f4f2;--surface:#ffffff;--ink:#13201b;--mute:#5e6f67;--line:#d8e0db;--line2:#bccac3;
+  --rose:#b3261e;--rose-bg:#f9dedc;--pred-bg:#fbeceb;--green:#0b6b58;--green-bg:#cfe6de;--green-soft:#ddeee8;
+  --teal:#1f6f86;--amber:#8a5200;--amber-bg:#fbf0dc;
+}
+:root[data-theme="dark"]{
+  --bg:#0c1311;--surface:#141e1a;--ink:#e7efeb;--mute:#8fa199;--line:#263631;--line2:#35493f;
+  --rose:#f2867f;--rose-bg:#4a2723;--pred-bg:#2a1a19;--green:#4dc2a5;--green-bg:#1c4a3d;--green-soft:#17332b;
+  --teal:#6cc4d8;--amber:#f0b35a;--amber-bg:#2a2112;
+}
+:root{--serif:var(--sans);--sans:Roboto,system-ui,"Segoe UI",sans-serif}
+h1,h2,.stat strong,.phase,.ringc b,.nav strong{font-family:var(--sans)}
+h1{font-size:24px;font-weight:600}
+h2{font-weight:600}
+.theme{display:none}                                   /* motyw ustawia się w aplikacji: Ustawienia → Ogólne */
+.card,.stat{border-radius:16px}
+.btn{border-radius:12px;font-weight:600}
+.btn:not(.sec):not(.danger){background:var(--green);color:var(--surface)}
+:root[data-theme="dark"] .btn:not(.sec):not(.danger){color:#06201a}
+.q.on{background:var(--green);border-color:var(--green);color:var(--surface)}
+.q.on i{background:var(--surface)}
+:root[data-theme="dark"] .q.on{color:#06201a}
+.day.today{border-color:var(--green)}
+.rnow{fill:var(--green)}
+.tabs{background:var(--surface);border-top:1px solid var(--line)}
+.tabs button{color:var(--mute)}
+.tabs button.on{color:var(--green)}
+.sheet{animation:none}                                  /* animacja arkusza trafiała na osobną warstwę, która gubiła położenie przy zmianie rozmiaru okna */
+
+/* Menu modułu u góry (aplikacja ma własny pasek na dole): przyciski w rzędzie, jak przełączniki w aplikacji */
+body{padding-top:calc(66px + env(safe-area-inset-top,0px));padding-bottom:calc(28px + var(--safe))}
+.tabs{top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);background:var(--bg);padding:8px 12px;gap:6px}
+.tabs button{flex-direction:row;justify-content:center;gap:6px;min-height:42px;padding:0 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:13px;color:var(--ink)}
+.tabs button.on{background:var(--green);border-color:var(--green);color:var(--surface)}
+:root[data-theme="dark"] .tabs button.on{color:#06201a}
+.tabs svg{width:18px;height:18px}
+@media (max-width:380px){.tabs svg{display:none}}
+.toast{bottom:calc(24px + var(--safe))}
+
+/* poprawki po audycie wyglądu */
+.toast{width:max-content;max-width:90vw}
+.sheet{max-height:calc(100vh - 76px - env(safe-area-inset-top,0px))}
+body{padding-top:calc(76px + env(safe-area-inset-top,0px))}
+.legend .dot,.legend .sw{margin-right:5px}

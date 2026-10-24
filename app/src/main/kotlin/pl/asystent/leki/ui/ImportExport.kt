@@ -29,12 +29,14 @@ import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.BackupCrypto
+import pl.asystent.leki.core.Cykl
 import pl.asystent.leki.core.applyLabsMerge
+import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.previewLabsMerge
 import java.time.LocalDate
 
 private sealed class Pending {
-    data class Replace(val next: AppState) : Pending()
+    data class Replace(val all: List<AppState>) : Pending() { val next: AppState get() = all.first() }
     data class Labs(val file: Backup.LabsFile) : Pending()
     data class Enc(val env: JsonElement) : Pending()
 }
@@ -43,6 +45,15 @@ private sealed class Pending {
  * Wybór pliku z kopią i obsługa wszystkich jego rodzajów: zwykła kopia, kopia zaszyfrowana hasłem i plik z samymi wynikami badań.
  * Zwraca funkcję otwierającą wybór pliku; okna potwierdzeń pojawiają się same.
  */
+/** Dopisek do okna wczytywania kopii o dzienniku cyklu: wczytanie zastępuje też jego, a kopia sprzed modułu go zeruje. */
+private fun cyklNote(current: AppState, next: AppState): String {
+    val inFile = Cykl.summary(next.cykl.db)?.entries ?: 0
+    val here = Cykl.summary(current.cykl.db)?.entries ?: 0
+    if (inFile == 0 && here == 0) return ""
+    val file = "dziennik cyklu w pliku: $inFile ${plN(inFile, "wpis", "wpisy", "wpisów")}"
+    return ", $file" + if (here > 0) " (teraz na tym urządzeniu: $here, " + (if (inFile == 0) "zostanie usunięty)" else "zostanie zastąpiony)") else ""
+}
+
 @Composable
 fun rememberImporter(s: AppState, store: Store): () -> Unit {
     val ctx = LocalContext.current
@@ -51,6 +62,11 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
     var pending by remember { mutableStateOf<Pending?>(null) }
 
     fun handle(text: String) {
+        // plik z dziennikiem cyklu (z modułu albo z innej aplikacji do cyklu) wczytuje się w module, bo tam jest łączenie z istniejącymi wpisami
+        if (Cykl.looksLikeDb(text)) {
+            toast(if (s.settings.cyklOn) "To plik z dziennikiem cyklu. Wczytaj go w module Cykl: Dane → Import." else "To plik z dziennikiem cyklu. Włącz moduł w Ustawienia → Moduł Cykl i wczytaj go tam.")
+            return
+        }
         try {
             val env = Backup.parseEnvelope(text)
             pending = when (Backup.kindOf(env)) {
@@ -59,7 +75,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
                     val f = Backup.parseLabsFile(env)
                     if (f.labs.isEmpty()) { toast("W pliku nie ma wyników."); null } else Pending.Labs(f)
                 }
-                else -> Pending.Replace(Backup.parseState(env))
+                else -> Pending.Replace(Backup.parseAll(env))
             }
         } catch (e: Backup.FormatException) {
             toast("To nie jest plik kopii z tej aplikacji.")
@@ -78,8 +94,8 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
     when (val p = pending) {
         is Pending.Replace -> ConfirmDialog(
             "Wczytać tę kopię?",
-            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG. Wczytanie zastąpi wszystkie dane na tym urządzeniu. Jeśli masz tu coś ważnego, najpierw zrób kopię.",
-            "Zastąp dane", onConfirm = { store.replace(p.next); toast("Wczytano kopię danych") }, onDismiss = { pending = null },
+            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}${if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else ""}. Wczytanie zastąpi wszystkie dane na tym urządzeniu (także dane pozostałych osób) Jeśli masz tu coś ważnego, najpierw zrób kopię.",
+            "Zastąp dane", onConfirm = { store.replaceAll(p.all); toast("Wczytano kopię danych") }, onDismiss = { pending = null },
         )
         is Pending.Labs -> {
             val pr = s.previewLabsMerge(p.file)
@@ -171,11 +187,11 @@ fun EncryptBackupDialog(s: AppState, store: Store, onDismiss: () -> Unit) {
                     pw != pw2 -> err = "Hasła się różnią."
                     else -> {
                         busy = true
-                        val snapshot = s.copy(lastBackup = LocalDate.now())
+                        val snapshot = store.backupText()
                         scope.launch {
-                            val r = withContext(Dispatchers.Default) { runCatching { BackupCrypto.encrypt(pw, Backup.export(snapshot)) } }
+                            val r = withContext(Dispatchers.Default) { runCatching { BackupCrypto.encrypt(pw, snapshot) } }
                             busy = false
-                            r.onSuccess { out = it; store.update { st -> st.copy(lastBackup = LocalDate.now()) } }.onFailure { err = "Nie udało się zaszyfrować na tym urządzeniu." }
+                            r.onSuccess { out = it; store.markBackup(LocalDate.now()) }.onFailure { err = "Nie udało się zaszyfrować na tym urządzeniu." }
                         }
                     }
                 }
@@ -198,11 +214,11 @@ fun rememberJsonSaver(s: AppState, store: Store): () -> Unit {
         if (uri != null && data != null) {
             val ok = runCatching { Platform.writeToUri(ctx, uri, data) }.isSuccess
             toast(if (ok) "Zapisano plik JSON" else "Nie udało się zapisać pliku.")
-            if (ok) store.update { it.copy(lastBackup = LocalDate.now()) }
+            if (ok) store.markBackup(LocalDate.now())
         }
     }
     return {
-        content = Backup.export(s.copy(lastBackup = LocalDate.now()))
+        content = store.backupText()
         launcher.launch("leki-cisnienie-${LocalDate.now()}.json")
     }
 }

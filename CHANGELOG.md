@@ -1,5 +1,43 @@
 # Zmiany
 
+## 0.12.0-preview
+
+Przebudowa pod **kilka osób** w jednej aplikacji (np. osoba prowadząca dane i druga osoba, której dane uzupełnia) oraz nowy układ nawigacji.
+
+- **Osoby:** każda osoba ma osobne leki, odhaczenia, ciśnienie, badania, EKG, analizy, ustawienia raportów i dziennik cyklu. Wybór osoby jest w nagłówku (pod nazwą aplikacji: kółko z inicjałem i imię, lista osób, „Dodaj osobę”, „Zarządzaj osobami”). Ustawienia → **Osoby**: lista z podsumowaniem, przełączanie, dodawanie, usuwanie (z potwierdzeniem) i **przeniesienie dziennika cyklu** do innej osoby (razem z chorobami i lekami wpisanymi w module; z „Cofnij”). Wygląd (motyw) jest wspólny, imię zmienia się w Ustawieniach → Ogólne dla wybranej osoby.
+- **Dane i migracja:** dotychczasowe dane stają się pierwszą osobą w tym samym pliku (`state.json`), nic nie jest przenoszone ani kasowane; przy pierwszym uruchomieniu powstaje jeszcze zapasowa kopia `state.przed-osobami.json` w pamięci aplikacji. Kolejne osoby mają własne pliki, a lista i aktywna osoba są w `profiles.json`. Uszkodzony plik jednej osoby nie wpływa na pozostałe.
+- **Kopie zapasowe:** zwykła, zaszyfrowana, „Kopiuj JSON” i automatyczna do folderu obejmują **wszystkie osoby**. Format wersji 3 jest zachowany: pierwsza osoba jest w `data` jak dotąd (starsza wersja aplikacji wczyta ją), pozostałe w `profiles`; plik jednej osoby jest identyczny z dawnym. Wczytanie kopii zastępuje wszystkie osoby i pyta o potwierdzenie (z liczbą osób).
+- **Przypomnienia:** o dawkach, zapasie i kopii dla wszystkich osób, które mają je włączone. Przy więcej niż jednej osobie w tytule powiadomienia jest jej imię, a na zablokowanym ekranie nadal jest wersja neutralna. Przyciski „Wzięte”, „Odłóż” i „Cofnij” działają na dane właściwej osoby.
+- **Układ:** na dolnym pasku zostają Leki, Ciśnienie, Badania, (Cykl, gdy włączony) i Raport; **Ustawienia przeniesiono do ikony koła zębatego w nagłówku** (koniec ze ściśniętymi, uciętymi etykietami). Menu modułu Cykl jest teraz **u góry** w jednym rzędzie, a nie jako drugi pasek nad paskiem aplikacji.
+- **Cykl w raportach:** opcjonalne **„Podsumowanie cyklu”** w raporcie dla lekarza i dla AI (widoczne, gdy moduł ma dane; domyślnie wyłączone): ostatni początek okresu, długości ostatnich cykli (mediana, zakres, rozrzut), typowy czas krwawienia, przerwy powyżej 90 dni oraz choroby i leki wpisane w module. Opisowe, bez rozpoznania; wpisy intymne nigdy nie trafiają do raportów.
+- Moduł Cykl: strona przypięta do osoby, która była wybrana, gdy ją otwarto (zapisy trafiają do właściwej osoby nawet po przełączeniu); popraw. układu klawiatury (patrz 0.11.1).
+- **Wpisy solo poza raportami:** tekst raportu w module (zakładka Dane → „Kopiuj raport”, „Pobierz .txt”) nie zawiera już wpisów solo (masturbacji), także po zaznaczeniu dat (zostają stosunki); pole „Dołącz daty stosunków”. Wpisy solo zostają tylko w dzienniku i w kopii zapasowej. 1 nowy test modułu (75).
+- `core`: `Backup.exportAll` / `parseAll` (do 8 osób), `Cykl.brief` i `Cykl.briefLines`, pola `rp.cykl` i `ai.cykl`; 5 nowych testów.
+
+## 0.11.1-preview
+
+Naprawa importu do modułu „Cykl”. Na telefonie (Android 16) po wklejeniu pliku i dotknięciu „Wczytaj” arkusz importu otwierał się, ale jego dolna część (przyciski Połącz i Zastąp) była poza widocznym obszarem, więc wyglądało, że nic się nie dzieje. W przeglądarce ten sam plik działa. Prawdopodobna przyczyna: układ okna modułu w WebView podczas chowania klawiatury (niepotwierdzone na urządzeniu).
+
+- **Wczytywanie pliku po stronie aplikacji:** Ustawienia → Moduł Cykl → **Wczytaj plik z dziennikiem (JSON)** (systemowy wybór pliku, bez okna modułu) oraz **Zapisz całą bazę do pliku (JSON)**. Przy wczytaniu okno z wyborem **Połącz (dodaj brakujące)** albo **Zastąp wszystko** (poprzednia baza zostaje jako zapas) i „Cofnij”. Logika wczytania (obiekt z `entries` albo sama tablica, BOM, daty dd.mm.rrrr, pomijanie złych wpisów) i łączenia (dodaje tylko brakujące, ustawienia obecnej bazy mają pierwszeństwo) jest w `core` (`Cykl.readIncoming`, `Cykl.merge`, `Cykl.exportText`) z testami; wynik pokrywa się z tym, co robi moduł.
+- **Błędy skryptu modułu widać w aplikacji** (komunikat „Moduł Cykl: błąd skryptu …”), żeby awaria nie była niewidoczna.
+- **Klawiatura i okno modułu:** dotknięcie przycisku zabiera fokus polu tekstowemu (klawiatura chowa się przed otwarciem arkusza), po każdej zmianie rozmiaru okna układ arkusza i dolnego paska jest wymuszany ponownie, a animacja arkusza jest wyłączona. Przycisk Wstecz nadal zamyka arkusz.
+- **Poprawki z przeglądu kodu:** wczytywanie dat dd.mm.rrrr nie zależy od ustawień języka telefonu; `id: null`, `limits` i liczby (2 i 2.0) traktowane jak w module; łączenie nie zwija powtórzeń wewnątrz pliku (jak w module); drugie dotknięcie „Zastąp wszystko” przed zamknięciem okna nie nadpisuje zapasu; sprawdzenie rozmiaru po połączeniu; wczytanie dużego pliku poza wątkiem interfejsu; komunikat o błędzie skryptu bez treści (tylko miejsce) i najwyżej raz na 5 s.
+- 5 nowych testów w `core`.
+
+## 0.11.0-preview
+
+Nowy, opcjonalny **moduł „Cykl”** (dziennik cyklu z prognozą okna płodnego, trendem długości cykli i raportem dla lekarza). Gałąź `cykl-modul`.
+
+- **Moduł:** gotowa strona HTML bez zależności (źródła, 74 testy i opis w katalogu `cykl/`) działa w aplikacji w WebView bez dostępu do sieci (blokada ładowania z sieci, polityka treści `default-src 'none'`, brak odnośników i okien). Źródła w `cykl/` zostały lekko zmienione względem dostarczonej wersji: w trybie „w aplikacji” nie ma własnego wyboru motywu ani komunikatów o przeglądarce, a tekst bez formy rodzajowej („jeśli zostały wpisane”).
+- **Widoczność:** Ustawienia → **Moduł Cykl** → Ukryty | Widoczny. Domyślnie ukryty. Widoczny: zakładka „Cykl” na dolnym pasku (przed Raportem). Ukrycie niczego nie kasuje; osobny przycisk „Usuń dane modułu Cykl” (z potwierdzeniem).
+- **Dane w pamięci aplikacji:** zamiast `localStorage` moduł zapisuje przez most (`LekiHost`) do danych aplikacji (`AppState.cykl`: baza i jej poprzednia wersja). Wchodzą do **kopii zapasowej** (sekcja `cykl`, także zaszyfrowanej hasłem i automatycznej do folderu), a przypomnienie o kopii liczy też dane cyklu. Kopie bez danych cyklu wyglądają jak dotąd, a stare kopie wczytują się bez zmian. „Usuń wszystkie dane” kasuje także dziennik cyklu.
+- **Pliki:** import pliku JSON (moduł → Dane → Import, wybór pliku systemowym oknem albo wklejenie), eksport całej bazy (Dane → Pobierz kopię JSON, systemowe okno zapisu) i raport .txt; kopiowanie do schowka bez podglądu w systemie (Android 13+). Plik z dziennikiem cyklu wskazany w „Wczytaj kopię” w Ustawieniach daje podpowiedź, gdzie go wczytać.
+- **Wygląd:** barwy, krój, przyciski i dolny pasek modułu dopasowane do aplikacji, jasny i ciemny motyw zgodnie z ustawieniem aplikacji.
+- **Prywatność:** testy dostarczone z gotowym modułem miały dane przypominające prawdziwy dziennik (ciąg długości cykli i daty). Zastąpiono je wymyślonymi: losowy ciąg długości cykli i daty w 2030–2031. Raporty, eksport CSV i tekst dla AI nie zawierają danych z modułu. Dane przykładowe do testów aplikacji są zmyślone (`core/src/test/resources/fixtures/cykl-przyklad.json`). Wcześniejszy commit z tamtymi danymi był przez chwilę publicznie dostępny po adresie SHA (patrz uwaga w README).
+- **Poprawki po przeglądzie drugiego testera:** moduł nie zawiesza się już na wpisie z datą spoza kalendarza (miesiąc 13, 30 lutego): takie wpisy są pomijane przy wczytywaniu; Ustawienia → Moduł Cykl nie wywalają aplikacji na takiej dacie (podsumowanie pomija ją); komunikat „Nie udało się zapisać” nie jest już zastępowany komunikatem o sukcesie; okno „Wczytać tę kopię?” mówi o dzienniku cyklu (wczytanie kopii bez cyklu usuwa dziennik, więc jest ostrzeżenie); po zmianie motywu przycisk Wstecz nie zostaje zablokowany; etykiety „Solo — partner/ka” zamiast formy rodzajowej, polska liczba mnoga wpisów („1 wpis”, „2 wpisy”, „5 wpisów”); błąd zapisu pliku z modułu jest widoczny.
+- **CI:** przed budowaniem APK uruchamiane są testy modułu (Node 22) i sprawdzane, że plik w aplikacji jest zbudowany z aktualnych źródeł.
+- `core`: `Cykl.kt` (walidacja bazy, podsumowanie, nazwy plików, składanie strony), 10 nowych testów (w tym daty spoza kalendarza w podsumowaniu).
+
 ## 0.10.2-preview
 
 Naprawa „Wyślij testowe powiadomienie” (zgłoszone na telefonie z Androidem 16).

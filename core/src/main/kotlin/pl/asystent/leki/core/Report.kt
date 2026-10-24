@@ -222,6 +222,11 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             }
             h.append("</ul>")
         }
+        if (P.cykl) Cykl.brief(s.cykl.db, today)?.let { b ->
+            h.append("<h3>Dziennik cyklu</h3><ul>")
+            Cykl.briefLines(b).forEach { h.append("<li>${esc(it)}</li>") }
+            h.append("</ul>")
+        }
         if (P.ecg) {
             val inPeriod = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
             val ecgs = inPeriod.take(6)

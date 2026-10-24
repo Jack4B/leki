@@ -68,9 +68,9 @@ fun AutoBackupSection(s: AppState, store: Store) {
                     LekiButton(if (busy) "Zapisuję…" else "Zrób teraz", {
                         busy = true
                         scope.launch {
-                            val r = withContext(Dispatchers.IO) { AutoBackup.runNow(ctx, s) }
+                            val r = withContext(Dispatchers.IO) { AutoBackup.runNow(ctx, store.allStates().map { it.second }) }
                             busy = false
-                            r.onSuccess { store.update { st -> st.copy(lastBackup = LocalDate.now()) }; toast("Zapisano kopię: $it") }.onFailure { toast("Nie udało się zrobić kopii.") }
+                            r.onSuccess { store.markBackup(LocalDate.now()); toast("Zapisano kopię: $it") }.onFailure { toast("Nie udało się zrobić kopii.") }
                             rev++
                         }
                     }, Modifier.weight(1f), tonal = true, enabled = !busy)

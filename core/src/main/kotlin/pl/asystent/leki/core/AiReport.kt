@@ -188,6 +188,10 @@ object AiReport {
                 if (e.note.isNotBlank()) p("- Notatka pacjenta: ${cell(e.note)}")
             }
         }
+        if (A.cykl) Cykl.brief(s.cykl.db, today)?.let { b ->
+            p(); p("## Dziennik cyklu (opis, bez rozpoznania)"); p()
+            Cykl.briefLines(b).forEach { p("- $it") }
+        }
         if (A.labs) {
             p(); p("## Wyniki badań (do ${plDate(per.to)})"); p()
             val rows = s.markers.mapNotNull { m ->

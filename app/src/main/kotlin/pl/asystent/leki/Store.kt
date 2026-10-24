@@ -11,26 +11,51 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Backup
 import java.io.File
 
+/** Osoba w aplikacji: identyfikator i nazwa do pokazania (imię wpisane w Ustawieniach albo „Osoba N”). */
+data class ProfileInfo(val id: String, val name: String)
+
 /**
- * Jedyne miejsce, w którym żyją dane aplikacji: jeden dokument JSON (format kopii wersji 3) w pamięci aplikacji.
+ * Jedyne miejsce, w którym żyją dane aplikacji: dla każdej osoby jeden dokument JSON (format kopii wersji 3) w pamięci aplikacji.
+ * Pierwsza osoba (`p1`) zostaje w dotychczasowym pliku `state.json`, więc po aktualizacji wszystko jest na miejscu; kolejne mają
+ * pliki `state-<id>.json`, a lista osób i aktywna osoba są w `profiles.json`. Cały interfejs pracuje na aktywnej osobie ([state], [update]).
+ *
  * Zmiany są zapisywane z krótkim opóźnieniem przez [android.util.AtomicFile]: nowa treść trafia do osobnego pliku, jest synchronizowana
  * z dyskiem (fsync) i dopiero wtedy zastępuje poprzednią, więc utrata zasilania w trakcie zapisu nie psuje ostatniego dobrego pliku.
  */
-class Store(private val dir: File, private val onSaved: (AppState) -> Unit = {}) {
-    private val file = File(dir, FILE_NAME)
-    private val atomic = android.util.AtomicFile(file)
+class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> android.util.Log.e("Store", "Błąd w zadaniu zapisu", e) })
     private var saveJob: Job? = null
+    private val lock = Any()
 
-    /** Gdy plik danych był uszkodzony: ścieżka kopii, do której go przeniesiono. */
+    /** Gdy któryś plik danych był uszkodzony: nazwa kopii, do której go przeniesiono. */
     val recoveredFrom: String?
+
+    private val states = LinkedHashMap<String, AppState>()
+    private val dirty = HashSet<String>()
+    private var active: String
 
     private val _state: MutableStateFlow<AppState>
     val state: StateFlow<AppState> get() = _state.asStateFlow()
+
+    private val _profiles: MutableStateFlow<List<ProfileInfo>>
+    /** Lista osób (w kolejności dodania) z nazwami. Zmienia się, gdy ktoś zmieni imię albo doda/usunie osobę. */
+    val profiles: StateFlow<List<ProfileInfo>> get() = _profiles.asStateFlow()
+
+    private val _activeId: MutableStateFlow<String>
+    /** Identyfikator aktywnej osoby. */
+    val activeId: StateFlow<String> get() = _activeId.asStateFlow()
 
     private val _saveFailed = MutableStateFlow(false)
 
@@ -38,37 +63,167 @@ class Store(private val dir: File, private val onSaved: (AppState) -> Unit = {})
     val saveFailed: StateFlow<Boolean> get() = _saveFailed.asStateFlow()
 
     init {
-        val r = read(dir)
-        _state = MutableStateFlow(r.first)
-        recoveredFrom = r.second
+        val loaded = readAll(dir)
+        loaded.states.forEach { states[it.first] = it.second }
+        active = loaded.active
+        recoveredFrom = loaded.recovered
+        _state = MutableStateFlow(states.getValue(active))
+        _profiles = MutableStateFlow(infos())
+        _activeId = MutableStateFlow(active)
+        // pierwsze uruchomienie z obsługą wielu osób: zapas dotychczasowego pliku (nic nie jest kasowane ani przenoszone)
+        if (!File(dir, INDEX).exists() && File(dir, FILE_NAME).exists()) {
+            runCatching { File(dir, FILE_NAME).copyTo(File(dir, "state.przed-osobami.json"), overwrite = false) }
+            writeIndex()
+        }
     }
 
+    private fun infos(): List<ProfileInfo> = synchronized(lock) {
+        states.entries.mapIndexed { i, e -> ProfileInfo(e.key, e.value.patient.trim().ifEmpty { "Osoba ${i + 1}" }) }
+    }
+
+    // ---------- Zmiany danych ----------
+
+    /** Zmiana danych aktywnej osoby. */
     fun update(f: (AppState) -> AppState) {
-        _state.update(f)
+        val id: String
+        synchronized(lock) {
+            id = active
+            _state.update(f)
+            states[id] = _state.value
+            dirty.add(id)
+        }
+        _profiles.value = infos()
         scheduleSave()
     }
 
     fun replace(s: AppState) = update { s }
 
+    /** Zmiana danych wskazanej osoby (np. z powiadomienia albo z modułu Cykl, który działał, zanim ktoś przełączył osobę). */
+    fun updateProfile(id: String, f: (AppState) -> AppState) {
+        synchronized(lock) {
+            if (id == active) { update(f); return }
+            val cur = states[id] ?: return
+            states[id] = f(cur)
+            dirty.add(id)
+        }
+        _profiles.value = infos()
+        scheduleSave()
+    }
+
+    /** Zmiana wspólna dla wszystkich osób (np. motyw wyglądu). */
+    fun updateAll(f: (AppState) -> AppState) {
+        synchronized(lock) {
+            states.keys.toList().forEach { id -> states[id] = f(states.getValue(id)); dirty.add(id) }
+            _state.value = states.getValue(active)
+        }
+        _profiles.value = infos()
+        scheduleSave()
+    }
+
+    fun profileState(id: String): AppState? = synchronized(lock) { states[id] }
+
+    /** Kopia wszystkich osób jako tekst (z dzisiejszą datą ostatniej kopii); starsze wersje aplikacji wczytają z niej pierwszą osobę. */
+    fun backupText(today: java.time.LocalDate = java.time.LocalDate.now()): String = Backup.exportAll(allStates().map { it.second.copy(lastBackup = today) })
+
+    /** Oznacza, że kopia wszystkich osób została zrobiona. */
+    fun markBackup(day: java.time.LocalDate) = updateAll { it.copy(lastBackup = day) }
+
+    /** Stan wszystkich osób (pierwsza to `p1`), np. do kopii zapasowej i przypomnień. */
+    fun allStates(): List<Pair<ProfileInfo, AppState>> = synchronized(lock) {
+        val names = infos().associateBy { it.id }
+        states.map { names.getValue(it.key) to it.value }
+    }
+
+    // ---------- Osoby ----------
+
+    fun switchTo(id: String) {
+        synchronized(lock) {
+            if (id == active || id !in states) return
+            active = id
+            _state.value = states.getValue(id)
+        }
+        _activeId.value = id
+        writeIndex()
+    }
+
+    /** Dodaje osobę z podaną nazwą; zwraca jej identyfikator albo null, gdy osiągnięto limit. Wygląd (motyw) przejmuje po aktywnej osobie. */
+    fun addProfile(name: String): String? {
+        val id: String
+        synchronized(lock) {
+            if (states.size >= Backup.MAX_PROFILES) return null
+            id = generateSequence(2) { it + 1 }.map { "p$it" }.first { it !in states }
+            val theme = states.getValue(active).settings.theme
+            states[id] = AppState(patient = name.trim(), settings = pl.asystent.leki.core.Settings(theme = theme))
+            dirty.add(id)
+        }
+        _profiles.value = infos()
+        writeIndex()
+        scheduleSave()
+        return id
+    }
+
+    /** Usuwa osobę z jej danymi. Nie da się usunąć ostatniej. Zwraca prawdę, gdy usunięto. */
+    fun removeProfile(id: String): Boolean {
+        synchronized(lock) {
+            if (states.size <= 1 || id !in states) return false
+            states.remove(id); dirty.remove(id)
+            runCatching { File(dir, fileOf(id)).delete(); File(dir, fileOf(id) + ".bak").delete() }
+            if (active == id) { active = states.keys.first(); _state.value = states.getValue(active) }
+        }
+        _profiles.value = infos()
+        _activeId.value = active
+        writeIndex()
+        return true
+    }
+
+    /** Wczytanie kopii zapasowej: cała zawartość aplikacji (wszystkie osoby) zostaje zastąpiona; aktywna jest pierwsza osoba. */
+    fun replaceAll(list: List<AppState>) {
+        require(list.isNotEmpty())
+        synchronized(lock) {
+            val old = states.keys.toList()
+            states.clear(); dirty.clear()
+            list.take(Backup.MAX_PROFILES).forEachIndexed { i, s -> val id = "p${i + 1}"; states[id] = s; dirty.add(id) }
+            old.filter { it !in states }.forEach { runCatching { File(dir, fileOf(it)).delete(); File(dir, fileOf(it) + ".bak").delete() } }
+            active = "p1"
+            _state.value = states.getValue(active)
+        }
+        _profiles.value = infos()
+        _activeId.value = active
+        writeIndex()
+        scheduleSave()
+    }
+
+    // ---------- Zapis ----------
+
     private fun scheduleSave() {
         saveJob?.cancel()
         saveJob = scope.launch {
             delay(350)
-            write(_state.value)
-            runCatching { onSaved(_state.value) }
+            writeDirty()
+            runCatching { onSaved(this@Store) }
         }
     }
 
     /** Zapisuje od razu (np. przy zamykaniu aplikacji). */
     fun flush() {
         saveJob?.cancel()
-        write(_state.value)
-        runCatching { onSaved(_state.value) }
+        writeDirty()
+        runCatching { onSaved(this) }
     }
 
     @Synchronized
-    private fun write(s: AppState) {
+    private fun writeDirty() {
+        val todo: List<Pair<String, AppState>> = synchronized(lock) {
+            val l = dirty.mapNotNull { id -> states[id]?.let { id to it } }
+            dirty.clear()
+            l
+        }
+        todo.forEach { (id, s) -> write(id, s) }
+    }
+
+    private fun write(id: String, s: AppState) {
         var out: java.io.FileOutputStream? = null
+        val atomic = android.util.AtomicFile(File(dir, fileOf(id)))
         try {
             dir.mkdirs()
             out = atomic.startWrite()
@@ -77,30 +232,76 @@ class Store(private val dir: File, private val onSaved: (AppState) -> Unit = {})
             _saveFailed.value = false
         } catch (e: Exception) {
             out?.let { atomic.failWrite(it) }
+            synchronized(lock) { dirty.add(id) }
             _saveFailed.value = true
             android.util.Log.e("Store", "Nie udało się zapisać danych", e)
         }
     }
 
+    @Synchronized
+    private fun writeIndex() {
+        val (ids, act) = synchronized(lock) { states.keys.toList() to active }
+        val atomic = android.util.AtomicFile(File(dir, INDEX))
+        var out: java.io.FileOutputStream? = null
+        try {
+            dir.mkdirs()
+            out = atomic.startWrite()
+            val json = JsonObject(mapOf("active" to JsonPrimitive(act), "ids" to JsonArray(ids.map { JsonPrimitive(it) })))
+            out.write(json.toString().toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(out)
+        } catch (e: Exception) {
+            out?.let { atomic.failWrite(it) }
+            android.util.Log.e("Store", "Nie udało się zapisać listy osób", e)
+        }
+    }
+
+    class Loaded(val states: List<Pair<String, AppState>>, val active: String, val recovered: String?)
+
     companion object {
         const val FILE_NAME = "state.json"
+        const val INDEX = "profiles.json"
+
+        fun fileOf(id: String): String = if (id == "p1") FILE_NAME else "state-$id.json"
 
         /**
-         * Wczytuje dane; uszkodzony plik jest odkładany obok jako jedna kopia (state.uszkodzony.json), a aplikacja startuje pusta,
+         * Wczytuje dane jednej osoby; uszkodzony plik jest odkładany obok jako jedna kopia (np. state.uszkodzony.json), a osoba startuje pusta,
          * więc nic nie ginie po cichu i kolejne starty nie mnożą plików.
          */
-        fun read(dir: File): Pair<AppState, String?> {
-            val f = File(dir, FILE_NAME)
+        private fun readOne(dir: File, id: String): Pair<AppState, String?> {
+            val name = fileOf(id)
+            val f = File(dir, name)
             val af = android.util.AtomicFile(f)
             // AtomicFile ma kopię zapasową "<plik>.bak" (zostaje po przerwanym zapisie), więc brak głównego pliku nie oznacza jeszcze braku danych
-            if (!f.exists() && !File(dir, "$FILE_NAME.bak").exists()) return AppState() to null
+            if (!f.exists() && !File(dir, "$name.bak").exists()) return AppState() to null
             return try {
                 Backup.parseState(String(af.readFully(), Charsets.UTF_8)) to null
             } catch (e: Exception) {
-                val bad = File(dir, "state.uszkodzony.json")
-                runCatching { f.copyTo(bad, overwrite = true) }
-                AppState() to bad.name
+                val badFile = File(dir, if (id == "p1") "state.uszkodzony.json" else "state-$id.uszkodzony.json")
+                runCatching { f.copyTo(badFile, overwrite = true) }
+                AppState() to badFile.name
             }
+        }
+
+        /** Lista osób i aktywna osoba z dysku; bez pliku listy jest jedna osoba (`p1`), czyli dane sprzed obsługi wielu osób. */
+        fun readAll(dir: File): Loaded {
+            val idx = File(dir, INDEX)
+            var ids = listOf("p1")
+            var act = "p1"
+            if (idx.exists()) runCatching {
+                val j = Json.parseToJsonElement(String(android.util.AtomicFile(idx).readFully(), Charsets.UTF_8)).jsonObject
+                val l = j["ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }?.filter { Regex("p\\d{1,2}").matches(it) }?.distinct().orEmpty()
+                if (l.isNotEmpty()) ids = l.take(Backup.MAX_PROFILES)
+                act = j["active"]?.jsonPrimitive?.contentOrNull?.takeIf { it in ids } ?: ids.first()
+            }
+            var recovered: String? = null
+            val list = ids.map { id -> val (s, bad) = readOne(dir, id); if (bad != null) recovered = bad; id to s }
+            return Loaded(list, act, recovered)
+        }
+
+        /** Dane aktywnej osoby bez uruchamiania całego magazynu (widżet, odbiorniki, gdy aplikacja nie działa). */
+        fun read(dir: File): Pair<AppState, String?> {
+            val l = readAll(dir)
+            return l.states.first { it.first == l.active }.second to l.recovered
         }
     }
 }

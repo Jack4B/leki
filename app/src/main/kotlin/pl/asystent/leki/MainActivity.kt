@@ -68,6 +68,8 @@ import pl.asystent.leki.ui.IncomingAi
 import pl.asystent.leki.ui.BpScreen
 import pl.asystent.leki.ui.CardShape
 import pl.asystent.leki.ui.CtlShape
+import pl.asystent.leki.ui.CyklScreen
+import pl.asystent.leki.ui.PersonSwitcher
 import pl.asystent.leki.ui.Divider
 import pl.asystent.leki.ui.IconAction
 import pl.asystent.leki.ui.LabsScreen
@@ -150,7 +152,10 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia")
+private val tabs = listOf("Leki", "Ciśnienie", "Badania", "Raport", "Ustawienia", "Cykl")
+/** Kolejność zakładek na dolnym pasku; „Cykl” (numer 5) jest opcjonalny i wstawiony przed Raportem. Ustawienia (numer 4) są pod ikoną koła zębatego w nagłówku. Numery zakładek się nie zmieniają. */
+private fun visibleTabs(cykl: Boolean): List<Int> = if (cykl) listOf(0, 1, 2, 5, 3) else listOf(0, 1, 2, 3)
+private const val TAB_CYKL = 5
 
 @Composable
 fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, onTabHandled: () -> Unit = {}, incoming: IncomingAi? = null, onIncomingHandled: () -> Unit = {}) {
@@ -181,15 +186,21 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             }
         }
         CompositionLocalProvider(LocalToast provides toast, LocalUndo provides undo, LocalLock provides lock) {
-            var tab by rememberSaveable { mutableIntStateOf(0) }
+            var rawTab by rememberSaveable { mutableIntStateOf(0) }
+            // moduł ukryty w Ustawieniach, a zakładka była otwarta (np. po przywróceniu stanu): wracamy do pierwszej
+            val tab = if (rawTab == TAB_CYKL && !s.settings.cyklOn) 0 else rawTab
+            val setTab: (Int) -> Unit = { rawTab = it }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-            LaunchedEffect(requestedTab) { requestedTab?.let { tab = it; onTabHandled() } }
+            LaunchedEffect(requestedTab) { requestedTab?.let { setTab(it); onTabHandled() } }
             var newMed by remember { mutableStateOf(false) }
             var showMeds by remember { mutableStateOf(false) }
             var showEvents by remember { mutableStateOf(false) }
+            var showPeople by remember { mutableStateOf(false) }
+            val profiles by store.profiles.collectAsStateWithLifecycle()
+            val activeId by store.activeId.collectAsStateWithLifecycle()
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
-            BackHandler(enabled = tab != 0) { tab = 0 }
+            BackHandler(enabled = tab != 0) { setTab(0) }
 
             val overlays = remember { OverlayHost() }
             CompositionLocalProvider(LocalOverlayHost provides overlays) {
@@ -207,21 +218,24 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text("Asystent leków", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                                if (s.patient.isNotEmpty()) Text(s.patient, style = TextStyle(fontSize = 12.5.sp, color = pal.ink3), maxLines = 1)
+                                PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true })
                             }
                             IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
+                            IconAction(Ph.GearSix, "Ustawienia", { setTab(4) })
                         }
                         Divider()
                     }
                 },
                 bottomBar = {
                     NavigationBar(containerColor = pal.surface) {
-                        val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix)
-                        tabs.forEachIndexed { i, label ->
+                        val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix, Ph.CalendarBlank)
+                        val shown = visibleTabs(s.settings.cyklOn)
+                        shown.forEach { i ->
+                            val label = tabs[i]
                             NavigationBarItem(
-                                selected = tab == i, onClick = { tab = i },
+                                selected = tab == i, onClick = { setTab(i) },
                                 icon = { Icon(icons[i], contentDescription = null, modifier = Modifier.size(24.dp)) },
-                                label = { Text(label, style = TextStyle(fontSize = 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
+                                label = { Text(label, maxLines = 1, style = TextStyle(fontSize = if (shown.size > 5) 10.5.sp else 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = pal.accent, selectedTextColor = pal.accent, indicatorColor = pal.accentSoft,
                                     unselectedIconColor = pal.ink3, unselectedTextColor = pal.ink3,
@@ -233,15 +247,16 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             ) { padding ->
                 // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                    val nav = Nav(goSettings = { tab = 4 }, newMed = { tab = 4; newMed = true }, showMeds = { tab = 4; showMeds = true }, showEvents = { tab = 4; showEvents = true })
+                    val nav = Nav(goSettings = { setTab(4) }, newMed = { setTab(4); newMed = true }, showMeds = { setTab(4); showMeds = true }, showEvents = { setTab(4); showEvents = true })
                     // stan każdej zakładki (wybrany dzień, zakres, widok, przewinięcie) przeżywa przełączanie zakładek, a nie tylko obrót ekranu
                     saveable.SaveableStateProvider(tab) {
                         when (tab) {
-                            0 -> MedsScreen(s, store, nav, onGoData = { tab = 4 }, recoveredFrom = store.recoveredFrom)
+                            0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) }, recoveredFrom = store.recoveredFrom)
                             1 -> BpScreen(s, store)
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)
-                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false })
+                            TAB_CYKL -> CyklScreen(store)
+                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false })
                         }
                     }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
