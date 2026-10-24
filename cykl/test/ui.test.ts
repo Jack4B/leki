@@ -215,3 +215,22 @@ describe("okno płodne: spójność etykiet z procentami", () => {
     }
   });
 });
+
+describe("wytyczne: wysokie ryzyko i metoda kalendarzowa w widoku", () => {
+  test("nieregularne cykle: widok dnia pokazuje wysokie ryzyko w szczycie i „metodę kalendarzową” na brzegach okna", () => {
+    const a = analyze(makeDb("2030-09-14", PERI), "2031-10-22");
+    const outs: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      const d = new Date(Date.parse("2031-10-22T12:00:00Z") + i * 864e5).toISOString().slice(0, 10);
+      outs.push(sheetDay(a, d).value);
+    }
+    assert.ok(outs.some((o) => o.includes("wysokie ryzyko, szczyt okna płodnego")), "brak dni wysokiego ryzyka");
+    assert.ok(outs.some((o) => o.includes("okno płodne wg metody kalendarzowej") || o.includes("okno płodne możliwe")));
+  });
+  test("Dziś: chip i legenda używają nazw „wysokie ryzyko” i „okno płodne (możliwe)”", () => {
+    const st = { ...mkState("kal", makeDb("2031-01-01", [28, 28, 28, 28, 28, 28, 28])), today: "2031-07-10", month: "2031-07" };
+    const kal = renderTab(st).value;
+    assert.ok(kal.includes("wysokie ryzyko (szczyt okna)") && kal.includes("okno płodne (możliwe)"));
+    assert.ok(!kal.includes("bardzo prawdopodobne"));
+  });
+});

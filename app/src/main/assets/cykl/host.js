@@ -128,7 +128,7 @@
     // menu jest wizualnie na górze, więc ma być też pierwsze w kolejności fokusu
     var tabsNav = document.querySelector(".tabs");
     if (tabsNav) document.body.insertBefore(tabsNav, app);
-    var LV = { high: "okno płodne bardzo prawdopodobne", mid: "okno płodne możliwe", low: "okno płodne mało prawdopodobne", bleed: "okres" };
+    var LV = { high: "wysokie ryzyko, szczyt okna płodnego", mid: "okno płodne możliwe", low: "okno płodne mało prawdopodobne", bleed: "okres" };
     function labels() {
       document.querySelectorAll(".sb[aria-label]").forEach(function (b) {
         var l = b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return LV[k] || k; });
@@ -137,7 +137,7 @@
       });
       document.querySelectorAll(".day[data-date]").forEach(function (b) {
         var d = new Date(b.getAttribute("data-date") + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
-        var s = [b.classList.contains("bleed") && "okres", b.classList.contains("pred") && "prognoza okresu", b.classList.contains("lv-high") && "okno płodne bardzo prawdopodobne",
+        var s = [b.classList.contains("bleed") && "okres", b.classList.contains("pred") && "prognoza okresu", b.classList.contains("lv-high") && "wysokie ryzyko, szczyt okna płodnego",
           b.classList.contains("lv-mid") && "okno płodne możliwe", b.querySelector(".dot.sex") && "stosunek", b.querySelector(".dot.spot") && "plamienie",
           b.querySelector(".dot.lh") && "test LH", b.querySelector(".ov") && "owulacja (szacunkowo)"].filter(Boolean).join(", ");
         b.setAttribute("aria-label", s ? d + ": " + s : d);

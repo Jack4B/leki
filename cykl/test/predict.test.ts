@@ -62,12 +62,14 @@ describe("prognoza dla regularnych cykli 28 d", () => {
 describe("prognoza dla nieregularnych cykli (przejście)", () => {
   const db = makeDb("2030-09-14", PERI);
   const a = analyze(db, "2031-10-22");
-  test("pewność niska, wysoki poziom szansy nie jest nigdy obiecywany", () => {
+  test("pewność niska: szczyt okna jest pokazany (kilka dni), a okno z metody kalendarzowej obejmuje większość cyklu", () => {
     assert.equal(a.pred.confidence, "low");
-    const levels = new Set<string>();
-    for (let i = 0; i < 60; i++) levels.add(a.info(addDays("2031-10-22", i)).level);
-    assert.ok(!levels.has("high"), "przy rozrzucie 27–42 dni żaden dzień nie powinien dostać 'high'");
-    assert.ok(levels.has("mid"));
+    const levels: string[] = [];
+    for (let i = 0; i < 60; i++) levels.push(a.info(addDays("2031-10-22", i)).level);
+    const high = levels.filter((l) => l === "high").length;
+    assert.ok(high >= 3 && high <= 9, `dni „wysokie ryzyko”: ${high}`);
+    assert.ok(levels.includes("mid"));
+    assert.ok(a.pred.calendar && a.pred.calendar.to - a.pred.calendar.from >= 15, "metoda kalendarzowa daje szerokie okno przy rozrzucie 27–42 dni");
   });
   test("kolejne okresy rosną i przedziały się poszerzają", () => {
     const n = a.pred.nextPeriods;
@@ -172,7 +174,7 @@ describe("pewność, poziomy i tryby prognoz", () => {
     assert.equal(p(6), "high");
     assert.equal(p(2), "low");
   });
-  test("bez historii (tylko prior) żaden dzień nie dostaje poziomu „wysoka”", () => {
+  test("bez historii (tylko prior, mniej niż 3 cykle) szczyt okna nie jest pokazywany jako „wysokie ryzyko”", () => {
     const db = makeDb("2031-01-01", []);
     const a = analyze(db, "2031-01-05");
     for (let i = 0; i < 40; i++) assert.notEqual(a.info(addDays("2031-01-05", i)).level, "high");
@@ -227,14 +229,16 @@ describe("okno płodne: poziomy z prawdopodobieństwa, że dzień jest w oknie",
     assert.ok(high[0]! >= 9 && high[0]! <= 11 && high.at(-1)! >= 15 && high.at(-1)! <= 17, s);
     assert.ok(!s.slice(20, 27).includes("H") && !s.slice(20, 27).includes("m"), "faza lutealna bez oznaczeń");
   });
-  test("nieregularne cykle: brak „bardzo prawdopodobnych” dni, a „możliwe” nie zalewają całego miesiąca ani cyklu po prognozowanym okresie", () => {
+  test("nieregularne cykle: jest szczyt okna (wysokie ryzyko), reszta okna z metody kalendarzowej to „możliwe”, po prognozowanym okresie nic", () => {
     for (const band of ["26-41", "46-50", "51+"] as const) {
       const s = levels(PERI, band);
-      assert.ok(!s.includes("H"), `${band}: ${s}`);
-      const mid = [...s].filter((c) => c === "m").length;
+      const first = s.slice(0, s.indexOf("p"));
+      const high = [...first].filter((c) => c === "H").length;
+      assert.ok(high >= 3 && high <= 9, `${band}: ${high} dni „wysokie ryzyko” (${s})`);
+      const mid = [...first].filter((c) => c === "m").length;
       assert.ok(mid >= 8 && mid <= 20, `${band}: ${mid} dni „możliwe” (${s})`);
       const afterPred = s.slice(s.indexOf("p"));
-      assert.ok(!afterPred.includes("m"), `${band}: oznaczenia po prognozowanym okresie (${s})`);
+      assert.ok(!afterPred.includes("m") && !afterPred.includes("H"), `${band}: oznaczenia po prognozowanym okresie (${s})`);
     }
   });
   test("poziomy mają progi 50% i 20%", () => {

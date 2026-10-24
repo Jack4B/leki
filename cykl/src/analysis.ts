@@ -8,7 +8,7 @@ import type { Figo, Straw, Trend } from "./health.ts";
 import { diffDays } from "./dates.ts";
 
 export interface DayInfo {
-  bleed: boolean; predBleed: boolean; fertility: number; window: number; level: Level; ovulation: boolean; lh: boolean;
+  bleed: boolean; predBleed: boolean; fertility: number; window: number; level: Level; calendar: boolean; ovulation: boolean; lh: boolean;
 }
 export interface Analysis {
   today: string; entries: Entry[]; settings: Settings; hist: History; pred: Prediction;
@@ -30,11 +30,16 @@ export const analyze = (db: Db, today: string): Analysis => {
     const f = fertilityOn(pred, date);
     const q = windowOn(pred, date);
     let level = windowLevel(q);
-    // przy niskiej pewności prognozy (mało cykli, duży rozrzut) przyszłe dni nie dostają poziomu „wysoka”, chyba że jest test LH
-    if (level === "high" && pred.confidence === "low" && !pred.lhUsed && date >= today) level = "mid";
+    // metoda kalendarzowa (od 6 cykli; najkrótszy cykl − 18 do najdłuższy − 11, licząc od ostatniego startu): dni w tym zakresie są co najmniej „możliwe”,
+    // bo przy nieregularnych cyklach wytyczne nie pozwalają wskazać bezpiecznych dni w środku cyklu
+    // bez historii (mniej niż 3 cykle) i bez testu LH model opiera się tylko na populacyjnym priorze: szczyt okna nie jest wtedy pokazywany jako „wysokie ryzyko”
+    if (level === "high" && hist.cycles.length < 3 && !pred.lhUsed && date >= today) level = "mid";
+    const cal = pred.calendar;
+    const inCal = Boolean(cal && hist.lastStart && date >= addDays(hist.lastStart, cal.from - 1) && date <= addDays(hist.lastStart, cal.to - 1));
+    if (inCal && level === "low" && !hist.bleed.has(date)) level = "mid";
     return {
       bleed, predBleed: !bleed && predBleed.has(date) && (!lastBleed || date > lastBleed),
-      fertility: f, window: q, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
+      fertility: f, window: q, level, calendar: inCal, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
     };
   };
   const t = info(today);

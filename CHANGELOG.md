@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.14.2-preview
+
+Cykl: „wysokie ryzyko” znów jest widoczne i okno płodne liczy się według wytycznych.
+
+- **Poprawka:** w wersjach 0.13–0.14.1 przy niskiej pewności prognozy (nieregularne cykle) poziom najwyższy był sztucznie obniżany do „możliwego”, więc od dziś w kalendarzu nie było dni „wysokiego ryzyka”. Teraz **szczyt okna (co najmniej 50% prawdopodobieństwa, że dzień jest w oknie) jest zawsze pokazany jako „wysokie ryzyko”**, także przy nieregularnych cyklach (kilka dni wokół najbardziej prawdopodobnej owulacji). Obniżenie zostało tylko dla historii krótszej niż 3 cykle bez testu LH (tylko populacyjny prior).
+- **Metoda kalendarzowa w kalendarzu (wytyczne):** od 6 zapisanych cykli dni z zakresu najkrótszy cykl − 18 do najdłuższy − 11 (liczone od ostatniego startu okresu) są oznaczone co najmniej jako „okno płodne (możliwe)”. Przy nieregularnych cyklach to większość cyklu, co jest zgodne z wytycznymi: kalendarz nie wskazuje wtedy bezpiecznych dni. Widok dnia mówi „okno płodne wg metody kalendarzowej”, a ekran Dziś pokazuje to okno w datach.
+- **Nazwy poziomów:** „wysokie ryzyko (szczyt okna)”, „okno płodne (możliwe)”, „okno mało prawdopodobne (<20%)” w legendach, opisach, etykietach dla czytnika ekranu i na ekranie Dziś.
+- **Źródła, na których opierają się obliczenia:** okno 6 dni kończących się w dniu owulacji i prawdopodobieństwa dzienne (Wilcox, Weinberg, Baird, NEJM 1995; Wilcox, Dunson, Baird, BMJ 2000: okno bywa nieprzewidywalne, tylko ok. 30% kobiet ma je w typowych dniach 10–17; Dunson, Colombo, Baird, Hum Reprod 2002), metoda kalendarzowa i metoda dni standardowych (Mayo Clinic, Family Planning Handbook: 6 ostatnich cykli; Arévalo i wsp. 2002: cykle 26–32 dni, dni 8–19), okołomenopauza (CDC US MEC 2024: metody oparte na kalendarzu „z ostrożnością”; w późnej okołomenopauzie część cykli nadal jest owulacyjna), progi FIGO 2018 i STRAW+10 (Harlow i wsp. 2012). Źródła wtórne i streszczenia, nie pełne teksty wytycznych.
+
 ## 0.14.1-preview
 
 CI sprząta wydania: po każdej kompilacji zostają **2 ostatnie** wydania `-b<numer>` (było 5), a starsze są usuwane razem z tagami. Dodatkowo usuwane są **osierocone tagi** kompilacji (tag bez wydania, np. po ręcznym usunięciu wydania). Dzięki temu lista Releases pozostaje krótka bez ręcznego sprzątania. Bez zmian w aplikacji.
