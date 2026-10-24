@@ -56,7 +56,7 @@ Leki doraźne („w razie potrzeby”), kontrast obramowań kontrolek i nazwy p�
 - Review robi Nexus komentarzami w PR, każdy zaczyna się od `[Nexus]`, z priorytetem P0/P1/P2.
 - Przed kolejną pracą nad PR przeczytaj uwagi: `gh pr view <nr> --comments` (w sesjach w chmurze REST, patrz niżej).
 - Popraw wszystkie P0 i P1, na każdą uwagę odpowiedz w PR (`gh pr comment`): "Poprawione w <commit>" albo uzasadnienie, czemu nie.
-- Nie merguj sam. Merge dopiero po komentarzu `[Nexus] APPROVE` i decyzji Kareša.
+- Nie merguj sam. Merge dopiero po komentarzu `[Nexus] APPROVE` i decyzji Jack4B.
 - Jeśli Nexus zrobi commit na gałęzi PR, zrób `git pull` przed dalszą pracą.
 
 Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w chmurze `gh pr ...` używa GraphQL, które jest tam zablokowane. Odpowiednik przez REST: `gh api repos/<właściciel>/<repo>/pulls/<nr>/comments` (uwagi do linii), `.../issues/<nr>/comments` (komentarze ogólne i odpowiedzi: `gh api -X POST .../issues/<nr>/comments -f body=...`) albo narzędzia GitHub MCP. Domyślna gałąź tego repozytorium to na razie `ccr-f03160aa-sp7qz7` (0.10.2); aktualna praca jest na `cykl-modul`, więc PR z niej jest pierwszym wdrożeniem tej zasady. Nowe zmiany po scaleniu: nowe gałęzie `feat/...` i `fix/...`. Każde wypchnięcie nadal buduje APK w CI, więc łącz poprawki z uwag w jeden push.
