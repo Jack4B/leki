@@ -27,6 +27,10 @@
   try { Object.defineProperty(window, "localStorage", { value: store, configurable: true }); } catch (e) {}
 
   // „pobieranie” pliku: moduł tworzy odnośnik z blobem, a aplikacja zapisuje go przez systemowe okno wyboru miejsca
+  function say(msg) {
+    var t = document.getElementById("toast");
+    if (t) { t.textContent = msg; t.className = "toast show"; setTimeout(function () { t.className = "toast"; }, 2600); }
+  }
   var click = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function () {
     var a = this;
@@ -35,13 +39,10 @@
         var fr = new FileReader();
         fr.onload = function () {
           var s = String(fr.result), i = s.indexOf(",");
-          H.save(a.download, b.type || "application/octet-stream", s.slice(i + 1));
+          if (!H.save(a.download, b.type || "application/octet-stream", s.slice(i + 1))) say("Plik jest za duży, aby go zapisać");
         };
         fr.readAsDataURL(b);
-      }).catch(function () {
-        var t = document.getElementById("toast");
-        if (t) { t.textContent = "Nie udało się zapisać pliku"; t.className = "toast show"; setTimeout(function () { t.className = "toast"; }, 2600); }
-      });
+      }).catch(function () { say("Nie udało się zapisać pliku"); });
       return;
     }
     return click.call(a);
@@ -66,10 +67,6 @@
   }, true);
   var settle;
   function relayout() {
-    ["sheet", "mask"].concat([]).forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el && !el.hidden) { el.style.bottom = "0.5px"; requestAnimationFrame(function () { el.style.bottom = ""; }); }
-    });
     var tabs = document.querySelector(".tabs");
     if (tabs) { tabs.style.top = "0.5px"; requestAnimationFrame(function () { tabs.style.top = ""; }); }
   }
@@ -80,11 +77,15 @@
   document.addEventListener("DOMContentLoaded", function () {
     var sheet = document.getElementById("sheet");
     if (!sheet || !window.MutationObserver) return;
-    var savedY = 0, wasOpen = false;
+    var savedY = 0, wasOpen = false, backTo = "";
     new MutationObserver(function () {
       var open = !sheet.hidden;
       H.sheet(open);
-      if (open && !wasOpen) { savedY = window.pageYOffset || 0; }
+      if (open && !wasOpen) {
+        savedY = window.pageYOffset || 0;
+        var ae = document.activeElement;
+        backTo = ae && ae.getAttribute ? (ae.getAttribute("data-date") || "") : "";
+      }
       document.documentElement.classList.toggle("sheet-open", open);
       if (open) {
         // pasek na górze: powrót i (przy dniu) szybki zapis, bo formularz jest długi
@@ -107,6 +108,8 @@
         var h = sheet.querySelector("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
       } else if (wasOpen) {
         window.scrollTo(0, savedY);
+        // fokus wraca na dzień, z którego otwarto okno (klawiatura i czytnik ekranu nie tracą miejsca)
+        if (backTo) { var el = document.querySelector('[data-date="' + backTo + '"]'); if (el && el.focus) el.focus({ preventScroll: true }); }
       }
       wasOpen = open;
     }).observe(sheet, { attributes: true, attributeFilter: ["hidden"] });
@@ -122,10 +125,15 @@
     var app = document.getElementById("app");
     if (!app) return;
     app.removeAttribute("aria-live");
+    // menu jest wizualnie na górze, więc ma być też pierwsze w kolejności fokusu
+    var tabsNav = document.querySelector(".tabs");
+    if (tabsNav) document.body.insertBefore(tabsNav, app);
     var LV = { high: "wysoka", mid: "podwyższona", low: "niska", bleed: "okres" };
     function labels() {
       document.querySelectorAll(".sb[aria-label]").forEach(function (b) {
-        b.setAttribute("aria-label", b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return "szansa: " + (LV[k] || k); }));
+        var l = b.getAttribute("aria-label").replace(/szansa: (\w+)$/, function (_, k) { return "szansa: " + (LV[k] || k); });
+        l = l.replace(/^(\d{4}-\d{2}-\d{2})/, function (d) { return new Date(d + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" }); });
+        b.setAttribute("aria-label", l);
       });
       document.querySelectorAll(".day[data-date]").forEach(function (b) {
         var d = new Date(b.getAttribute("data-date") + "T12:00:00").toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });

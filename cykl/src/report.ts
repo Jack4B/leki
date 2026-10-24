@@ -59,11 +59,12 @@ export const lanesOf = (a: Analysis): LaneRow[] => {
     const next = h.starts[i + 1] ?? null;
     const length = next ? diffDays(start, next) : diffDays(start, a.today) + 1;
     if (length < 1) return;                      // start okresu w przyszłości: bez rzędu (ujemna szerokość)
-    if (next && length < 10) return;
+    if (next && length < 15) return;
     const ep = h.eps[i]!;
     const bleed = ep.days ?? h.bleedLen;
     const ov = length - 14;
-    const win: [number, number] | null = next ? [Math.max(bleed, ov - 5), ov + 1] : null;
+    const winFrom = Math.max(bleed, ov - 5);
+    const win: [number, number] | null = next && ov + 1 >= winFrom ? [winFrom, ov + 1] : null;
     const inCycle = (d: string) => d >= start && (!next || d < next);
     rows.push({
       start, length, open: !next, bleed, win,
@@ -74,12 +75,21 @@ export const lanesOf = (a: Analysis): LaneRow[] => {
   return rows;
 };
 
+const INTIMATE = new Set<string>([T.SEX, T.PROT, T.SOLO, T.HIM]);
+const MODE_TXT = { normal: "zwykły cykl", hormonal: "antykoncepcja hormonalna (prognozy płodności wyłączone)", pause: "ciąża, połóg lub karmienie (prognozy wyłączone)" } as const;
+
+/**
+ * Tekst raportu dla lekarza / AI. Wpisy intymne nigdy nie wpływają na treść, chyba że wybrano „Dołącz informacje o stosunkach”
+ * (wtedy: liczba stosunków i zabezpieczeń oraz ich daty; wpisów solo nie ma w raporcie nigdy).
+ */
 export const buildBrief = (a: Analysis, db: Db, withDates = false): string => {
-  const f = a.figo, i = intimacyOf(a), t = a.trend, hl = db.settings.health ?? {};
+  const f = a.figo, t = a.trend, hl = db.settings.health ?? {};
+  const mode = a.pred.mode;
   const L: string[] = [
     "# Brief cyklu (FIGO System 1 — objawy, nie przyczyny)",
-    `Eksport: ${a.today} · wpisów: ${a.entries.length} · startów: ${a.hist.starts.length}`,
-    "To nie jest rozpoznanie. Normy: FIGO 2018 (częstość 24–38 d, czas ≤8 d, wahanie ≤7 d w wieku 26–41, ≤9 d w 18–25 i 42–45).",
+    `Eksport: ${a.today} · wpisów: ${a.entries.filter((e) => !INTIMATE.has(e.type)).length} · startów: ${a.hist.starts.length}`,
+    `Wiek (pasmo): ${f.band === "51+" ? "powyżej 50" : f.band} lat · tryb prognoz: ${MODE_TXT[mode]}`,
+    "To nie jest rozpoznanie. Normy: FIGO 2018 (częstość 24–38 d, czas ≤8 d, wahanie ≤7 d w wieku 26–41, ≤9 d w 18–25 i 42–45; po 45. roku życia regularność nie jest oceniana).",
   ];
   if (hl.conditions || hl.meds || hl.tsh || hl.labs) {
     L.push("", "## Kontekst zdrowotny (wpisane ręcznie, rozpoznane przez lekarza)");
@@ -91,18 +101,19 @@ export const buildBrief = (a: Analysis, db: Db, withDates = false): string => {
   L.push("", "## Do gabinetu", ...(f.clinic.length ? f.clinic.map((x) => `- ${x}`) : ["- brak czerwonych flag w dzienniku"]));
   L.push("", "## Osie",
     `- Częstość: średnia ${f.avg} d — ${f.freq}`,
-    `- Regularność: ${f.mn}–${f.mx}, wahanie ${f.variation} d (próg ${f.lim})`,
+    `- Regularność: ${f.mn}–${f.mx}, wahanie ${f.variation} d (${f.lim == null ? "w tym wieku nie oceniana" : `próg ${f.lim}${f.enoughReg ? "" : ", za mało cykli do oceny (od 6)"}`})`,
     `- Czas trwania: ${f.bMin == null ? "brak końców okresu" : `${f.bMin}–${f.bMax} d`}`,
-    `- Plamienie poza okresem: ${f.imb.length ? f.imb.join(", ") : "brak wpisów"}`);
+    `- Plamienie poza okresem: ${f.imb.length ? f.imb.join(", ") : "brak powtarzających się wpisów"}`);
   L.push("", "## Trend i faza przejściowa",
-    t.direction === "unknown" ? "- za mało cykli na trend" : `- Trend długości cykli (Theil–Sen): ${t.slope >= 0 ? "+" : ""}${t.slope.toFixed(1)} d na cykl; ostatnie 3 cykle średnio ${t.recent3?.toFixed(0)} d${t.prev3 != null ? `, poprzednie 3: ${t.prev3.toFixed(0)} d` : ""}`,
+    t.direction === "unknown" ? "- za mało cykli na trend (od 6)" : t.direction === "stable" ? "- bez wyraźnego trendu długości cykli" : `- Trend długości cykli (Theil–Sen): ${t.slope >= 0 ? "+" : ""}${t.slope.toFixed(1)} d na cykl; ostatnie 3 cykle średnio ${t.recent3?.toFixed(0)} d${t.prev3 != null ? `, poprzednie 3: ${t.prev3.toFixed(0)} d` : ""}`,
     `- STRAW+10: ${a.straw.text}`);
   L.push("", "## Cykle (start → następny start)", ...a.hist.cycles.map((c) => `- ${c.start} → ${c.end}: ${c.days} d${c.bleed ? `, krwawienie ${c.bleed} d` : ""}`));
-  L.push("", "## Intymność", `- Stosunki: ${i.sex}, z zabezpieczeniem: ${i.protected} (${i.pct}%)`);
-  // wpisy solo (masturbacja) nigdy nie wchodzą do raportu dla lekarza ani do tekstu dla AI, także z datami
+  // informacje o stosunkach tylko na wyraźne życzenie (opcja „Dołącz informacje o stosunkach”); wpisy solo nigdy
   if (withDates) {
-    L.push("", "## Daty");
-    [...a.entries].filter((e) => [T.SEX, T.PROT].includes(e.type as never)).sort((x, y) => x.date.localeCompare(y.date)).forEach((e) => L.push(`- ${e.date}: ${e.type}`));
+    const i = intimacyOf(a);
+    L.push("", "## Stosunki (dołączone na życzenie)", `- Liczba: ${i.sex}, z zabezpieczeniem: ${i.protected} (${i.pct}%)`);
+    [...a.entries].filter((e) => e.type === T.SEX || e.type === T.PROT).sort((x, y) => x.date.localeCompare(y.date) || x.type.localeCompare(y.type))
+      .forEach((e) => L.push(`- ${e.date}: ${e.type === T.SEX ? "stosunek" : "zabezpieczenie"}`));
   }
   return L.join("\n");
 };

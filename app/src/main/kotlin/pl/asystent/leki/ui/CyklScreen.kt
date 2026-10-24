@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -126,6 +127,7 @@ fun CyklScreen(store: Store, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
     val dark = pal.dark
+    val fontScale = LocalConfiguration.current.fontScale
     val bg = pal.bg.toArgb()
     var web by remember { mutableStateOf<WebView?>(null) }
     var sheetOpen by remember { mutableStateOf(false) }
@@ -166,7 +168,7 @@ fun CyklScreen(store: Store, modifier: Modifier = Modifier) {
                         settings.blockNetworkLoads = true
                         settings.setSupportZoom(false)
                         // skala czcionki systemu jawnie (nie zależy od wersji WebView), z górnym ograniczeniem, żeby układ modułu się mieścił
-                        settings.textZoom = (c.resources.configuration.fontScale * 100).toInt().coerceIn(100, 150)
+                        settings.textZoom = (fontScale * 100).toInt().coerceIn(100, 150)
                         settings.setGeolocationEnabled(false)
                         setBackgroundColor(bg)
                         addJavascriptInterface(
@@ -194,6 +196,8 @@ fun CyklScreen(store: Store, modifier: Modifier = Modifier) {
                         web = this
                     }
                 },
+                // skala czcionki systemu zmieniona w trakcie pracy: bez przeładowania strony (otwarty dzień i niezapisana notatka zostają)
+                update = { it.settings.textZoom = (fontScale * 100).toInt().coerceIn(100, 150) },
                 onRelease = { it.destroy(); if (web === it) web = null },
             )
         }

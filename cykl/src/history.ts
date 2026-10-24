@@ -9,8 +9,13 @@ const uniqueDates = (entries: Entry[], type: string): string[] =>
 const endFor = (start: string, next: string | null, ends: string[]): string | null =>
   ends.find((d) => d >= start && (!next || d < next)) ?? null;
 
+/** Najkrótszy możliwy cykl: dwa „starty” bliżej niż 15 dni to zwykle podwójny wpis (liczony jest pierwszy). */
+export const MIN_CYCLE = 15;
+
 export const buildHistory = (entries: Entry[]): History => {
-  const starts = uniqueDates(entries, T.START);
+  const all = uniqueDates(entries, T.START);
+  const starts: string[] = [];
+  for (const d of all) { const prev = starts.at(-1); if (prev === undefined || diffDays(prev, d) >= MIN_CYCLE) starts.push(d); }
   const ends = uniqueDates(entries, T.END);
   const eps: Episode[] = starts.map((start, i) => {
     const next = starts[i + 1] ?? null;
@@ -32,8 +37,8 @@ export const buildHistory = (entries: Entry[]): History => {
   starts.slice(1).forEach((end, i) => {
     const start = starts[i]!;
     const days = diffDays(start, end);
-    if (days >= 10 && days <= 90) cycles.push({ start, end, days, bleed: eps[i]!.days });
-    else if (days < 10) skipped.push({ start, end, days });
+    if (days >= MIN_CYCLE && days <= 90) cycles.push({ start, end, days, bleed: eps[i]!.days });
+    else if (days < MIN_CYCLE) skipped.push({ start, end, days });
   });
   return { starts, ends, eps, cycles, skipped, bleed, bleedLen, lastStart: starts.at(-1) ?? null };
 };

@@ -2,15 +2,15 @@
 
 Dziennik cyklu w jednym pliku HTML. Bez zależności, bez sieci, dane tylko w przeglądarce.
 
-    npm test        # build + 78 testów (node:test, TypeScript uruchamiany natywnie)
+    npm test        # build + 113 testów (node:test, TypeScript uruchamiany natywnie)
     npm run build   # dist/cykl.html
 
 Wymaga Node >= 22.18 (natywne wykonywanie TypeScript).
 
 ## Układ
 - src/dates.ts, model.ts, history.ts : daty, import/merge, edycja dnia, segmentacja cykli
-- src/predict.ts : rozkład owulacji (splot rozkładów), szanse wg Wilcox 1995, LH, spóźniony okres
-- src/health.ts  : FIGO System 1, STRAW+10, trend Theil–Sen
+- src/predict.ts : rozkład owulacji (splot rozkładów), szanse wg Wilcox 1995, LH (z kontrolą wiarygodności), spóźniony okres liczony od końca własnego zakresu, profile wiekowe (do 45, 46–50, powyżej 50), tryby prognoz (zwykły, antykoncepcja hormonalna, ciąża/karmienie)
+- src/health.ts  : FIGO System 1, STRAW+10 zależne od wieku i trybu, trend Theil–Sen z testem Manna–Kendalla
 - src/report.ts, analysis.ts : raporty, oś cykli, złożenie analizy
 - src/views.ts, charts.ts : czyste renderery (testowalne bez DOM), bezpieczne szablony html``
 - src/app.ts : obsługa zdarzeń, motyw, cofnij, swipe

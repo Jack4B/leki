@@ -51,27 +51,35 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
       <button class="btn sec" data-act="tab" data-tab="kal">Wskaż datę w kalendarzu</button></div>`;
   }
   const inf = a.info(t), f = flagsFor(a.entries, t), p = a.pred;
-  const chip = inf.bleed ? ["per", "Miesiączka trwa"] : p.overdueDays > 0
-    ? ["mid", `Okres spóźniony o ${p.overdueDays} d, rozważ test ciążowy`]
+  const t0 = f.test;
+  const chip = inf.bleed ? ["per", "Miesiączka trwa"] : p.mode === "pause" ? ["low", "Prognozy wyłączone w ustawieniach"] : p.overdueDays > 0
+    ? ["mid", t0 === "pos" ? "Okres spóźniony, test dodatni: umów wizytę u lekarza lub położnej" : `Okres spóźniony o ${p.overdueDays} d, poza własnym typowym zakresem`]
+    : p.noForecast ? ["low", "Brak prognozy: okres spóźniony bardziej niż w dotychczasowych cyklach"]
+    : p.mode === "hormonal" ? ["low", "Szansa poczęcia: prognoza wyłączona (antykoncepcja hormonalna)"]
     : inf.level === "high" ? ["high", "Wysoka szansa poczęcia dziś"]
-    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Niska szansa wg prognozy"];
+    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Mniejsza szansa wg prognozy (nigdy zerowa)"];
+  const age = a.settings.ageBand ?? "26-41";
   const conf = p.confidence === "high" ? "Pewność prognozy: wysoka, cykle są regularne."
-    : p.confidence === "mid" ? `Pewność prognozy: średnia, cykle różnią się o ok. ${p.lengthHigh - p.lengthLow} dni.`
-    : `Pewność prognozy: niska. Ostatnie cykle ${p.lengthLow}–${p.lengthHigh} dni, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
-  const np = p.nextPeriods[0]!, run = p.nextRun;
-  const rangeTxt = np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
+    : p.confidence === "mid" ? `Pewność prognozy: średnia. Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d.`
+    : `Pewność prognozy: niska (${a.hist.cycles.length < 3 ? "mało zapisanych cykli" : "cykle bardzo się różnią"}). Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
+  const ageNote = age === "46-50" || age === "51+"
+    ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): omów to z lekarzem.</p>` : "";
+  const np = p.nextPeriods[0], run = p.nextRun;
+  const rangeTxt = !np || np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
+  const overdueHint = p.overdueDays > 0 && t0 !== "pos" && t0 !== "neg" ? html`<p class="note left">Jeśli był stosunek, rozważ test ciążowy. Przy ujemnym teście i dalszym braku okresu powtórz test po kilku dniach lub skontaktuj się z lekarzem.</p>` : "";
   return html`${head}
     <section class="card hero" aria-label="Stan cyklu">
       <div class="ringbox">${ring(a)}<div class="ringc"><b>${a.cycleDay}</b><span>dzień cyklu</span></div></div>
       <div class="phase">${a.phase}</div>
-      <div class="mute">typowo ${p.lengthMedian} d (ostatnie cykle ${p.lengthLow}–${p.lengthHigh})</div>
+      <div class="mute">typowo ${p.lengthMedian} d (w 80% przypadków ${p.lengthLow}–${p.lengthHigh})</div>
       <span class="chip ${chip[0]}">${chip[1]}</span>
-      <p class="note left">${conf}</p>
+      <p class="note left">${conf}</p>${overdueHint}${ageNote}
+      <p class="note left">Prognoza z dziennika nie jest metodą antykoncepcji ani dowodem ciąży lub jej braku.</p>
     </section>
     <div class="grid2">
-      <div class="stat"><small>Następny okres</small><strong>${dfmt(np.date)}</strong><span>${inDays(np.date, t)}${rangeTxt}</span></div>
+      <div class="stat"><small>Następny okres</small><strong>${np ? dfmt(np.date) : "—"}</strong><span>${np ? html`${inDays(np.date, t)}${rangeTxt}` : "brak prognozy"}</span></div>
       <div class="stat"><small>Okno płodne</small><strong>${run ? range(run.from, run.to) : "—"}</strong>
-        <span>${run ? html`${run.from <= t ? "trwa" : inDays(run.from, t)}<br>szczyt ok. ${dfmt(run.peak)}` : "brak w 90 dniach"}</span></div>
+        <span>${run ? html`${run.from <= t ? "trwa" : inDays(run.from, t)}<br>szczyt ok. ${dfmt(run.peak)}` : p.mode !== "normal" || p.noForecast ? "prognoza wyłączona lub niedostępna" : "brak w 90 dniach"}</span></div>
     </div>
     ${inf.bleed && a.figo.anemia && f.flow === 0 ? html`<div class="warn"><b>Zapisz obfitość dzisiaj.</b> Przy anemii lekarz zapyta o ilość krwawienia, a zapis z dnia jest dokładniejszy niż pamięć.
       <button class="btn sec" data-act="day" data-date="${t}">Zapisz obfitość</button></div>` : ""}
@@ -83,7 +91,7 @@ export const viewToday = (a: Analysis, s: UiState): SafeHtml => {
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
       ${f.start ? quick("period_start", "Start okresu", true) : ""}${inf.bleed || f.start ? quick("period_end", "Koniec okresu", f.end) : quick("period_start", "Start okresu", false)}</div>
       <button class="btn sec" data-act="day" data-date="${t}">Więcej: ból, obfitość, notatka</button></section>
-    <p class="note">Prognoza statystyczna (owulacja ≈ 14 dni przed okresem, wagi dni wg badań Wilcox i wsp. 1995). Nie jest antykoncepcją ani diagnozą.</p>`;
+    <p class="note">Prognoza statystyczna (owulacja ≈ 14 dni przed okresem, wagi dni wg badań Wilcox i wsp. 1995). Nie jest antykoncepcją, dowodem ciąży ani diagnozą.</p>`;
 };
 
 export const viewCalendar = (a: Analysis, s: UiState): SafeHtml => {
@@ -105,24 +113,29 @@ export const viewCalendar = (a: Analysis, s: UiState): SafeHtml => {
     <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw dashed"></i>prognoza okresu</span>
       <span><i class="sw lv-high"></i>wysoka szansa</span><span><i class="sw lv-mid"></i>podwyższona</span><span>★ owulacja (szac.)</span>
       <span><i class="dot sex"></i>stosunek</span><span><i class="dot solo"></i>solo</span><span><i class="dot spot"></i>plamienie</span><span><i class="dot lh"></i>test LH+</span></div>
-    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu.</p></section>`;
+    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
 };
 
 const pill = (ok: boolean, na: boolean): SafeHtml => html`<span class="pill ${na ? "na" : ok ? "ok" : "bad"}">${na ? "za mało danych" : ok ? "w normie" : "poza normą"}</span>`;
 
 export const viewCharts = (a: Analysis, s: UiState): SafeHtml => {
   const all = a.hist.cycles;
+  if (!all.length) {
+    return html`${top("Wykresy", "", s.theme)}<section class="card hero"><div class="phase">Za mało danych</div>
+      <p class="mute">Wykresy i oceny pojawią się po zapisaniu co najmniej dwóch początków okresu.</p>
+      <button class="btn" data-act="tab" data-tab="dzis">Przejdź do Dziś</button></section>`;
+  }
   const offset = s.range >= all.length ? 0 : all.length - s.range;
   const shown = all.slice(offset);
   const sel = s.selCycle != null && all[s.selCycle] ? s.selCycle : all.length - 1;
   const c = all[sel], prev = all[sel - 1];
   const f = a.figo, i = intimacyOf(a), tr = a.trend;
-  const box = f.urgent ? html`<div class="warn"><b>Pilne:</b> ${f.urgentWhy}. Gabinet lub SOR, nie aplikacja.</div>`
+  const box = f.urgent ? html`<div class="warn"><b>Skontaktuj się z lekarzem:</b> ${f.urgentWhy}. Przy silnym bólu brzucha lub obfitym krwawieniu pilnie (gabinet lub SOR), nie aplikacja.</div>`
     : f.clinic.length ? html`<div class="warn"><b>Do omówienia w gabinecie</b><ul>${f.clinic.map((x) => html`<li>${x}</li>`)}</ul></div>`
     : html`<div class="okbox"><b>Osie FIGO bez flag.</b> To obserwacja z dziennika, nie rozpoznanie.</div>`;
   const chips = [6, 12, 999].map((r) => html`<button class="chipb${s.range === r ? " on" : ""}" data-act="range" data-n="${r}">${r === 999 ? "Wszystko" : `${r} cykli`}</button>`);
-  const dirTxt = tr.direction === "unknown" ? "Za mało cykli na trend (potrzeba ≥4)."
-    : tr.direction === "stable" ? "Długość cykli jest stabilna."
+  const dirTxt = tr.direction === "unknown" ? "Za mało cykli na trend (potrzeba ≥6)."
+    : tr.direction === "stable" ? "Bez wyraźnego trendu długości cykli."
     : `Cykle ${tr.direction === "longer" ? "wydłużają się" : "skracają się"} o ok. ${Math.abs(Math.round(tr.slope * 10) / 10)} d na cykl.`;
   const cmp = tr.recent3 != null && tr.prev3 != null ? ` Ostatnie 3 cykle: średnio ${Math.round(tr.recent3)} d, poprzednie 3: ${Math.round(tr.prev3)} d.` : "";
   const mo = monthlyOf(a);
@@ -137,11 +150,11 @@ export const viewCharts = (a: Analysis, s: UiState): SafeHtml => {
       <p class="note">STRAW+10 to kryteria stadiów starzenia reprodukcyjnego (Harlow i wsp., 2012). Tu tylko wskazówka z dziennika, ocena należy do lekarza.</p></section>
     <section class="card"><h2>FIGO System 1</h2>
       <div class="axis"><b>Częstość</b>${f.avg} dni ${pill(f.freqOk, !f.nCycles)}<div class="mute">${f.freq}</div></div>
-      <div class="axis"><b>Regularność</b>wahanie ${f.variation} dni ${pill(f.regOk, !f.enoughReg)}<div class="mute">próg ${f.lim} dni (wiek ${f.band})</div></div>
+      <div class="axis"><b>Regularność</b>wahanie ${f.variation} dni ${f.lim == null ? html`<span class="pill na">nie oceniana</span>` : pill(f.regOk, !f.enoughReg)}<div class="mute">${f.lim == null ? `w wieku ${f.band} FIGO nie podaje progu, zmienność cykli jest częsta` : `próg ${f.lim} dni (wiek ${f.band}); ocena od 6 cykli`}</div></div>
       <div class="axis"><b>Czas trwania</b>${f.bMin == null ? "brak końców okresu" : (f.bMin === f.bMax ? `${f.bMin} dni` : `${f.bMin}–${f.bMax} dni`)} ${pill(f.durOk, f.bMin == null)}</div>
       <div class="axis"><b>Plamienie poza okresem</b>${f.imb.length} ${pill(!f.imb.length, false)}</div>
-      <label class="lab" for="age">Wiek (próg regularności)</label>
-      <select id="age" data-change="age">${(["18-25", "26-41", "42-45"] as const).map((b) => html`<option value="${b}"${b === f.band ? raw(" selected") : ""}>${b} lat</option>`)}</select></section>
+      <label class="lab" for="age">Wiek (próg regularności i opis fazy przejściowej)</label>
+      <select id="age" data-change="age">${(["18-25", "26-41", "42-45", "46-50", "51+"] as const).map((b) => html`<option value="${b}"${b === f.band ? raw(" selected") : ""}>${b === "51+" ? "powyżej 50 lat" : `${b} lat`}</option>`)}</select></section>
     <section class="card"><h2>Oś cykli</h2>${lanes(lanesRows)}
       <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw lv-high"></i>okno płodne (wstecz)</span><span><i class="dot sex"></i>stosunek z zabezp.</span><span><i class="dot hollow"></i>bez flagi</span></div>
       <p class="note">Widać, czy stosunki bez flagi zabezpieczenia wypadały w zielonym oknie.</p></section>
@@ -167,26 +180,28 @@ export const viewData = (a: Analysis, s: UiState): SafeHtml => {
     <section class="card"><h2>Kopia</h2><button class="btn" data-act="export">Pobierz kopię (JSON)</button>
       <p class="note">To cały dziennik cyklu w formacie JSON; można go wczytać z powrotem w tym module. Kopia zawiera też dane o zdrowiu, jeśli zostały wpisane.</p></section>
     <section class="card"><h2>Import</h2><input type="file" id="file" accept=".json,application/json" data-change="file">
-      <textarea id="paste" rows="3" placeholder="…albo wklej JSON"></textarea><button class="btn sec" data-act="import">Wczytaj</button>
+      <textarea id="paste" rows="3" aria-label="Wklej JSON z dziennikiem cyklu" placeholder="…albo wklej JSON"></textarea><button class="btn sec" data-act="import">Wczytaj</button>
       <p class="note">Po wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.</p></section>
     <section class="card"><h2>Leki i choroby (do raportu)</h2>
       <label class="lab" for="hc">Choroby rozpoznane</label><input type="text" id="hc" placeholder="np. choroba A, choroba B" value="${hl.conditions ?? ""}">
       <label class="lab" for="hm">Leki</label><input type="text" id="hm" placeholder="np. lek X" value="${hl.meds ?? ""}">
       <label class="lab" for="ht">Ostatnie TSH</label><input type="text" id="ht" placeholder="wynik i data" value="${hl.tsh ?? ""}">
       <label class="lab" for="hl">Morfologia / ferrytyna</label><input type="text" id="hl" placeholder="np. Hb, ferrytyna, data" value="${hl.labs ?? ""}">
+      <label class="lab" for="mode">Tryb prognoz</label>
+      <select id="mode" data-change="mode">${([["normal", "Zwykły cykl"], ["hormonal", "Antykoncepcja hormonalna (bez prognoz płodności)"], ["pause", "Ciąża, połóg lub karmienie (bez prognoz)"]] as const).map(([v, l]) => html`<option value="${v}"${v === (s.db.settings.mode ?? "normal") ? raw(" selected") : ""}>${l}</option>`)}</select>
       <label class="lab" for="lut">Faza lutealna (dni)</label>
       <select id="lut" data-change="luteal">${[12, 13, 14, 15, 16].map((d) => html`<option value="${d}"${d === (s.db.settings.lutealDays ?? 14) ? raw(" selected") : ""}>${d}${d === 14 ? " (typowo)" : ""}</option>`)}</select>
       <button class="btn sec" data-act="health">Zapisz</button></section>
     <section class="card"><h2>Raport dla lekarza / AI</h2>
-      <label class="check"><input type="checkbox" id="wd" data-change="dates"${s.withDates ? raw(" checked") : ""}> Dołącz daty stosunków</label>
+      <label class="check"><input type="checkbox" id="wd" data-change="dates"${s.withDates ? raw(" checked") : ""}> Dołącz informacje o stosunkach (domyślnie wyłączone)</label>
       <textarea id="brief" rows="10" readonly>${brief}</textarea>
       <button class="btn" data-act="copy">Kopiuj raport</button><button class="btn sec" data-act="dlb">Pobierz .txt</button></section>
     <section class="card"><h2>Zarządzanie</h2><button class="btn danger" data-act="wipe">Usuń cały dziennik cyklu</button></section>`;
 };
 
 const tog = (t: string, label: string, on: boolean): SafeHtml => html`<button type="button" class="tog${on ? " on" : ""}" data-tog="${t}" aria-pressed="${on}">${label}</button>`;
-const seg = (name: string, max: number, val: number): SafeHtml => html`<span class="lab">${name}</span><div class="seg" data-seg="${name}">
-  ${Array.from({ length: max + 1 }, (_, n) => html`<button type="button" data-v="${n}" class="${val === n ? "on" : ""}">${n}</button>`)}</div>`;
+const seg = (name: string, max: number, val: number): SafeHtml => html`<span class="lab" id="seg-${name}">${name}</span><div class="seg" data-seg="${name}" role="group" aria-labelledby="seg-${name}">
+  ${Array.from({ length: max + 1 }, (_, n) => html`<button type="button" data-v="${n}" aria-pressed="${val === n}" class="${val === n ? "on" : ""}">${n}</button>`)}</div>`;
 
 export const sheetDay = (a: Analysis, date: string): SafeHtml => {
   const f = flagsFor(a.entries, date), i = a.info(date);
@@ -197,17 +212,17 @@ export const sheetDay = (a: Analysis, date: string): SafeHtml => {
       ${tog("sex", "Stosunek", f.sex)}${tog("protected", "Zabezpieczenie", f.prot)}${tog("him", "Solo — partner/ka", f.solo)}${tog("lh", "Test LH +", f.lh)}</div>
     ${seg("Obfitość", 5, f.flow)}${seg("Ból", 10, f.pain)}
     <label class="check"><input type="checkbox" id="lim"${f.limits ? raw(" checked") : ""}> Ból psuje sen albo pracę</label>
-    <input type="text" id="pill" placeholder="Lek, dawka" value="${f.pill}">
-    <span class="lab">Test ciążowy</span><div class="seg" data-seg="test">
-      <button type="button" data-v="" class="${!f.test ? "on" : ""}">brak</button><button type="button" data-v="neg" class="${f.test === "neg" ? "on" : ""}">ujemny</button><button type="button" data-v="pos" class="${f.test === "pos" ? "on" : ""}">dodatni</button></div>
-    <textarea id="note" rows="3" placeholder="Notatka dnia">${f.note}</textarea>
+    <input type="text" id="pill" aria-label="Lek, dawka" placeholder="Lek, dawka" value="${f.pill}">
+    <span class="lab" id="seg-test">Test ciążowy</span><div class="seg" data-seg="test" role="group" aria-labelledby="seg-test">
+      <button type="button" data-v="" aria-pressed="${!f.test}" class="${!f.test ? "on" : ""}">brak</button><button type="button" data-v="neg" aria-pressed="${f.test === "neg"}" class="${f.test === "neg" ? "on" : ""}">ujemny</button><button type="button" data-v="pos" aria-pressed="${f.test === "pos"}" class="${f.test === "pos" ? "on" : ""}">dodatni</button></div>
+    <textarea id="note" rows="3" aria-label="Notatka dnia" placeholder="Notatka dnia">${f.note}</textarea>
     <button class="btn" data-act="save-day" data-date="${date}">Zapisz</button><button class="btn sec" data-act="close">Anuluj</button>`;
 };
-export const sheetImport = (incoming: number, current: number): SafeHtml => html`<h2>Wczytać ${incoming} ${plN(incoming, "wpis", "wpisy", "wpisów")}?</h2>
+export const sheetImport = (incoming: number, current: number, host = false): SafeHtml => html`<h2>Wczytać ${incoming} ${plN(incoming, "wpis", "wpisy", "wpisów")}?</h2>
   <p class="mute">Teraz w aplikacji: ${current} ${plN(current, "wpis", "wpisy", "wpisów")}.</p><button class="btn" data-act="merge">Połącz (dodaj brakujące)</button>
   <button class="btn sec" data-act="replace">Zastąp wszystko</button><button class="btn sec" data-act="close">Anuluj</button>
-  <p class="note">Przed zastąpieniem aplikacja zachowuje poprzednią wersję danych w pamięci przeglądarki.</p>`;
-export const sheetWipe = (): SafeHtml => html`<h2>Usunąć dziennik cyklu?</h2><p class="mute">Tej operacji nie da się cofnąć. Najpierw pobierz kopię.</p>
+  <p class="note">${host ? "Przed zastąpieniem aplikacja zachowuje poprzednią wersję dziennika: można ją przywrócić w Ustawienia → Moduł Cykl." : "Przed zastąpieniem aplikacja zachowuje poprzednią wersję danych w pamięci przeglądarki."}</p>`;
+export const sheetWipe = (host = false): SafeHtml => html`<h2>Usunąć dziennik cyklu?</h2><p class="mute">${host ? "Przed usunięciem zostaje poprzednia wersja dziennika: można ją przywrócić w Ustawienia → Moduł Cykl. Zrób też kopię w Ustawienia → Kopie zapasowe i dane." : "Tej operacji nie da się cofnąć. Najpierw pobierz kopię."}</p>
   <button class="btn danger" data-act="wipe-yes">Tak, usuń dane</button><button class="btn sec" data-act="close">Anuluj</button>`;
 
 export const renderTab = (s: UiState): SafeHtml => {

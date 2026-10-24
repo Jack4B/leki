@@ -45,7 +45,7 @@ export const start = (): void => {
   /* ---------- UI pomocnicze ---------- */
   let toastTimer = 0;
   const toast = (msg: string, withUndo = false): void => {
-    toastEl.textContent = msg;
+    toastEl.textContent = withUndo && undo.size ? `${msg} ` : msg;
     if (withUndo && undo.size) {
       const b = document.createElement("button");
       b.textContent = "Cofnij"; b.setAttribute("data-act", "undo"); b.className = "toast-btn";
@@ -55,7 +55,11 @@ export const start = (): void => {
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => { toastEl.className = "toast"; }, withUndo ? 9000 : 2600);
   };
-  const showSheet = (h: { value: string }): void => { sheet.innerHTML = `<div class="grab"></div>${h.value}`; sheet.hidden = false; mask.hidden = false; };
+  const showSheet = (h: { value: string }): void => {
+    // komunikat z „Cofnij” nie może wisieć nad otwartym oknem i zmieniać danych pod otwartym formularzem
+    toastEl.className = "toast"; clearTimeout(toastTimer);
+    sheet.innerHTML = `<div class="grab"></div>${h.value}`; sheet.hidden = false; mask.hidden = false;
+  };
   const closeSheet = (): void => { sheet.hidden = true; mask.hidden = true; };
   const persist = (): boolean => { const ok = saveDb(store, state.db); if (!ok) toast("Nie udało się zapisać danych. Zrób kopię."); return ok; };
   const download = (name: string, text: string, mime: string): void => {
@@ -65,10 +69,25 @@ export const start = (): void => {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
 
+  /** Pola tekstowe karty Dane, których niezapisana treść nie ma ginąć przy każdym przerysowaniu. */
+  const KEEP = ["hc", "hm", "ht", "hl", "paste"];
+  const focusSelector = (ae: HTMLElement): string => {
+    if (ae.id) return `#${ae.id}`;
+    const d = ae.dataset;
+    if (!d.act) return "";
+    return `[data-act="${d.act}"]` + (d.type ? `[data-type="${d.type}"]` : "") + (d.n ? `[data-n="${d.n}"]` : "") + (d.date ? `[data-date="${d.date}"]` : "") + (d.i ? `[data-i="${d.i}"]` : "") + (d.tab ? `[data-tab="${d.tab}"]` : "");
+  };
   const render = (): void => {
     state.today = todayIso();
     const before: Record<string, number | undefined> = { cscroll: $("cscroll")?.scrollLeft, mscroll: $("mscroll")?.scrollLeft };
+    const typed = KEEP.map((id) => [id, ($(id) as HTMLInputElement | null)?.value] as const);
+    // po przerysowaniu fokus wraca na ten sam przycisk (czytnik ekranu i klawiatura nie tracą miejsca)
+    const ae = document.activeElement as HTMLElement | null;
+    const refocus = ae && ae !== document.body && app.contains(ae) ? focusSelector(ae) : "";
     app.innerHTML = renderTab(state).value;
+    for (const [id, v] of typed) { const el = $(id) as HTMLInputElement | null; if (el && v !== undefined) el.value = v; }
+    pickedFile = null;   // pole wyboru pliku jest po przerysowaniu puste, więc stary wybór nie może zostać w pamięci
+    if (refocus) app.querySelector<HTMLElement>(refocus)?.focus({ preventScroll: true });
     for (const id of ["cscroll", "mscroll"]) {
       const el = $(id);
       if (el) el.scrollLeft = forceEnd || before[id] === undefined ? el.scrollWidth : before[id]!;
@@ -129,10 +148,11 @@ export const start = (): void => {
     },
     import: () => {
       const go = (text: string): void => {
-        try { pending = parseBackup(text); showSheet(sheetImport(pending.entries.length, state.db.entries.length)); }
-        catch (err) { toast(`Import: ${(err as Error).message}`); }
+        try { pending = parseBackup(text); showSheet(sheetImport(pending.entries.length, state.db.entries.length, state.host)); }
+        catch (err) { toast(err instanceof SyntaxError ? "Import: to nie jest poprawny plik JSON." : `Import: ${(err as Error).message}`); }
       };
-      if (pickedFile) { const r = new FileReader(); r.onload = () => go(String(r.result)); r.readAsText(pickedFile); }
+      if (pickedFile && pickedFile.size > 5_000_000) { toast("Plik jest za duży (limit 5 MB)."); return; }
+      if (pickedFile) { const r = new FileReader(); r.onload = () => go(String(r.result)); r.onerror = () => toast("Nie udało się odczytać pliku."); r.readAsText(pickedFile); }
       else if (val("paste")) go(($("paste") as HTMLTextAreaElement).value);
       else toast("Wskaż plik albo wklej JSON");
     },
@@ -148,13 +168,13 @@ export const start = (): void => {
       keepPrevious(store, state.db);
       state.db = pending; pending = null; const ok = persist(); closeSheet(); render(); if (ok) toast(`Wczytano ${state.db.entries.length} ${plN(state.db.entries.length, "wpis", "wpisy", "wpisów")}`);
     },
-    health: () => setSettings({ health: { conditions: val("hc"), meds: val("hm"), tsh: val("ht"), labs: val("hl") } }),
+    health: () => { setSettings({ health: { conditions: val("hc"), meds: val("hm"), tsh: val("ht"), labs: val("hl") } }); toast("Zapisano"); },
     copy: async () => {
       const text = buildBrief(analyze(state.db, state.today), state.db, state.withDates);
       try { await navigator.clipboard.writeText(text); toast("Skopiowano"); } catch { ($("brief") as HTMLTextAreaElement).select(); toast("Zaznacz i skopiuj"); }
     },
     dlb: () => download(`cykl-raport-${todayIso()}.txt`, buildBrief(analyze(state.db, state.today), state.db, state.withDates), "text/plain"),
-    wipe: () => showSheet(sheetWipe()),
+    wipe: () => showSheet(sheetWipe(state.host)),
     "wipe-yes": () => { keepPrevious(store, state.db); state.db = emptyDb(); const ok = persist(); closeSheet(); render(); if (ok) toast("Usunięto"); },
   };
 
@@ -167,8 +187,8 @@ export const start = (): void => {
     if (segBtn) {
       const group = segBtn.parentElement!;
       const was = segBtn.classList.contains("on");
-      group.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
-      if (!(was && group.dataset.seg !== "test")) segBtn.classList.add("on");
+      group.querySelectorAll("button").forEach((b) => { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); });
+      if (!(was && group.dataset.seg !== "test")) { segBtn.classList.add("on"); segBtn.setAttribute("aria-pressed", "true"); }
       return;
     }
     const el = target.closest<HTMLElement>("[data-act]");
@@ -182,6 +202,7 @@ export const start = (): void => {
     const el = e.target as HTMLInputElement;
     switch (el.dataset.change) {
       case "age": setSettings({ ageBand: el.value }); break;
+      case "mode": setSettings({ mode: el.value }); break;
       case "luteal": setSettings({ lutealDays: Number(el.value) }); break;
       case "dates": state.withDates = el.checked; render(); break;
       case "file": pickedFile = el.files?.[0] ?? null; break;

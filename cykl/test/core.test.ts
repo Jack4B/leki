@@ -89,11 +89,12 @@ describe("historia cykli", () => {
     assert.deepEqual(h.cycles.map((c) => c.days), PERI);
     assert.equal(h.bleedLen, 5);
   });
-  test("starty <10 dni od siebie to nie cykl", () => {
+  test("starty bliżej niż 15 dni to podwójny wpis: liczy się pierwszy", () => {
     const e = makeDb("2031-01-01", [28]).entries;
     e.push({ type: "period_start", date: "2031-01-04" });
     const h = buildHistory(e);
-    assert.equal(h.skipped.length, 1);
+    assert.deepEqual(h.starts, ["2031-01-01", "2031-01-29"]);
+    assert.deepEqual(h.cycles.map((c) => c.days), [28]);
   });
   test("późny koniec okresu nie maluje wstecz poprzednich miesięcy", () => {
     const h = buildHistory([

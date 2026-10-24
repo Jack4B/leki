@@ -136,7 +136,9 @@ input[type=text],textarea,select,input[type=file]{width:100%;padding:12px;border
 <script>
 (() => {
 "use strict";
-                                           
+                                                             
+/** Tryb prognoz: normalny, antykoncepcja hormonalna (bez prognoz płodności) albo ciąża/połóg/karmienie (bez żadnych prognoz). */
+                                            
                  
                
                
@@ -149,6 +151,7 @@ input[type=text],textarea,select,input[type=file]{width:100%;padding:12px;border
                                                                                     
                     
                     
+              
                       
                               
                       
@@ -346,8 +349,13 @@ const uniqueDates = (entries         , type        )           =>
 const endFor = (start        , next               , ends          )                =>
   ends.find((d) => d >= start && (!next || d < next)) ?? null;
 
+/** Najkrótszy możliwy cykl: dwa „starty” bliżej niż 15 dni to zwykle podwójny wpis (liczony jest pierwszy). */
+const MIN_CYCLE = 15;
+
 const buildHistory = (entries         )          => {
-  const starts = uniqueDates(entries, T.START);
+  const all = uniqueDates(entries, T.START);
+  const starts           = [];
+  for (const d of all) { const prev = starts.at(-1); if (prev === undefined || diffDays(prev, d) >= MIN_CYCLE) starts.push(d); }
   const ends = uniqueDates(entries, T.END);
   const eps            = starts.map((start, i) => {
     const next = starts[i + 1] ?? null;
@@ -369,8 +377,8 @@ const buildHistory = (entries         )          => {
   starts.slice(1).forEach((end, i) => {
     const start = starts[i] ;
     const days = diffDays(start, end);
-    if (days >= 10 && days <= 90) cycles.push({ start, end, days, bleed: eps[i] .days });
-    else if (days < 10) skipped.push({ start, end, days });
+    if (days >= MIN_CYCLE && days <= 90) cycles.push({ start, end, days, bleed: eps[i] .days });
+    else if (days < MIN_CYCLE) skipped.push({ start, end, days });
   });
   return { starts, ends, eps, cycles, skipped, bleed, bleedLen, lastStart: starts.at(-1) ?? null };
 };
@@ -403,26 +411,35 @@ const pmfQuantile = (p     , q        )         => {
 };
 const pmfMean = (p     )         => { let m = 0; for (const [k, v] of p) m += k * v; return m; };
 
+/** Parametry rozkładów zależne od wieku: po 45. roku życia cykle są mniej przewidywalne (okołomenopauza), więc rozkłady są szersze, a pewność prognozy ograniczona. */
+                                                                                                               
+const profileOf = (band          )             =>
+  band === "51+" ? { kernel: [1, 2, 3, 4, 3, 2, 1], prior: 14, lutealSpread: 4, confCap: "low" }
+  : band === "46-50" ? { kernel: [1, 2, 3, 2, 1], prior: 10, lutealSpread: 3, confCap: "mid" }
+  : { kernel: [1, 2, 1], prior: 7, lutealSpread: 2, confCap: "high" };
+
 /**
  * Rozkład długości cyklu: ostatnie 8 cykli z wagą malejącą z wiekiem (0,85 na cykl),
- * rozmyte jądrem ±1 dzień; przy <3 cyklach dokładany jest łagodny rozkład a priori.
+ * rozmyte jądrem (±1 dzień; szerzej po 45. roku życia); przy <3 cyklach dokładany jest łagodny rozkład a priori
+ * (szerszy, bo rozrzut długości cyklu między osobami jest duży).
  */
-const cycleLengthPmf = (lengths          , fallback = 28)      => {
+const cycleLengthPmf = (lengths          , fallback = 29, prof             = profileOf())      => {
   const recent = lengths.slice(-8);
   const p      = new Map();
+  const half = (prof.kernel.length - 1) / 2, ksum = prof.kernel.reduce((a, b) => a + b, 0);
   recent.forEach((len, i) => {
     const w = 0.85 ** (recent.length - 1 - i);
-    addTo(p, len - 1, w * 0.25); addTo(p, len, w * 0.5); addTo(p, len + 1, w * 0.25);
+    prof.kernel.forEach((kw, j) => addTo(p, len + j - half, (w * kw) / ksum));
   });
-  const missing = Math.max(0, 3 - recent.length);
-  for (let d = -4; d <= 4; d++) addTo(p, fallback + d, missing * (5 - Math.abs(d)) / 25);
+  const missing = Math.max(0, 3 - recent.length), norm = (prof.prior + 1) ** 2;
+  for (let d = -prof.prior; d <= prof.prior; d++) addTo(p, fallback + d, missing * (prof.prior + 1 - Math.abs(d)) / norm);
   return normalize(p);
 };
 
-/** Faza lutealna zwykle 12–16 dni (środek 14). */
-const lutealPmf = (center = 14)      => {
+/** Faza lutealna zwykle 12–16 dni (środek 14); rozrzut rośnie z wiekiem. */
+const lutealPmf = (center = 14, spread = 2)      => {
   const p      = new Map();
-  for (let d = -2; d <= 2; d++) addTo(p, center + d, 3 - Math.abs(d));
+  for (let d = -spread; d <= spread; d++) addTo(p, center + d, spread + 1 - Math.abs(d));
   return normalize(p);
 };
 
@@ -435,7 +452,7 @@ const FERTILITY_BY_OFFSET                         = {
 };
 const MAX_FERTILITY = 0.33;
 const HIGH = 0.15;
-const MID = 0.04;
+const MID = 0.02;
                                     
 const levelOf = (f        )        => (f >= HIGH ? "high" : f >= MID ? "mid" : "low");
 
@@ -451,6 +468,10 @@ const levelOf = (f        )        => (f >= HIGH ? "high" : f >= MID ? "mid" : "
                   
                       
                              
+                                                                                                                                             
+                      
+                                                                                                                                    
+                                        
  
 
 const sd = (p     )         => { const m = pmfMean(p); let v = 0; for (const [k, x] of p) v += x * (k - m) ** 2; return Math.sqrt(v); };
@@ -464,11 +485,32 @@ const addOvulationWeights = (map                     , ovDates                  
   }
 };
 
+/** Początek ostatniej serii dodatnich testów LH (testy w odstępie ≤2 dni to jedna seria). */
+const lhRunStart = (ds          )                => {
+  let i = ds.length - 1;
+  while (i > 0 && diffDays(ds[i - 1] , ds[i] ) <= 2) i--;
+  return ds[i] ?? null;
+};
+
+/** Rozkład ograniczony do wartości ≥ min i znormalizowany; null, gdy zostaje zaniedbywalna masa. */
+const conditionOn = (p     , min        )             => {
+  const f = new Map([...p].filter(([k]) => k >= min));
+  const mass = [...f.values()].reduce((a, b) => a + b, 0);
+  return mass < 0.02 ? null : normalize(f);
+};
+
 const predict = (hist         , entries         , settings          , today        )             => {
   const fertility = new Map                ();
-  const luteal = lutealPmf(settings.lutealDays ?? 14);
-  const lhDates = [...new Set(entries.filter((e) => e.type === T.LH && e.result !== "neg").map((e) => e.date))].sort();
-  const lhIn = (start        , end               )                => lhDates.find((d) => d >= start && (!end || d < end)) ?? null;
+  const prof = profileOf(settings.ageBand);
+  const mode = settings.mode === "hormonal" || settings.mode === "pause" ? settings.mode : "normal";
+  const luteal = lutealPmf(settings.lutealDays ?? 14, prof.lutealSpread);
+  const lhAll = [...new Set(entries.filter((e) => e.type === T.LH && e.result !== "neg").map((e) => e.date))].sort();
+  /**
+   * Wiarygodny test LH w cyklu: nie w trakcie miesiączki ani tuż po niej (cykl dnia 1–8 to zwykle słaby, przypadkowy wynik),
+   * nie później niż 9 dni przed następnym okresem (faza lutealna jest dłuższa) i nie w przyszłości; przy kilku seriach liczy się ostatnia.
+   */
+  const lhIn = (start        , end               )                =>
+    lhRunStart(lhAll.filter((d) => d >= start && (!end || d < end) && d <= today && diffDays(start, d) >= hist.bleedLen + 3 && (!end || diffDays(d, end) >= 9)));
   const lhPmf = (d        )                      => new Map([[addDays(d, 0), 0.25], [addDays(d, 1), 0.5], [addDays(d, 2), 0.25]]);
 
   // 1) cykle zakończone: owulacja wstecz od rzeczywistego następnego okresu (albo od testu LH)
@@ -481,26 +523,44 @@ const predict = (hist         , entries         , settings          , today     
   }
 
   const lengths = hist.cycles.map((c) => c.days);
-  const base = cycleLengthPmf(lengths, settings.averageCycleLength ?? 28);
+  const base = cycleLengthPmf(lengths, settings.averageCycleLength ?? 29, prof);
   const recent = lengths.slice(-8);
   const out             = {
     fertility, nextPeriods: [], lengthMedian: Math.round(pmfQuantile(base, 0.5)),
     lengthLow: Math.round(pmfQuantile(base, 0.1)), lengthHigh: Math.round(pmfQuantile(base, 0.9)),
-    lengthSd: sd(base), confidence: "low", expectedOvulation: null, lhUsed: false, overdueDays: 0, nextRun: null,
+    lengthSd: sd(base), confidence: "low", expectedOvulation: null, lhUsed: false, overdueDays: 0, nextRun: null, noForecast: false, mode,
   };
-  out.confidence = recent.length < 3 ? "low" : out.lengthSd <= 2.5 ? "high" : out.lengthSd <= 4.5 ? "mid" : "low";
+  // pewność: „wysoka” dopiero od 6 cykli, a po 45. roku życia ograniczona (cykle bywają bezowulacyjne i nieregularne)
+  const raw = recent.length < 3 ? "low" : out.lengthSd <= 2.5 ? (recent.length >= 6 ? "high" : "mid") : out.lengthSd <= 4.5 ? "mid" : "low";
+  const rank = { low: 0, mid: 1, high: 2 }         ;
+  out.confidence = rank[raw] <= rank[prof.confCap] ? raw : prof.confCap;
+  if (mode === "pause") { fertility.clear(); out.noForecast = true; return out; }   // ciąża, połóg, karmienie: żadnych prognoz
   const last = hist.lastStart;
-  if (!last) return out;
+  if (!last) { if (mode === "hormonal") fertility.clear(); return out; }
 
-  // 2) bieżący cykl: warunkowanie na to, że okresu jeszcze nie ma (długość ≥ dzień cyklu)
+  // 2) bieżący cykl: warunkowanie na to, że okresu jeszcze nie ma (okres może zacząć się dopiero dziś lub później)
   const cycleDay = Math.max(1, diffDays(last, today) + 1);
-  let s0      = new Map([...base].filter(([k]) => k >= cycleDay));
-  if (s0.size === 0 || [...s0.values()].reduce((a, b) => a + b, 0) < 1e-9) {
-    s0 = new Map();
-    for (let k = cycleDay; k <= cycleDay + 14; k++) s0.set(k, 1);   // brak historii tak długich cykli
+  const sinceStart = cycleDay - 1;
+  const lh0 = lhIn(last, null);
+  let s0             = null;
+  // „spóźnienie” liczymy od końca własnego zakresu (80%): z rozkładu długości cykli albo, gdy jest wiarygodny test LH, z prognozy opartej na owulacji
+  let overdueFrom = Math.max(out.lengthHigh, out.lengthMedian + 1);
+  if (lh0) {
+    // test LH przesuwa prognozę okresu: owulacja ≈ dzień testu + 1, następny okres po fazie lutealnej
+    const offs      = new Map();
+    for (const [d, w] of lhPmf(lh0)) addTo(offs, diffDays(last, d), w);
+    const lhS = convolve(offs, luteal);
+    overdueFrom = pmfQuantile(lhS, 0.9);
+    s0 = conditionOn(lhS, sinceStart);
   }
-  s0 = normalize(s0);
-  out.overdueDays = Math.max(0, diffDays(addDays(last, out.lengthMedian), today));
+  if (!s0) { if (lh0) overdueFrom = Math.max(overdueFrom, Math.max(out.lengthHigh, out.lengthMedian + 1)); s0 = conditionOn(base, sinceStart); }
+  out.overdueDays = Math.max(0, sinceStart - overdueFrom);
+  if (!s0) {
+    // historia nie ma tak długich cykli: prognozy z rozkładu nie ma, a wynik z rozkładu jednostajnego tylko udawałby pewność
+    out.noForecast = true;
+    if (mode === "hormonal") fertility.clear();
+    return out;
+  }
 
   // 3) kolejne starty okresów: S_k = rozkład przesunięcia (dni od ostatniego startu) początku cyklu k+1
   let S = s0;
@@ -512,8 +572,7 @@ const predict = (hist         , entries         , settings          , today     
     });
     const ovOffsets = convolve(S, negate(luteal));
     const ovDates = new Map                ();
-    const lh = k === 0 ? lhIn(last, null) : null;
-    if (lh) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh)); continue; }
+    if (k === 0 && lh0) { out.lhUsed = true; addOvulationWeights(fertility, lhPmf(lh0)); continue; }
     // owulacja nie może wypaść w trakcie miesiączki
     const feasible = normalize(new Map([...ovOffsets].filter(([o]) => o >= hist.bleedLen)));
     const useOffsets = feasible.size ? feasible : ovOffsets;
@@ -521,9 +580,14 @@ const predict = (hist         , entries         , settings          , today     
     addOvulationWeights(fertility, ovDates);
     if (k === 0) out.expectedOvulation = addDays(last, Math.round(pmfQuantile(useOffsets, 0.5)));
   }
-  if (out.lhUsed) {
-    const lh = lhIn(last, null) ;
-    out.expectedOvulation = addDays(lh, 1);
+  if (out.lhUsed) out.expectedOvulation = addDays(lh0 , 1);
+  // szacowana owulacja bez testu LH i przy dużym rozrzucie cykli to zgadywanie: nie pokazujemy jednej daty
+  else if (out.lengthSd > 2.5) out.expectedOvulation = null;
+
+  if (mode === "hormonal") {
+    // hormonalna antykoncepcja: krwawienia są prognozowane, ale szans poczęcia i owulacji nie liczymy
+    fertility.clear(); out.expectedOvulation = null; out.lhUsed = false;
+    return out;
   }
 
   // 4) najbliższe okno: pierwszy ciągły przedział dni z szansą ≥ MID, który nie skończył się przed dziś
@@ -551,14 +615,31 @@ const meanOf = mean;
 
 
 
-/** Próg regularności wg FIGO 2018: wahanie najkrótszy–najdłuższy cykl. */
-const regularityLimit = (band         )         => (band === "18-25" || band === "42-45" ? 9 : 7);
+/** Wiek, od którego tekst o fazie przejściowej (STRAW+10) ma sens: wcześniej zmienność cykli ma zwykle inne przyczyny. */
+const isPerimenopausal = (band         )          => band === "42-45" || band === "46-50" || band === "51+";
+
+/**
+ * Próg regularności wg FIGO 2018: wahanie najkrótszy–najdłuższy cykl (26–41 lat: 7 dni, 18–25 i 42–45: 9 dni).
+ * Po 45. roku życia FIGO nie podaje progu: duża zmienność cykli jest wtedy częsta (okołomenopauza), więc nie jest oceniana (null).
+ */
+const regularityLimit = (band         )                => (band === "46-50" || band === "51+" ? null : band === "18-25" || band === "42-45" ? 9 : 7);
 
                  
                                                                                    
                                                                                                                    
  
-/** Trend długości cykli: nachylenie Theil–Sen (dni na cykl) + porównanie 3 ostatnich z 3 poprzednimi. */
+/** Statystyka testu Manna–Kendalla (|z|): czy kierunek zmian jest czymś więcej niż szumem. */
+const mannKendallZ = (y          )         => {
+  const n = y.length;
+  let s = 0;
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) s += Math.sign(y[j]  - y[i] );
+  return Math.abs(s) / Math.sqrt((n * (n - 1) * (2 * n + 5)) / 18);
+};
+/**
+ * Trend długości cykli: nachylenie Theil–Sen (dni na cykl) + porównanie 3 ostatnich z 3 poprzednimi.
+ * Kierunek (wydłużanie/skracanie) pokazujemy dopiero od 6 cykli, przy istotnym teście Manna–Kendalla (|z| ≥ 1,645)
+ * i łącznej zmianie ≥3 dni; przy mniejszych danych zwykły rozrzut wyglądałby jak trend.
+ */
 const trendOf = (lengths          )        => {
   const n = lengths.length;
   if (n < 4) return { n, lengths, slope: 0, intercept: lengths[0] ?? 0, fitted: lengths, direction: "unknown", recent3: null, prev3: null, sd: n ? stdev(lengths) : 0 };
@@ -566,86 +647,136 @@ const trendOf = (lengths          )        => {
   const fitted = lengths.map((_, i) => intercept + slope * i);
   const recent3 = mean(lengths.slice(-3));
   const prev3 = n >= 6 ? mean(lengths.slice(-6, -3)) : null;
-  const direction = Math.abs(slope) < 0.3 ? "stable" : slope > 0 ? "longer" : "shorter";
+  const real = n >= 6 && mannKendallZ(lengths) >= 1.645 && Math.abs(slope) * (n - 1) >= 3;
+  const direction = n < 6 ? "unknown" : !real ? "stable" : slope > 0 ? "longer" : "shorter";
   return { n, lengths, slope, intercept, fitted, direction, recent3, prev3, sd: stdev(lengths) };
 };
 
                  
                                              
-                                                                
+                                                                                           
                
  
 /**
  * Wskazówka wg STRAW+10 (Harlow i wsp. 2012), nie rozpoznanie:
  * wczesne przejście = powtarzająca się (w ciągu 10 cykli) różnica ≥7 dni między kolejnymi cyklami;
- * późne przejście = przerwa ≥60 dni.
+ * późne przejście = przerwa ≥60 dni; menopauza = brak miesiączki ≥12 miesięcy (rozpoznaje się wstecz).
+ * Kryteria dotyczą osób w wieku okołomenopauzalnym, które nie stosują hormonów i nie są w ciąży. U młodszych tekst jest neutralny.
+ * Jeden wyjątkowo długi cykl daje dwa sąsiednie skoki, więc sąsiednie skoki liczą się jako jedno zdarzenie.
  */
-const strawHint = (hist         , today        )        => {
+const strawHint = (hist         , today        , band          = "26-41", mode       = "normal")        => {
   const last10 = hist.cycles.slice(-10);
   const bigJumps                    = [];
   for (let i = 1; i < last10.length; i++) {
     const d = Math.abs(last10[i] .days - last10[i - 1] .days);
-    if (d >= 7) bigJumps.push({ from: last10[i] .start, days: d });
+    if (d >= 7) { bigJumps.push({ from: last10[i] .start, days: d }); i++; }
   }
+  if (mode !== "normal") return { bigJumps: [], stage: "off", text: "Wskazówka wyłączona: antykoncepcja hormonalna, ciąża, połóg i karmienie zmieniają przebieg cykli (ustawienie w zakładce Dane)." };
+  const peri = isPerimenopausal(band);
   const openDays = hist.lastStart ? diffDays(hist.lastStart, today) + 1 : 0;
+  if (openDays > 365) {
+    return { bigJumps, stage: "menopause-hint", text: peri
+      ? "Brak miesiączki od ponad 12 miesięcy: to kryterium menopauzy wg STRAW+10 (rozpoznaje lekarz). Każde krwawienie po takiej przerwie wymaga oceny lekarza."
+      : "Brak miesiączki od ponad 12 miesięcy: do oceny lekarza (najpierw trzeba wykluczyć ciążę, zaburzenia hormonalne i wpływ leków)." };
+  }
   const gap60 = last10.some((c) => c.days >= 60) || openDays >= 60;
-  if (gap60) return { bigJumps, stage: "late-hint", text: "Przerwa ≥60 dni między miesiączkami: kryterium późnej fazy przejściowej wg STRAW+10. Do oceny lekarza." };
-  if (bigJumps.length >= 2) return { bigJumps, stage: "early-hint", text: `Różnica ≥7 dni między kolejnymi cyklami wystąpiła ${bigJumps.length} razy w ostatnich 10 cyklach: kryterium wczesnej fazy przejściowej wg STRAW+10. Podobny obraz mogą dawać też choroby tarczycy. Do oceny lekarza.` };
+  if (gap60) {
+    return { bigJumps, stage: "late-hint", text: peri
+      ? "Przerwa ≥60 dni między miesiączkami: kryterium późnej fazy przejściowej wg STRAW+10. Najpierw trzeba wykluczyć ciążę. Do oceny lekarza."
+      : "Przerwa ≥60 dni między miesiączkami: do oceny lekarza (najpierw trzeba wykluczyć ciążę; częste przyczyny to też tarczyca, PCOS, stres, zmiana masy ciała i leki)." };
+  }
+  if (bigJumps.length >= 2) {
+    return { bigJumps, stage: "early-hint", text: peri
+      ? `Różnica ≥7 dni między kolejnymi cyklami wystąpiła ${bigJumps.length} razy w ostatnich 10 cyklach: kryterium wczesnej fazy przejściowej wg STRAW+10${band === "42-45" ? "" : " (w tym wieku to częsty obraz okołomenopauzy)"}. Podobny obraz mogą dawać też choroby tarczycy. Do oceny lekarza.`
+      : `Duża zmienność długości cykli (różnica ≥7 dni ${bigJumps.length} razy w ostatnich 10 cyklach). U młodszych osób częste przyczyny to m.in. PCOS, tarczyca, stres, zmiana masy ciała i leki. Do omówienia z lekarzem.` };
+  }
   if (bigJumps.length === 1) return { bigJumps, stage: "possible-early", text: "Jedna różnica ≥7 dni między kolejnymi cyklami. To jeszcze nie wzór, obserwuj dalej." };
-  return { bigJumps, stage: "none", text: "Brak powtarzających się skoków ≥7 dni między kolejnymi cyklami." };
+  return { bigJumps, stage: "none", text: peri && band !== "42-45" ? "Brak powtarzających się skoków ≥7 dni między kolejnymi cyklami. W tym wieku cykle często stają się mniej regularne: warto dalej zapisywać." : "Brak powtarzających się skoków ≥7 dni między kolejnymi cyklami." };
 };
 
                 
-                                                                                     
+                                                                                            
+                                                                                        
                                                                     
                                                                                         
                                                                                                               
  
+/** Dzień „w pobliżu” miesiączki (±2 dni): plamienie tuż przed startem albo po końcu to zwykle jej początek lub koniec. */
+const nearBleed = (hist         , date        )          => [-2, -1, 0, 1, 2].some((k) => hist.bleed.has(addDays(date, k)));
+
 const figoSystem1 = (hist         , entries         , settings          , today        , overdueDays        )       => {
   const since = addDays(today, -365);
+  const mode = settings.mode === "hormonal" || settings.mode === "pause" ? settings.mode : "normal";
   const c12 = hist.cycles.filter((c) => c.end >= since);
   const cyc = c12.length ? c12 : hist.cycles;
-  const band = settings.ageBand ?? "42-45";
+  const band = settings.ageBand ?? "26-41";
   const lim = regularityLimit(band);
   const lens = cyc.map((c) => c.days);
-  const avg = lens.length ? Math.round(mean(lens)) : settings.averageCycleLength ?? 28;
+  const avg = lens.length ? Math.round(mean(lens)) : settings.averageCycleLength ?? 29;
   const mn = lens.length ? Math.min(...lens) : avg;
   const mx = lens.length ? Math.max(...lens) : avg;
   const variation = mx - mn;
-  const enoughReg = cyc.length >= 3;
-  const regOk = enoughReg && variation <= lim;
+  const enoughReg = cyc.length >= 6 && lim != null;
+  const regOk = enoughReg && variation <= (lim ?? 99);
   const missing90 = Boolean(hist.lastStart && diffDays(hist.lastStart, today) > 90);
   const freqOk = !missing90 && cyc.length > 0 && avg >= 24 && avg <= 38;
   const freq = missing90 ? "brak miesiączki >90 dni" : !cyc.length ? "za mało cykli" : avg < 24 ? "częsty (<24)" : avg > 38 ? "rzadki (>38)" : "norma (24–38)";
-  const bl = hist.eps.flatMap((e) => (e.days ? [e.days] : []));
+  // długość krwawienia, skrzepy, obfitość i plamienia: tylko z ostatnich 12 miesięcy (jeden dawny epizod nie świeci flagą do końca)
+  const recentEps = hist.eps.filter((e) => e.start >= since);
+  const bl = recentEps.flatMap((e) => (e.days ? [e.days] : []));
   const bMin = bl.length ? Math.min(...bl) : null;
   const bMax = bl.length ? Math.max(...bl) : null;
   const durOk = bMax == null || bMax <= 8;
-  const outside = entries.filter((e) => ["spotting", "clot", "flow"].includes(e.type) && !hist.bleed.has(e.date));
-  const imb = [...new Set(outside.map((e) => e.date))].sort();
-  let clot = 0, limits = 0, maxFlow = 0;
+  const epOf = (date        )         => recentEps.findIndex((e) => date >= e.start && date <= e.last);
+  const outside = entries.filter((e) => ["spotting", "clot", "flow"].includes(e.type) && e.date >= since && e.date <= today && !nearBleed(hist, e.date));
+  // plamienie poza okresem liczy się, gdy powtarza się w różnych cyklach (pojedyncze plamienie bywa przypadkowe)
+  const cycleKey = (d        )         => [...hist.starts].reverse().find((s) => s <= d) ?? "";
+  const imbAll = [...new Set(outside.map((e) => e.date))].sort();
+  const imb = new Set(imbAll.map(cycleKey)).size >= 2 ? imbAll : [];
+  const flowHigh = new Map                     (), clots = new Set        ();
+  let limits = 0;
   for (const e of entries) {
-    if (!hist.bleed.has(e.date)) continue;
-    if (e.type === "clot") clot++;
+    if (e.date < since || !hist.bleed.has(e.date)) continue;
+    const ep = epOf(e.date);
+    if (e.type === "clot") clots.add(ep);
     if (e.type === "pain" && e.limits) limits++;
-    if (e.type === "flow") maxFlow = Math.max(maxFlow, Number(e.value) || 0);
+    if (e.type === "flow" && (Number(e.value) || 0) >= 4) flowHigh.set(ep, (flowHigh.get(ep) ?? new Set()).add(e.date));
   }
-  const hmb = maxFlow >= 4 || clot > 0 || limits > 0;
-  const anemia = /anemi|niedokrwisto|niedob\S*\s+żelaz|ferryt/i.test(settings.health?.conditions ?? "");
+  // obfite krwawienie: obfitość 4–5 w co najmniej 2 dniach jednej miesiączki albo skrzepy w co najmniej 2 miesiączkach
+  const hmb = [...flowHigh.values()].some((s) => s.size >= 2) || clots.size >= 2;
+  const cond = settings.health?.conditions ?? "";
+  const anemia = /anemi|niedokrwisto|niedob\S*\s+żelaz|niska\s+ferryt|ferrytyn\S*\s+(niska|obniżon)/i.test(cond)
+    && !/(brak|bez|wykluczon\w*|nie\s+ma|nie\s+stwierdz\w*)\s+(anemi\w*|niedokrwisto\w*)|(anemi\w*|niedokrwisto\w*)\s+(wykluczon\w*|nie\s+stwierdz\w*)/i.test(cond);
   const flowLogged = entries.some((e) => e.type === "flow" && hist.bleed.has(e.date));
-  const testPos = entries.some((e) => e.type === "preg_test" && e.result === "pos");
+  const testPos = entries.some((e) => e.type === "preg_test" && e.result === "pos" && diffDays(e.date, today) >= 0 && diffDays(e.date, today) <= 100);
   const clinic           = [];
-  if (missing90) clinic.push("brak miesiączki >90 dni");
-  if (testPos) clinic.push("dodatni test ciążowy w dzienniku");
-  if (enoughReg && !regOk) clinic.push(`wahanie długości cykli ${variation} dni (próg ${lim})`);
-  for (const c of cyc) if (c.days < 24 || c.days > 38) clinic.push(`cykl ${c.start} → ${c.end}: ${c.days} dni (poza 24–38)`);
+  // krwawienie po ≥12 miesiącach bez miesiączki: w każdym wieku wymaga oceny lekarza
+  for (let i = 1; i < hist.starts.length; i++) {
+    if (diffDays(hist.starts[i - 1] , hist.starts[i] ) >= 365 && diffDays(hist.starts[i] , today) <= 365) {
+      clinic.push(`krwawienie (${hist.starts[i]}) po ponad 12 miesiącach bez miesiączki: do oceny lekarza, także gdy jest skąpe`);
+    }
+  }
+  if (mode !== "pause") {
+    if (missing90) clinic.push("brak miesiączki >90 dni: najpierw wyklucz ciążę (test), potem omów z lekarzem");
+    if (enoughReg && !regOk) clinic.push(`wahanie długości cykli ${variation} dni w ostatnich 12 miesiącach (próg ${lim}); jeśli się utrzymuje, warto omówić`);
+    // pojedynczy cykl poza 24–38 dniami to jeszcze nie nieprawidłowość: liczy się powtarzanie się (≥2 z ostatnich 6) albo mediana poza zakresem
+    const last6 = cyc.slice(-6), outLast6 = last6.filter((c) => c.days < 24 || c.days > 38);
+    const med = lens.length ? median(lens) : null;
+    if (outLast6.length >= 2 || (cyc.length >= 3 && med != null && (med < 24 || med > 38))) {
+      clinic.push(`cykle poza zakresem 24–38 dni: ${outLast6.length} z ostatnich ${last6.length} (${outLast6.map((c) => `${c.start} → ${c.end}: ${c.days} d`).join("; ")})`);
+    }
+    if (overdueDays > 7) clinic.push(`okres spóźniony o ${overdueDays} dni poza własnym typowym zakresem: jeśli był stosunek, zrób test ciążowy`);
+  }
+  if (testPos) clinic.push("dodatni test ciążowy w dzienniku: umów wizytę u lekarza lub położnej");
   if (bMax != null && bMax > 8) clinic.push("krwawienie >8 dni");
-  if (imb.length) clinic.push(`plamienie/skrzepy poza okresem: ${imb.join(", ")}`);
-  if (hmb) clinic.push("sygnał obfitości / skrzepów / bólu ograniczającego życie (opis, nie pomiar ml)");
+  if (imb.length) clinic.push(`plamienie/skrzepy poza okresem w kilku cyklach: ${imb.join(", ")}`);
+  if (hmb) clinic.push("sygnał obfitego krwawienia (obfitość 4–5 przez kilka dni albo skrzepy w kilku miesiączkach; opis, nie pomiar ml)");
+  if (limits >= 2) clinic.push("ból w czasie miesiączki, który psuje sen albo pracę, w kilku dniach: warto omówić");
   if (anemia && (hmb || (bMax != null && bMax > 7))) clinic.push("anemia przy sygnałach obfitego krwawienia: warto ustalić z lekarzem, czy miesiączki nie pogłębiają niedoboru żelaza");
-  if (overdueDays > 7) clinic.push(`okres spóźniony o ${overdueDays} dni względem typowego cyklu`);
+  const urgent = missing90 && mode !== "pause" || testPos;
+  const urgentWhy = missing90 && mode !== "pause" ? "brak miesiączki >90 dni (najpierw wyklucz ciążę testem)" : testPos ? "dodatni test ciążowy w dzienniku" : "";
   return { avg, mn, mx, variation, lim, band, enoughReg, regOk, freq, freqOk, bMin, bMax, durOk, imb, hmb, clinic,
-    urgent: missing90 || testPos, urgentWhy: missing90 ? "brak miesiączki >90 dni" : testPos ? "dodatni test ciążowy w dzienniku" : "", nCycles: cyc.length, anemia, flowLogged };
+    urgent, urgentWhy, nCycles: cyc.length, anemia, flowLogged };
 };
 
 
@@ -677,23 +808,32 @@ const analyze = (db    , today        )           => {
   const info = (date        )          => {
     const bleed = hist.bleed.has(date);
     const f = fertilityOn(pred, date);
+    let level = levelOf(f);
+    // przy niskiej pewności prognozy (mało cykli, duży rozrzut) przyszłe dni nie dostają poziomu „wysoka”, chyba że jest test LH
+    if (level === "high" && pred.confidence === "low" && !pred.lhUsed && date >= today) level = "mid";
     return {
       bleed, predBleed: !bleed && predBleed.has(date) && (!lastBleed || date > lastBleed),
-      fertility: f, level: levelOf(f), ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
+      fertility: f, level, ovulation: pred.expectedOvulation === date, lh: lhDays.has(date),
     };
   };
   const t = info(today);
-  let phase = "Faza folikularna";
+  const sinceStart = cycleDay ? cycleDay - 1 : 0;
+  let phase = "Faza cyklu niepewna";
   if (!hist.lastStart) phase = "Brak danych";
+  else if (pred.mode === "pause") phase = "Prognozy wyłączone";
   else if (t.bleed) phase = "Miesiączka";
   else if (pred.overdueDays > 0) phase = "Okres się spóźnia";
+  else if (pred.noForecast) phase = "Brak prognozy";
+  else if (pred.mode === "hormonal") phase = "Antykoncepcja hormonalna";
   else if (t.level === "high") phase = "Okno płodne";
   else if (t.level === "mid") phase = "Możliwe okno płodne";
-  else if (pred.expectedOvulation && today > addDays(pred.expectedOvulation, 1)) phase = "Faza lutealna";
+  else if (sinceStart >= pred.lengthMedian) phase = "Okres spodziewany";
+  else if (pred.expectedOvulation && today > addDays(pred.expectedOvulation, 1)) phase = "Po szacowanej owulacji";
+  else if (pred.expectedOvulation) phase = "Przed szacowaną owulacją";
   return {
     today, entries: db.entries, settings: db.settings, hist, pred,
     figo: figoSystem1(hist, db.entries, db.settings, today, pred.overdueDays),
-    straw: strawHint(hist, today), trend: trendOf(hist.cycles.map((c) => c.days)),
+    straw: strawHint(hist, today, db.settings.ageBand ?? "26-41", pred.mode), trend: trendOf(hist.cycles.map((c) => c.days)),
     cycleDay, phase, todayLevel: t.level, lhDays, info,
   };
 };
@@ -758,11 +898,12 @@ const lanesOf = (a          )            => {
     const next = h.starts[i + 1] ?? null;
     const length = next ? diffDays(start, next) : diffDays(start, a.today) + 1;
     if (length < 1) return;                      // start okresu w przyszłości: bez rzędu (ujemna szerokość)
-    if (next && length < 10) return;
+    if (next && length < 15) return;
     const ep = h.eps[i] ;
     const bleed = ep.days ?? h.bleedLen;
     const ov = length - 14;
-    const win                          = next ? [Math.max(bleed, ov - 5), ov + 1] : null;
+    const winFrom = Math.max(bleed, ov - 5);
+    const win                          = next && ov + 1 >= winFrom ? [winFrom, ov + 1] : null;
     const inCycle = (d        ) => d >= start && (!next || d < next);
     rows.push({
       start, length, open: !next, bleed, win,
@@ -773,12 +914,21 @@ const lanesOf = (a          )            => {
   return rows;
 };
 
+const INTIMATE = new Set        ([T.SEX, T.PROT, T.SOLO, T.HIM]);
+const MODE_TXT = { normal: "zwykły cykl", hormonal: "antykoncepcja hormonalna (prognozy płodności wyłączone)", pause: "ciąża, połóg lub karmienie (prognozy wyłączone)" }         ;
+
+/**
+ * Tekst raportu dla lekarza / AI. Wpisy intymne nigdy nie wpływają na treść, chyba że wybrano „Dołącz informacje o stosunkach”
+ * (wtedy: liczba stosunków i zabezpieczeń oraz ich daty; wpisów solo nie ma w raporcie nigdy).
+ */
 const buildBrief = (a          , db    , withDates = false)         => {
-  const f = a.figo, i = intimacyOf(a), t = a.trend, hl = db.settings.health ?? {};
+  const f = a.figo, t = a.trend, hl = db.settings.health ?? {};
+  const mode = a.pred.mode;
   const L           = [
     "# Brief cyklu (FIGO System 1 — objawy, nie przyczyny)",
-    `Eksport: ${a.today} · wpisów: ${a.entries.length} · startów: ${a.hist.starts.length}`,
-    "To nie jest rozpoznanie. Normy: FIGO 2018 (częstość 24–38 d, czas ≤8 d, wahanie ≤7 d w wieku 26–41, ≤9 d w 18–25 i 42–45).",
+    `Eksport: ${a.today} · wpisów: ${a.entries.filter((e) => !INTIMATE.has(e.type)).length} · startów: ${a.hist.starts.length}`,
+    `Wiek (pasmo): ${f.band === "51+" ? "powyżej 50" : f.band} lat · tryb prognoz: ${MODE_TXT[mode]}`,
+    "To nie jest rozpoznanie. Normy: FIGO 2018 (częstość 24–38 d, czas ≤8 d, wahanie ≤7 d w wieku 26–41, ≤9 d w 18–25 i 42–45; po 45. roku życia regularność nie jest oceniana).",
   ];
   if (hl.conditions || hl.meds || hl.tsh || hl.labs) {
     L.push("", "## Kontekst zdrowotny (wpisane ręcznie, rozpoznane przez lekarza)");
@@ -790,18 +940,19 @@ const buildBrief = (a          , db    , withDates = false)         => {
   L.push("", "## Do gabinetu", ...(f.clinic.length ? f.clinic.map((x) => `- ${x}`) : ["- brak czerwonych flag w dzienniku"]));
   L.push("", "## Osie",
     `- Częstość: średnia ${f.avg} d — ${f.freq}`,
-    `- Regularność: ${f.mn}–${f.mx}, wahanie ${f.variation} d (próg ${f.lim})`,
+    `- Regularność: ${f.mn}–${f.mx}, wahanie ${f.variation} d (${f.lim == null ? "w tym wieku nie oceniana" : `próg ${f.lim}${f.enoughReg ? "" : ", za mało cykli do oceny (od 6)"}`})`,
     `- Czas trwania: ${f.bMin == null ? "brak końców okresu" : `${f.bMin}–${f.bMax} d`}`,
-    `- Plamienie poza okresem: ${f.imb.length ? f.imb.join(", ") : "brak wpisów"}`);
+    `- Plamienie poza okresem: ${f.imb.length ? f.imb.join(", ") : "brak powtarzających się wpisów"}`);
   L.push("", "## Trend i faza przejściowa",
-    t.direction === "unknown" ? "- za mało cykli na trend" : `- Trend długości cykli (Theil–Sen): ${t.slope >= 0 ? "+" : ""}${t.slope.toFixed(1)} d na cykl; ostatnie 3 cykle średnio ${t.recent3?.toFixed(0)} d${t.prev3 != null ? `, poprzednie 3: ${t.prev3.toFixed(0)} d` : ""}`,
+    t.direction === "unknown" ? "- za mało cykli na trend (od 6)" : t.direction === "stable" ? "- bez wyraźnego trendu długości cykli" : `- Trend długości cykli (Theil–Sen): ${t.slope >= 0 ? "+" : ""}${t.slope.toFixed(1)} d na cykl; ostatnie 3 cykle średnio ${t.recent3?.toFixed(0)} d${t.prev3 != null ? `, poprzednie 3: ${t.prev3.toFixed(0)} d` : ""}`,
     `- STRAW+10: ${a.straw.text}`);
   L.push("", "## Cykle (start → następny start)", ...a.hist.cycles.map((c) => `- ${c.start} → ${c.end}: ${c.days} d${c.bleed ? `, krwawienie ${c.bleed} d` : ""}`));
-  L.push("", "## Intymność", `- Stosunki: ${i.sex}, z zabezpieczeniem: ${i.protected} (${i.pct}%)`);
-  // wpisy solo (masturbacja) nigdy nie wchodzą do raportu dla lekarza ani do tekstu dla AI, także z datami
+  // informacje o stosunkach tylko na wyraźne życzenie (opcja „Dołącz informacje o stosunkach”); wpisy solo nigdy
   if (withDates) {
-    L.push("", "## Daty");
-    [...a.entries].filter((e) => [T.SEX, T.PROT].includes(e.type         )).sort((x, y) => x.date.localeCompare(y.date)).forEach((e) => L.push(`- ${e.date}: ${e.type}`));
+    const i = intimacyOf(a);
+    L.push("", "## Stosunki (dołączone na życzenie)", `- Liczba: ${i.sex}, z zabezpieczeniem: ${i.protected} (${i.pct}%)`);
+    [...a.entries].filter((e) => e.type === T.SEX || e.type === T.PROT).sort((x, y) => x.date.localeCompare(y.date) || x.type.localeCompare(y.type))
+      .forEach((e) => L.push(`- ${e.date}: ${e.type === T.SEX ? "stosunek" : "zabezpieczenie"}`));
   }
   return L.join("\n");
 };
@@ -1016,27 +1167,35 @@ const viewToday = (a          , s         )           => {
       <button class="btn sec" data-act="tab" data-tab="kal">Wskaż datę w kalendarzu</button></div>`;
   }
   const inf = a.info(t), f = flagsFor(a.entries, t), p = a.pred;
-  const chip = inf.bleed ? ["per", "Miesiączka trwa"] : p.overdueDays > 0
-    ? ["mid", `Okres spóźniony o ${p.overdueDays} d, rozważ test ciążowy`]
+  const t0 = f.test;
+  const chip = inf.bleed ? ["per", "Miesiączka trwa"] : p.mode === "pause" ? ["low", "Prognozy wyłączone w ustawieniach"] : p.overdueDays > 0
+    ? ["mid", t0 === "pos" ? "Okres spóźniony, test dodatni: umów wizytę u lekarza lub położnej" : `Okres spóźniony o ${p.overdueDays} d, poza własnym typowym zakresem`]
+    : p.noForecast ? ["low", "Brak prognozy: okres spóźniony bardziej niż w dotychczasowych cyklach"]
+    : p.mode === "hormonal" ? ["low", "Szansa poczęcia: prognoza wyłączona (antykoncepcja hormonalna)"]
     : inf.level === "high" ? ["high", "Wysoka szansa poczęcia dziś"]
-    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Niska szansa wg prognozy"];
+    : inf.level === "mid" ? ["mid", "Podwyższona szansa (prognoza niepewna)"] : ["low", "Mniejsza szansa wg prognozy (nigdy zerowa)"];
+  const age = a.settings.ageBand ?? "26-41";
   const conf = p.confidence === "high" ? "Pewność prognozy: wysoka, cykle są regularne."
-    : p.confidence === "mid" ? `Pewność prognozy: średnia, cykle różnią się o ok. ${p.lengthHigh - p.lengthLow} dni.`
-    : `Pewność prognozy: niska. Ostatnie cykle ${p.lengthLow}–${p.lengthHigh} dni, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
-  const np = p.nextPeriods[0] , run = p.nextRun;
-  const rangeTxt = np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
+    : p.confidence === "mid" ? `Pewność prognozy: średnia. Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d.`
+    : `Pewność prognozy: niska (${a.hist.cycles.length < 3 ? "mało zapisanych cykli" : "cykle bardzo się różnią"}). Zwykle ${p.lengthMedian} d, w 80% przypadków ${p.lengthLow}–${p.lengthHigh} d, więc szansa jest rozłożona szeroko. Test LH da pewniejszy sygnał.`;
+  const ageNote = age === "46-50" || age === "51+"
+    ? html`<p class="note left">W tym wieku cykle bywają bezowulacyjne i nieregularne, więc prognoza jest mniej pewna, a poczęcie nadal możliwe. Wytyczne zwykle zalecają stosowanie antykoncepcji do 12 miesięcy bez miesiączki po 50. roku życia (do 24 miesięcy przed 50.): omów to z lekarzem.</p>` : "";
+  const np = p.nextPeriods[0], run = p.nextRun;
+  const rangeTxt = !np || np.from === np.to ? "" : html`<br>80%: ${range(np.from, np.to)}`;
+  const overdueHint = p.overdueDays > 0 && t0 !== "pos" && t0 !== "neg" ? html`<p class="note left">Jeśli był stosunek, rozważ test ciążowy. Przy ujemnym teście i dalszym braku okresu powtórz test po kilku dniach lub skontaktuj się z lekarzem.</p>` : "";
   return html`${head}
     <section class="card hero" aria-label="Stan cyklu">
       <div class="ringbox">${ring(a)}<div class="ringc"><b>${a.cycleDay}</b><span>dzień cyklu</span></div></div>
       <div class="phase">${a.phase}</div>
-      <div class="mute">typowo ${p.lengthMedian} d (ostatnie cykle ${p.lengthLow}–${p.lengthHigh})</div>
+      <div class="mute">typowo ${p.lengthMedian} d (w 80% przypadków ${p.lengthLow}–${p.lengthHigh})</div>
       <span class="chip ${chip[0]}">${chip[1]}</span>
-      <p class="note left">${conf}</p>
+      <p class="note left">${conf}</p>${overdueHint}${ageNote}
+      <p class="note left">Prognoza z dziennika nie jest metodą antykoncepcji ani dowodem ciąży lub jej braku.</p>
     </section>
     <div class="grid2">
-      <div class="stat"><small>Następny okres</small><strong>${dfmt(np.date)}</strong><span>${inDays(np.date, t)}${rangeTxt}</span></div>
+      <div class="stat"><small>Następny okres</small><strong>${np ? dfmt(np.date) : "—"}</strong><span>${np ? html`${inDays(np.date, t)}${rangeTxt}` : "brak prognozy"}</span></div>
       <div class="stat"><small>Okno płodne</small><strong>${run ? range(run.from, run.to) : "—"}</strong>
-        <span>${run ? html`${run.from <= t ? "trwa" : inDays(run.from, t)}<br>szczyt ok. ${dfmt(run.peak)}` : "brak w 90 dniach"}</span></div>
+        <span>${run ? html`${run.from <= t ? "trwa" : inDays(run.from, t)}<br>szczyt ok. ${dfmt(run.peak)}` : p.mode !== "normal" || p.noForecast ? "prognoza wyłączona lub niedostępna" : "brak w 90 dniach"}</span></div>
     </div>
     ${inf.bleed && a.figo.anemia && f.flow === 0 ? html`<div class="warn"><b>Zapisz obfitość dzisiaj.</b> Przy anemii lekarz zapyta o ilość krwawienia, a zapis z dnia jest dokładniejszy niż pamięć.
       <button class="btn sec" data-act="day" data-date="${t}">Zapisz obfitość</button></div>` : ""}
@@ -1048,7 +1207,7 @@ const viewToday = (a          , s         )           => {
       ${quick("spotting", "Plamienie", f.spot)}${quick("lh", "Test LH +", f.lh)}
       ${f.start ? quick("period_start", "Start okresu", true) : ""}${inf.bleed || f.start ? quick("period_end", "Koniec okresu", f.end) : quick("period_start", "Start okresu", false)}</div>
       <button class="btn sec" data-act="day" data-date="${t}">Więcej: ból, obfitość, notatka</button></section>
-    <p class="note">Prognoza statystyczna (owulacja ≈ 14 dni przed okresem, wagi dni wg badań Wilcox i wsp. 1995). Nie jest antykoncepcją ani diagnozą.</p>`;
+    <p class="note">Prognoza statystyczna (owulacja ≈ 14 dni przed okresem, wagi dni wg badań Wilcox i wsp. 1995). Nie jest antykoncepcją, dowodem ciąży ani diagnozą.</p>`;
 };
 
 const viewCalendar = (a          , s         )           => {
@@ -1070,24 +1229,29 @@ const viewCalendar = (a          , s         )           => {
     <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw dashed"></i>prognoza okresu</span>
       <span><i class="sw lv-high"></i>wysoka szansa</span><span><i class="sw lv-mid"></i>podwyższona</span><span>★ owulacja (szac.)</span>
       <span><i class="dot sex"></i>stosunek</span><span><i class="dot solo"></i>solo</span><span><i class="dot spot"></i>plamienie</span><span><i class="dot lh"></i>test LH+</span></div>
-    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu.</p></section>`;
+    <p class="note">Przesuń palcem w bok, aby zmienić miesiąc. Dla przeszłych cykli okno liczone jest wstecz od faktycznego następnego okresu. Prognoza nie jest antykoncepcją ani dowodem ciąży lub jej braku.</p></section>`;
 };
 
 const pill = (ok         , na         )           => html`<span class="pill ${na ? "na" : ok ? "ok" : "bad"}">${na ? "za mało danych" : ok ? "w normie" : "poza normą"}</span>`;
 
 const viewCharts = (a          , s         )           => {
   const all = a.hist.cycles;
+  if (!all.length) {
+    return html`${top("Wykresy", "", s.theme)}<section class="card hero"><div class="phase">Za mało danych</div>
+      <p class="mute">Wykresy i oceny pojawią się po zapisaniu co najmniej dwóch początków okresu.</p>
+      <button class="btn" data-act="tab" data-tab="dzis">Przejdź do Dziś</button></section>`;
+  }
   const offset = s.range >= all.length ? 0 : all.length - s.range;
   const shown = all.slice(offset);
   const sel = s.selCycle != null && all[s.selCycle] ? s.selCycle : all.length - 1;
   const c = all[sel], prev = all[sel - 1];
   const f = a.figo, i = intimacyOf(a), tr = a.trend;
-  const box = f.urgent ? html`<div class="warn"><b>Pilne:</b> ${f.urgentWhy}. Gabinet lub SOR, nie aplikacja.</div>`
+  const box = f.urgent ? html`<div class="warn"><b>Skontaktuj się z lekarzem:</b> ${f.urgentWhy}. Przy silnym bólu brzucha lub obfitym krwawieniu pilnie (gabinet lub SOR), nie aplikacja.</div>`
     : f.clinic.length ? html`<div class="warn"><b>Do omówienia w gabinecie</b><ul>${f.clinic.map((x) => html`<li>${x}</li>`)}</ul></div>`
     : html`<div class="okbox"><b>Osie FIGO bez flag.</b> To obserwacja z dziennika, nie rozpoznanie.</div>`;
   const chips = [6, 12, 999].map((r) => html`<button class="chipb${s.range === r ? " on" : ""}" data-act="range" data-n="${r}">${r === 999 ? "Wszystko" : `${r} cykli`}</button>`);
-  const dirTxt = tr.direction === "unknown" ? "Za mało cykli na trend (potrzeba ≥4)."
-    : tr.direction === "stable" ? "Długość cykli jest stabilna."
+  const dirTxt = tr.direction === "unknown" ? "Za mało cykli na trend (potrzeba ≥6)."
+    : tr.direction === "stable" ? "Bez wyraźnego trendu długości cykli."
     : `Cykle ${tr.direction === "longer" ? "wydłużają się" : "skracają się"} o ok. ${Math.abs(Math.round(tr.slope * 10) / 10)} d na cykl.`;
   const cmp = tr.recent3 != null && tr.prev3 != null ? ` Ostatnie 3 cykle: średnio ${Math.round(tr.recent3)} d, poprzednie 3: ${Math.round(tr.prev3)} d.` : "";
   const mo = monthlyOf(a);
@@ -1102,11 +1266,11 @@ const viewCharts = (a          , s         )           => {
       <p class="note">STRAW+10 to kryteria stadiów starzenia reprodukcyjnego (Harlow i wsp., 2012). Tu tylko wskazówka z dziennika, ocena należy do lekarza.</p></section>
     <section class="card"><h2>FIGO System 1</h2>
       <div class="axis"><b>Częstość</b>${f.avg} dni ${pill(f.freqOk, !f.nCycles)}<div class="mute">${f.freq}</div></div>
-      <div class="axis"><b>Regularność</b>wahanie ${f.variation} dni ${pill(f.regOk, !f.enoughReg)}<div class="mute">próg ${f.lim} dni (wiek ${f.band})</div></div>
+      <div class="axis"><b>Regularność</b>wahanie ${f.variation} dni ${f.lim == null ? html`<span class="pill na">nie oceniana</span>` : pill(f.regOk, !f.enoughReg)}<div class="mute">${f.lim == null ? `w wieku ${f.band} FIGO nie podaje progu, zmienność cykli jest częsta` : `próg ${f.lim} dni (wiek ${f.band}); ocena od 6 cykli`}</div></div>
       <div class="axis"><b>Czas trwania</b>${f.bMin == null ? "brak końców okresu" : (f.bMin === f.bMax ? `${f.bMin} dni` : `${f.bMin}–${f.bMax} dni`)} ${pill(f.durOk, f.bMin == null)}</div>
       <div class="axis"><b>Plamienie poza okresem</b>${f.imb.length} ${pill(!f.imb.length, false)}</div>
-      <label class="lab" for="age">Wiek (próg regularności)</label>
-      <select id="age" data-change="age">${(["18-25", "26-41", "42-45"]         ).map((b) => html`<option value="${b}"${b === f.band ? raw(" selected") : ""}>${b} lat</option>`)}</select></section>
+      <label class="lab" for="age">Wiek (próg regularności i opis fazy przejściowej)</label>
+      <select id="age" data-change="age">${(["18-25", "26-41", "42-45", "46-50", "51+"]         ).map((b) => html`<option value="${b}"${b === f.band ? raw(" selected") : ""}>${b === "51+" ? "powyżej 50 lat" : `${b} lat`}</option>`)}</select></section>
     <section class="card"><h2>Oś cykli</h2>${lanes(lanesRows)}
       <div class="legend"><span><i class="sw lv-bleed"></i>okres</span><span><i class="sw lv-high"></i>okno płodne (wstecz)</span><span><i class="dot sex"></i>stosunek z zabezp.</span><span><i class="dot hollow"></i>bez flagi</span></div>
       <p class="note">Widać, czy stosunki bez flagi zabezpieczenia wypadały w zielonym oknie.</p></section>
@@ -1132,26 +1296,28 @@ const viewData = (a          , s         )           => {
     <section class="card"><h2>Kopia</h2><button class="btn" data-act="export">Pobierz kopię (JSON)</button>
       <p class="note">To cały dziennik cyklu w formacie JSON; można go wczytać z powrotem w tym module. Kopia zawiera też dane o zdrowiu, jeśli zostały wpisane.</p></section>
     <section class="card"><h2>Import</h2><input type="file" id="file" accept=".json,application/json" data-change="file">
-      <textarea id="paste" rows="3" placeholder="…albo wklej JSON"></textarea><button class="btn sec" data-act="import">Wczytaj</button>
+      <textarea id="paste" rows="3" aria-label="Wklej JSON z dziennikiem cyklu" placeholder="…albo wklej JSON"></textarea><button class="btn sec" data-act="import">Wczytaj</button>
       <p class="note">Po wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.</p></section>
     <section class="card"><h2>Leki i choroby (do raportu)</h2>
       <label class="lab" for="hc">Choroby rozpoznane</label><input type="text" id="hc" placeholder="np. choroba A, choroba B" value="${hl.conditions ?? ""}">
       <label class="lab" for="hm">Leki</label><input type="text" id="hm" placeholder="np. lek X" value="${hl.meds ?? ""}">
       <label class="lab" for="ht">Ostatnie TSH</label><input type="text" id="ht" placeholder="wynik i data" value="${hl.tsh ?? ""}">
       <label class="lab" for="hl">Morfologia / ferrytyna</label><input type="text" id="hl" placeholder="np. Hb, ferrytyna, data" value="${hl.labs ?? ""}">
+      <label class="lab" for="mode">Tryb prognoz</label>
+      <select id="mode" data-change="mode">${([["normal", "Zwykły cykl"], ["hormonal", "Antykoncepcja hormonalna (bez prognoz płodności)"], ["pause", "Ciąża, połóg lub karmienie (bez prognoz)"]]         ).map(([v, l]) => html`<option value="${v}"${v === (s.db.settings.mode ?? "normal") ? raw(" selected") : ""}>${l}</option>`)}</select>
       <label class="lab" for="lut">Faza lutealna (dni)</label>
       <select id="lut" data-change="luteal">${[12, 13, 14, 15, 16].map((d) => html`<option value="${d}"${d === (s.db.settings.lutealDays ?? 14) ? raw(" selected") : ""}>${d}${d === 14 ? " (typowo)" : ""}</option>`)}</select>
       <button class="btn sec" data-act="health">Zapisz</button></section>
     <section class="card"><h2>Raport dla lekarza / AI</h2>
-      <label class="check"><input type="checkbox" id="wd" data-change="dates"${s.withDates ? raw(" checked") : ""}> Dołącz daty stosunków</label>
+      <label class="check"><input type="checkbox" id="wd" data-change="dates"${s.withDates ? raw(" checked") : ""}> Dołącz informacje o stosunkach (domyślnie wyłączone)</label>
       <textarea id="brief" rows="10" readonly>${brief}</textarea>
       <button class="btn" data-act="copy">Kopiuj raport</button><button class="btn sec" data-act="dlb">Pobierz .txt</button></section>
     <section class="card"><h2>Zarządzanie</h2><button class="btn danger" data-act="wipe">Usuń cały dziennik cyklu</button></section>`;
 };
 
 const tog = (t        , label        , on         )           => html`<button type="button" class="tog${on ? " on" : ""}" data-tog="${t}" aria-pressed="${on}">${label}</button>`;
-const seg = (name        , max        , val        )           => html`<span class="lab">${name}</span><div class="seg" data-seg="${name}">
-  ${Array.from({ length: max + 1 }, (_, n) => html`<button type="button" data-v="${n}" class="${val === n ? "on" : ""}">${n}</button>`)}</div>`;
+const seg = (name        , max        , val        )           => html`<span class="lab" id="seg-${name}">${name}</span><div class="seg" data-seg="${name}" role="group" aria-labelledby="seg-${name}">
+  ${Array.from({ length: max + 1 }, (_, n) => html`<button type="button" data-v="${n}" aria-pressed="${val === n}" class="${val === n ? "on" : ""}">${n}</button>`)}</div>`;
 
 const sheetDay = (a          , date        )           => {
   const f = flagsFor(a.entries, date), i = a.info(date);
@@ -1162,17 +1328,17 @@ const sheetDay = (a          , date        )           => {
       ${tog("sex", "Stosunek", f.sex)}${tog("protected", "Zabezpieczenie", f.prot)}${tog("him", "Solo — partner/ka", f.solo)}${tog("lh", "Test LH +", f.lh)}</div>
     ${seg("Obfitość", 5, f.flow)}${seg("Ból", 10, f.pain)}
     <label class="check"><input type="checkbox" id="lim"${f.limits ? raw(" checked") : ""}> Ból psuje sen albo pracę</label>
-    <input type="text" id="pill" placeholder="Lek, dawka" value="${f.pill}">
-    <span class="lab">Test ciążowy</span><div class="seg" data-seg="test">
-      <button type="button" data-v="" class="${!f.test ? "on" : ""}">brak</button><button type="button" data-v="neg" class="${f.test === "neg" ? "on" : ""}">ujemny</button><button type="button" data-v="pos" class="${f.test === "pos" ? "on" : ""}">dodatni</button></div>
-    <textarea id="note" rows="3" placeholder="Notatka dnia">${f.note}</textarea>
+    <input type="text" id="pill" aria-label="Lek, dawka" placeholder="Lek, dawka" value="${f.pill}">
+    <span class="lab" id="seg-test">Test ciążowy</span><div class="seg" data-seg="test" role="group" aria-labelledby="seg-test">
+      <button type="button" data-v="" aria-pressed="${!f.test}" class="${!f.test ? "on" : ""}">brak</button><button type="button" data-v="neg" aria-pressed="${f.test === "neg"}" class="${f.test === "neg" ? "on" : ""}">ujemny</button><button type="button" data-v="pos" aria-pressed="${f.test === "pos"}" class="${f.test === "pos" ? "on" : ""}">dodatni</button></div>
+    <textarea id="note" rows="3" aria-label="Notatka dnia" placeholder="Notatka dnia">${f.note}</textarea>
     <button class="btn" data-act="save-day" data-date="${date}">Zapisz</button><button class="btn sec" data-act="close">Anuluj</button>`;
 };
-const sheetImport = (incoming        , current        )           => html`<h2>Wczytać ${incoming} ${plN(incoming, "wpis", "wpisy", "wpisów")}?</h2>
+const sheetImport = (incoming        , current        , host = false)           => html`<h2>Wczytać ${incoming} ${plN(incoming, "wpis", "wpisy", "wpisów")}?</h2>
   <p class="mute">Teraz w aplikacji: ${current} ${plN(current, "wpis", "wpisy", "wpisów")}.</p><button class="btn" data-act="merge">Połącz (dodaj brakujące)</button>
   <button class="btn sec" data-act="replace">Zastąp wszystko</button><button class="btn sec" data-act="close">Anuluj</button>
-  <p class="note">Przed zastąpieniem aplikacja zachowuje poprzednią wersję danych w pamięci przeglądarki.</p>`;
-const sheetWipe = ()           => html`<h2>Usunąć dziennik cyklu?</h2><p class="mute">Tej operacji nie da się cofnąć. Najpierw pobierz kopię.</p>
+  <p class="note">${host ? "Przed zastąpieniem aplikacja zachowuje poprzednią wersję dziennika: można ją przywrócić w Ustawienia → Moduł Cykl." : "Przed zastąpieniem aplikacja zachowuje poprzednią wersję danych w pamięci przeglądarki."}</p>`;
+const sheetWipe = (host = false)           => html`<h2>Usunąć dziennik cyklu?</h2><p class="mute">${host ? "Przed usunięciem zostaje poprzednia wersja dziennika: można ją przywrócić w Ustawienia → Moduł Cykl. Zrób też kopię w Ustawienia → Kopie zapasowe i dane." : "Tej operacji nie da się cofnąć. Najpierw pobierz kopię."}</p>
   <button class="btn danger" data-act="wipe-yes">Tak, usuń dane</button><button class="btn sec" data-act="close">Anuluj</button>`;
 
 const renderTab = (s         )           => {
@@ -1231,7 +1397,7 @@ const start = ()       => {
   /* ---------- UI pomocnicze ---------- */
   let toastTimer = 0;
   const toast = (msg        , withUndo = false)       => {
-    toastEl.textContent = msg;
+    toastEl.textContent = withUndo && undo.size ? `${msg} ` : msg;
     if (withUndo && undo.size) {
       const b = document.createElement("button");
       b.textContent = "Cofnij"; b.setAttribute("data-act", "undo"); b.className = "toast-btn";
@@ -1241,7 +1407,11 @@ const start = ()       => {
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => { toastEl.className = "toast"; }, withUndo ? 9000 : 2600);
   };
-  const showSheet = (h                   )       => { sheet.innerHTML = `<div class="grab"></div>${h.value}`; sheet.hidden = false; mask.hidden = false; };
+  const showSheet = (h                   )       => {
+    // komunikat z „Cofnij” nie może wisieć nad otwartym oknem i zmieniać danych pod otwartym formularzem
+    toastEl.className = "toast"; clearTimeout(toastTimer);
+    sheet.innerHTML = `<div class="grab"></div>${h.value}`; sheet.hidden = false; mask.hidden = false;
+  };
   const closeSheet = ()       => { sheet.hidden = true; mask.hidden = true; };
   const persist = ()          => { const ok = saveDb(store, state.db); if (!ok) toast("Nie udało się zapisać danych. Zrób kopię."); return ok; };
   const download = (name        , text        , mime        )       => {
@@ -1251,10 +1421,25 @@ const start = ()       => {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
 
+  /** Pola tekstowe karty Dane, których niezapisana treść nie ma ginąć przy każdym przerysowaniu. */
+  const KEEP = ["hc", "hm", "ht", "hl", "paste"];
+  const focusSelector = (ae             )         => {
+    if (ae.id) return `#${ae.id}`;
+    const d = ae.dataset;
+    if (!d.act) return "";
+    return `[data-act="${d.act}"]` + (d.type ? `[data-type="${d.type}"]` : "") + (d.n ? `[data-n="${d.n}"]` : "") + (d.date ? `[data-date="${d.date}"]` : "") + (d.i ? `[data-i="${d.i}"]` : "") + (d.tab ? `[data-tab="${d.tab}"]` : "");
+  };
   const render = ()       => {
     state.today = todayIso();
     const before                                     = { cscroll: $("cscroll")?.scrollLeft, mscroll: $("mscroll")?.scrollLeft };
+    const typed = KEEP.map((id) => [id, ($(id)                           )?.value]         );
+    // po przerysowaniu fokus wraca na ten sam przycisk (czytnik ekranu i klawiatura nie tracą miejsca)
+    const ae = document.activeElement                      ;
+    const refocus = ae && ae !== document.body && app.contains(ae) ? focusSelector(ae) : "";
     app.innerHTML = renderTab(state).value;
+    for (const [id, v] of typed) { const el = $(id)                           ; if (el && v !== undefined) el.value = v; }
+    pickedFile = null;   // pole wyboru pliku jest po przerysowaniu puste, więc stary wybór nie może zostać w pamięci
+    if (refocus) app.querySelector             (refocus)?.focus({ preventScroll: true });
     for (const id of ["cscroll", "mscroll"]) {
       const el = $(id);
       if (el) el.scrollLeft = forceEnd || before[id] === undefined ? el.scrollWidth : before[id] ;
@@ -1315,10 +1500,11 @@ const start = ()       => {
     },
     import: () => {
       const go = (text        )       => {
-        try { pending = parseBackup(text); showSheet(sheetImport(pending.entries.length, state.db.entries.length)); }
-        catch (err) { toast(`Import: ${(err         ).message}`); }
+        try { pending = parseBackup(text); showSheet(sheetImport(pending.entries.length, state.db.entries.length, state.host)); }
+        catch (err) { toast(err instanceof SyntaxError ? "Import: to nie jest poprawny plik JSON." : `Import: ${(err         ).message}`); }
       };
-      if (pickedFile) { const r = new FileReader(); r.onload = () => go(String(r.result)); r.readAsText(pickedFile); }
+      if (pickedFile && pickedFile.size > 5_000_000) { toast("Plik jest za duży (limit 5 MB)."); return; }
+      if (pickedFile) { const r = new FileReader(); r.onload = () => go(String(r.result)); r.onerror = () => toast("Nie udało się odczytać pliku."); r.readAsText(pickedFile); }
       else if (val("paste")) go(($("paste")                       ).value);
       else toast("Wskaż plik albo wklej JSON");
     },
@@ -1334,13 +1520,13 @@ const start = ()       => {
       keepPrevious(store, state.db);
       state.db = pending; pending = null; const ok = persist(); closeSheet(); render(); if (ok) toast(`Wczytano ${state.db.entries.length} ${plN(state.db.entries.length, "wpis", "wpisy", "wpisów")}`);
     },
-    health: () => setSettings({ health: { conditions: val("hc"), meds: val("hm"), tsh: val("ht"), labs: val("hl") } }),
+    health: () => { setSettings({ health: { conditions: val("hc"), meds: val("hm"), tsh: val("ht"), labs: val("hl") } }); toast("Zapisano"); },
     copy: async () => {
       const text = buildBrief(analyze(state.db, state.today), state.db, state.withDates);
       try { await navigator.clipboard.writeText(text); toast("Skopiowano"); } catch { ($("brief")                       ).select(); toast("Zaznacz i skopiuj"); }
     },
     dlb: () => download(`cykl-raport-${todayIso()}.txt`, buildBrief(analyze(state.db, state.today), state.db, state.withDates), "text/plain"),
-    wipe: () => showSheet(sheetWipe()),
+    wipe: () => showSheet(sheetWipe(state.host)),
     "wipe-yes": () => { keepPrevious(store, state.db); state.db = emptyDb(); const ok = persist(); closeSheet(); render(); if (ok) toast("Usunięto"); },
   };
 
@@ -1353,8 +1539,8 @@ const start = ()       => {
     if (segBtn) {
       const group = segBtn.parentElement ;
       const was = segBtn.classList.contains("on");
-      group.querySelectorAll("button").forEach((b) => b.classList.remove("on"));
-      if (!(was && group.dataset.seg !== "test")) segBtn.classList.add("on");
+      group.querySelectorAll("button").forEach((b) => { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); });
+      if (!(was && group.dataset.seg !== "test")) { segBtn.classList.add("on"); segBtn.setAttribute("aria-pressed", "true"); }
       return;
     }
     const el = target.closest             ("[data-act]");
@@ -1368,6 +1554,7 @@ const start = ()       => {
     const el = e.target                    ;
     switch (el.dataset.change) {
       case "age": setSettings({ ageBand: el.value }); break;
+      case "mode": setSettings({ mode: el.value }); break;
       case "luteal": setSettings({ lutealDays: Number(el.value) }); break;
       case "dates": state.withDates = el.checked; render(); break;
       case "file": pickedFile = el.files?.[0] ?? null; break;

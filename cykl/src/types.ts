@@ -1,4 +1,6 @@
-export type AgeBand = "18-25" | "26-41" | "42-45";
+export type AgeBand = "18-25" | "26-41" | "42-45" | "46-50" | "51+";
+/** Tryb prognoz: normalny, antykoncepcja hormonalna (bez prognoz płodności) albo ciąża/połóg/karmienie (bez żadnych prognoz). */
+export type Mode = "normal" | "hormonal" | "pause";
 export interface Entry {
   type: string;
   date: string;
@@ -11,6 +13,7 @@ export interface Entry {
 export interface Health { conditions?: string; meds?: string; tsh?: string; labs?: string }
 export interface Settings {
   ageBand?: AgeBand;
+  mode?: Mode;
   lutealDays?: number;
   averageCycleLength?: number;
   lastExport?: string;

@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, levelOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
+import { cycleLengthPmf, lutealPmf, convolve, pmfQuantile, predict, levelOf, profileOf, FERTILITY_BY_OFFSET } from "../src/predict.ts";
 import { buildHistory } from "../src/history.ts";
 import { analyze } from "../src/analysis.ts";
 import { addDays } from "../src/dates.ts";
@@ -19,9 +19,16 @@ describe("rozkłady", () => {
     assert.deepEqual([...l.keys()].sort((a, b) => a - b), [12, 13, 14, 15, 16]);
     assert.ok(l.get(14)! > l.get(12)!);
   });
-  test("mało cykli: łagodny rozkład a priori wokół 28", () => {
+  test("mało cykli: łagodny, szeroki rozkład a priori wokół 29", () => {
     const p = cycleLengthPmf([]);
-    assert.ok(pmfQuantile(p, 0.5) >= 27 && pmfQuantile(p, 0.5) <= 29);
+    assert.ok(pmfQuantile(p, 0.5) >= 28 && pmfQuantile(p, 0.5) <= 30);
+    assert.ok(pmfQuantile(p, 0.9) - pmfQuantile(p, 0.1) >= 6, "prior ma być szeroki (rozrzut między osobami)");
+  });
+  test("po 45. roku życia rozkłady są szersze", () => {
+    const l = [28, 28, 28, 28, 28, 28];
+    const w = (b: "26-41" | "46-50" | "51+") => { const p = cycleLengthPmf(l, 28, profileOf(b)); return pmfQuantile(p, 0.9) - pmfQuantile(p, 0.1); };
+    assert.ok(w("46-50") > w("26-41") && w("51+") >= w("46-50"));
+    assert.ok([...lutealPmf(14, 3).keys()].length > [...lutealPmf(14, 2).keys()].length);
   });
   test("wagi płodności: szczyt w dniu owulacji, zero daleko przed", () => {
     assert.ok(FERTILITY_BY_OFFSET[0]! >= FERTILITY_BY_OFFSET[-5]!);
@@ -79,12 +86,27 @@ describe("prognoza dla nieregularnych cykli (przejście)", () => {
 describe("aktualizacja gdy okres się spóźnia", () => {
   const db = makeDb("2031-01-01", [28, 28, 28, 28, 28]);
   const last = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
-  test("po 40 dniach cyklu prognoza następnego okresu jest w przyszłości", () => {
+  test("po 40 dniach cyklu historia nie ma tak długich cykli: brak prognozy, bez „podwyższonej szansy” co dzień", () => {
     const today = addDays(last, 39);
     const a = analyze(db, today);
-    assert.ok(a.pred.nextPeriods[0]!.date > today);
+    assert.ok(a.pred.noForecast);
+    assert.equal(a.pred.nextPeriods.length, 0);
+    assert.equal(a.pred.expectedOvulation, null);
     assert.ok(a.pred.overdueDays > 0);
     assert.equal(a.phase, "Okres się spóźnia");
+    assert.equal(a.info(addDays(today, 3)).level, "low");
+  });
+  test("spóźnienie liczy się od końca własnego zakresu, nie od mediany", () => {
+    const irregular = makeDb("2031-01-01", [24, 41, 30, 33, 28, 38]);
+    const l = irregular.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const a = analyze(irregular, addDays(l, 34));       // dzień 35: w środku zakresu tej osoby
+    assert.equal(a.pred.overdueDays, 0, "dzień 35 przy cyklach 24–41 nie jest spóźnieniem");
+    assert.ok(a.phase !== "Okres się spóźnia");
+  });
+  test("okres może zacząć się dziś: prognoza obejmuje dzisiejszy dzień", () => {
+    const l = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const a = analyze(db, addDays(l, 28));               // dzień 29, typowa długość 28
+    assert.equal(a.pred.nextPeriods[0]!.date <= addDays(l, 29), true);
   });
 });
 
@@ -113,4 +135,87 @@ test("poziomy: progi", () => {
   assert.equal(levelOf(0.2), "high");
   assert.equal(levelOf(0.06), "mid");
   assert.equal(levelOf(0.01), "low");
+});
+
+describe("test LH: wiarygodność i wpływ na prognozę okresu", () => {
+  const base = () => makeDb("2031-01-01", [28, 28, 28, 28, 28, 28]);
+  const lastOf = (db: ReturnType<typeof base>) => db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+  test("zabłąkany dodatni test w trakcie miesiączki nie przestawia owulacji", () => {
+    const db = base(); const l = lastOf(db);
+    db.entries.push({ type: "lh", date: addDays(l, 1), result: "pos" });
+    const a = analyze(db, addDays(l, 10));
+    assert.ok(!a.pred.lhUsed);
+    assert.equal(a.pred.expectedOvulation, addDays(l, 14));
+  });
+  test("wcześniejszy słaby test i prawdziwa seria: liczy się początek ostatniej serii", () => {
+    const db = base(); const l = lastOf(db);
+    for (const d of [8, 14, 15]) db.entries.push({ type: "lh", date: addDays(l, d), result: "pos" });
+    const a = analyze(db, addDays(l, 17));
+    assert.ok(a.pred.lhUsed);
+    assert.equal(a.pred.expectedOvulation, addDays(l, 15));
+  });
+  test("dodatni test w ostatnich dniach zakończonego cyklu nie cofa owulacji na koniec cyklu", () => {
+    const db = base();
+    const starts = db.entries.filter((e) => e.type === "period_start").map((e) => e.date);
+    const c = starts.at(-2)!, end = starts.at(-1)!;
+    const withBad = { ...db, entries: [...db.entries, { type: "lh", date: addDays(end, -2), result: "pos" }] };
+    const x = analyze(withBad, addDays(end, 3)), y = analyze(db, addDays(end, 3));
+    assert.equal(x.info(addDays(c, 13)).fertility, y.info(addDays(c, 13)).fertility);
+  });
+  test("LH przesuwa prognozę następnego okresu (po 28 dniach nie ma „spóźnienia”)", () => {
+    const db = base(); const l = lastOf(db);
+    db.entries.push({ type: "lh", date: addDays(l, 20), result: "pos" });
+    const a = analyze(db, addDays(l, 30));
+    assert.ok(a.pred.nextPeriods[0]!.date >= addDays(l, 33), a.pred.nextPeriods[0]!.date);
+    assert.equal(a.pred.overdueDays, 0);
+  });
+});
+
+describe("pewność, poziomy i tryby prognoz", () => {
+  test("„wysoka” pewność dopiero od 6 cykli; 3 równe cykle to średnia", () => {
+    const p = (n: number) => analyze(makeDb("2031-01-01", Array(n).fill(28)), "2031-12-01").pred.confidence;
+    assert.equal(p(3), "mid");
+    assert.equal(p(6), "high");
+    assert.equal(p(2), "low");
+  });
+  test("bez historii (tylko prior) żaden dzień nie dostaje poziomu „wysoka”", () => {
+    const db = makeDb("2031-01-01", []);
+    const a = analyze(db, "2031-01-05");
+    for (let i = 0; i < 40; i++) assert.notEqual(a.info(addDays("2031-01-05", i)).level, "high");
+  });
+  test("po 45. roku życia pewność jest ograniczona, po 50. zawsze niska", () => {
+    const db = makeDb("2031-01-01", Array(8).fill(28));
+    db.settings.ageBand = "46-50";
+    assert.equal(analyze(db, "2031-10-01").pred.confidence, "mid");
+    db.settings.ageBand = "51+";
+    assert.equal(analyze(db, "2031-10-01").pred.confidence, "low");
+    db.settings.ageBand = "42-45";
+    assert.equal(analyze(db, "2031-10-01").pred.confidence, "high");
+  });
+  test("starsze pasmo daje szerszy rozrzut następnego okresu i fazy lutealnej", () => {
+    const db = makeDb("2031-01-01", Array(8).fill(28));
+    const l = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const w = (band: "26-41" | "46-50" | "51+") => {
+      const a = analyze({ ...db, settings: { ageBand: band } }, addDays(l, 5)).pred.nextPeriods[0]!;
+      return Date.parse(a.to) - Date.parse(a.from);
+    };
+    assert.ok(w("46-50") > w("26-41") && w("51+") >= w("46-50"));
+  });
+  test("antykoncepcja hormonalna: okresy są prognozowane, szans poczęcia nie liczymy", () => {
+    const db = makeDb("2031-01-01", Array(6).fill(28)); db.settings.mode = "hormonal";
+    const a = analyze(db, "2031-07-01");
+    assert.ok(a.pred.nextPeriods.length === 3);
+    assert.equal(a.pred.fertility.size, 0);
+    assert.equal(a.pred.expectedOvulation, null);
+    assert.equal(a.pred.nextRun, null);
+    for (let i = 0; i < 40; i++) assert.equal(a.info(addDays("2031-07-01", i)).level, "low");
+  });
+  test("ciąża / karmienie: żadnych prognoz ani spóźnień", () => {
+    const db = makeDb("2031-01-01", Array(6).fill(28)); db.settings.mode = "pause";
+    const a = analyze(db, "2031-12-01");
+    assert.equal(a.pred.nextPeriods.length, 0);
+    assert.equal(a.pred.fertility.size, 0);
+    assert.equal(a.pred.overdueDays > 0 || a.phase === "Okres się spóźnia", false);
+    assert.equal(a.phase, "Prognozy wyłączone");
+  });
 });

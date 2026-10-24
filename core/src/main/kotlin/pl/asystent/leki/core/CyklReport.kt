@@ -161,7 +161,7 @@ object CyklReport {
             h.append("<td class=\"num\">${delta?.let { x -> (if (x > 0) "+" else "") + x + if (Math.abs(x) >= JUMP) " <span class=\"bd bd-hi\">≥ $JUMP</span>" else "" } ?: ""}</td></tr>")
         }
         h.append("</tbody></table></div>")
-        h.append("<p class=\"muted\">Zakresy odniesienia (oznaczenia orientacyjne, ocena należy do lekarza): częstość cyklu $NORM_LO–$NORM_HI dni oraz czas krwawienia do $BLEED_MAX dni (FIGO, klasyfikacja nieprawidłowych krwawień z macicy, System 1); regularność: rozrzut do 7 dni (26–41 lat) lub do 9 dni (18–25 i 42–45 lat); różnica co najmniej $JUMP dni między kolejnymi cyklami jest jednym z kryteriów STRAW+10 i jest tu tylko oznaczona. Cykle policzone z dat początku okresu (odstępy 15–90 dni); brak wpisu początku okresu zaburza długość cyklu.</p>")
+        h.append("<p class=\"muted\">Zakresy odniesienia (oznaczenia orientacyjne, ocena należy do lekarza): częstość cyklu $NORM_LO–$NORM_HI dni oraz czas krwawienia do $BLEED_MAX dni (FIGO, klasyfikacja nieprawidłowych krwawień z macicy, System 1); regularność: rozrzut do 7 dni (26–41 lat) lub do 9 dni (18–25 i 42–45 lat); po 45. roku życia duża zmienność cykli jest częsta (okołomenopauza) i nie jest oceniana. Różnica co najmniej $JUMP dni między kolejnymi cyklami jest jednym z kryteriów STRAW+10 (dla osób w wieku okołomenopauzalnym; u młodszych ma zwykle inne przyczyny) i jest tu tylko oznaczona; pojedynczy cykl poza zakresem nie jest nieprawidłowością. Cykle policzone z dat początku okresu (odstępy 15–90 dni): brak wpisu początku okresu zaburza długość cyklu, a odstęp ok. dwa razy dłuższy od typowego to często pominięty wpis, a nie jeden długi cykl.</p>")
         return h.toString()
     }
 }

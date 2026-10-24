@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { html, esc, raw } from "../src/html.ts";
-import { renderTab, sheetDay, shiftMonth } from "../src/views.ts";
+import { renderTab, sheetDay, sheetImport, sheetWipe, shiftMonth } from "../src/views.ts";
 import type { UiState, Tab } from "../src/views.ts";
 import { analyze } from "../src/analysis.ts";
 import { cycleChart, lanes } from "../src/charts.ts";
@@ -146,4 +146,49 @@ test("anemia w czasie okresu: Dziś podpowiada zapis obfitości, dopóki go nie 
   assert.match(renderTab(s).value, /Zapisz obfitość dzisiaj/);
   db.entries.push({ type: "flow", date: "2031-10-20", value: 3 });
   assert.ok(!/Zapisz obfitość dzisiaj/.test(renderTab(s).value));
+});
+
+describe("pasma wieku, tryb prognoz i komunikaty", () => {
+  test("Wykresy: lista wieku ma 5 pasm (46–50 i powyżej 50), tryb prognoz ma 3 opcje", () => {
+    const out = renderTab(mkState("wyk")).value;
+    for (const b of ["18-25", "26-41", "42-45", "46-50", "51+"]) assert.ok(out.includes(`value="${b}"`), b);
+    const dane = renderTab(mkState("dane")).value;
+    for (const m of ["normal", "hormonal", "pause"]) assert.ok(dane.includes(`value="${m}"`), m);
+  });
+  test("Wykresy: bez cykli jest stan „Za mało danych”, a nie zielone „bez flag”", () => {
+    const out = renderTab({ ...mkState("wyk"), db: emptyDb() }).value;
+    assert.ok(out.includes("Za mało danych") && !out.includes("Osie FIGO bez flag"));
+  });
+  test("Dziś i Kalendarz zawierają zastrzeżenie, że prognoza nie jest antykoncepcją ani dowodem ciąży", () => {
+    const today = makeDb("2031-01-01", [28, 28, 28, 28, 28, 28]);
+    const st = { ...mkState("dzis", today), today: "2031-07-10", month: "2031-07" };
+    assert.match(renderTab(st).value, /nie jest metodą antykoncepcji ani dowodem ciąży/);
+    assert.match(renderTab({ ...st, tab: "kal" }).value, /nie jest antykoncepcją ani dowodem ciąży/);
+  });
+  test("Dziś: osoba 46–50 dostaje uwagę o mniejszej pewności i o antykoncepcji do 12 miesięcy bez miesiączki", () => {
+    const db = makeDb("2031-01-01", [28, 28, 28, 28, 28, 28]); db.settings.ageBand = "46-50";
+    const out = renderTab({ ...mkState("dzis", db), today: "2031-07-10" }).value;
+    assert.match(out, /bezowulacyjne i nieregularne/);
+    assert.match(out, /12 miesięcy bez miesiączki/);
+    const young = renderTab({ ...mkState("dzis", makeDb("2031-01-01", [28, 28, 28, 28, 28, 28])), today: "2031-07-10" }).value;
+    assert.ok(!young.includes("bezowulacyjne"));
+  });
+  test("Dziś: spóźniony okres bez dzisiejszego testu podpowiada test przy stosunku, a po dodatnim teście wizytę", () => {
+    const db = makeDb("2031-01-01", [28, 28, 28, 28, 28, 28]);
+    const l = db.entries.filter((e) => e.type === "period_start").at(-1)!.date;
+    const late = { ...mkState("dzis", db), today: "2031-08-30" };
+    assert.ok(l < late.today);
+    assert.match(renderTab(late).value, /Jeśli był stosunek, rozważ test ciążowy/);
+    const pos = { ...late, db: { ...db, entries: [...db.entries, { type: "preg_test", date: late.today, result: "pos" }] } };
+    assert.match(renderTab(pos).value, /umów wizytę/);
+  });
+  test("okna importu i usuwania w aplikacji nie mówią o przeglądarce i wskazują przywracanie", () => {
+    assert.ok(!sheetImport(3, 1, true).value.includes("przeglądarki") && sheetImport(3, 1, true).value.includes("Moduł Cykl"));
+    assert.ok(sheetImport(3, 1, false).value.includes("przeglądarki"));
+    assert.ok(!sheetWipe(true).value.includes("nie da się cofnąć") && sheetWipe(true).value.includes("Moduł Cykl"));
+  });
+  test("formularz dnia: grupy przycisków mają nazwy i stan dla czytnika ekranu", () => {
+    const out = sheetDay(analyze(makeDb("2031-01-01", [28]), "2031-02-01"), "2031-01-05").value;
+    assert.ok(out.includes('role="group"') && out.includes('aria-pressed="true"') && out.includes('aria-label="Notatka dnia"'));
+  });
 });
