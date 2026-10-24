@@ -19,6 +19,11 @@ object Profiles {
     private val ID = Regex("p\\d{1,2}")
     private val FILE_ID = Regex("state-(p\\d{1,2})\\.json")
 
+    private val LEFTOVER = Regex(".*\\.(uszkodzony|odrzucony)\\.(json|enc)|.*\\.nieczytelny\\.enc")
+
+    /** Pliki pomocnicze usuwane przy „Usuń wszystkie dane”: kopie uszkodzonych i odrzuconych plików (jawne i zaszyfrowane), nieczytelne `.enc`, zapas sprzed osób. */
+    fun isLeftover(name: String): Boolean = name == BEFORE_PEOPLE || LEFTOVER.matches(name)
+
     /** Plik danych osoby: pierwsza osoba zostaje w dotychczasowym `state.json`. */
     fun fileOf(id: String): String = if (id == "p1") FILE_NAME else "state-$id.json"
 

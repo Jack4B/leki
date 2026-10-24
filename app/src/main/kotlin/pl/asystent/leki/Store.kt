@@ -283,7 +283,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         replaceAll(listOf(AppState()))
         synchronized(this) {
             runCatching { File(dir, "state.przed-osobami.json").delete() }
-            runCatching { dir.listFiles { f -> f.name.endsWith(".uszkodzony.json") }?.forEach { it.delete() } }
+            runCatching { dir.listFiles { f -> Profiles.isLeftover(f.name) }?.forEach { it.delete() } }
         }
     }
 

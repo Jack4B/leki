@@ -337,7 +337,7 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ### Szyfrowanie danych na telefonie (plan, bez kodu)
 
-Szkic mechanizmu (klucz AES-GCM w Android Keystore), formatu pliku, migracji odpornej na zabicie procesu, zachowania przy utracie klucza, wpływu na kopie zapasowe, testów i wycofania: [docs/plan-szyfrowanie.md](docs/plan-szyfrowanie.md). Czeka na zatwierdzenie; do tego czasu dane na telefonie są jawnym JSON-em (chroni je piaskownica Androida i szyfrowanie urządzenia).
+Szkic mechanizmu (klucz AES-GCM w Android Keystore), formatu pliku, migracji odpornej na zabicie procesu, zachowania przy utracie klucza, wpływu na kopie zapasowe, testów i wycofania: [docs/plan-szyfrowanie.md](docs/plan-szyfrowanie.md). Plan zatwierdzony; trwa etap 1 (format i znacznik w `core`, jeszcze nieużywane przez aplikację). Dane na telefonie są nadal jawnym JSON-em (chroni je piaskownica Androida i szyfrowanie urządzenia).
 
 ### Do sprawdzenia na telefonie (testy)
 

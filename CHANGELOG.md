@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.14.6-preview
+
+Szyfrowanie danych, etap 1 część a (plan: `docs/plan-szyfrowanie.md`). **Brak zmiany zachowania aplikacji:** nowy kod w `core` nie jest jeszcze używany, poza jedną zmianą w „Usuń wszystkie dane”.
+
+- **Format pliku danych** (`core/.../storage/DataFile.kt`): koperta `LEKI` z wersją, flagami (bit „surowe”), `dekId`, generacją i IV, AAD z identyfikatorem logicznym (rodzaj i osoba, bez nazwy pliku), rozpoznawanie pliku jawnego, zaszyfrowanego, z nowszej wersji i uszkodzonego; błędy klucza, uwierzytelnienia i struktury jako osobne wyjątki.
+- **`keys.bin`** (`KeyFile.kt`): format z aliasem KEK i `dekId`, owijanie DEK przez interfejs `KeyWrap`, numeracja aliasów `leki_kek_<n>`, wybór wiążącej kopii po `dekId`.
+- **Znacznik trybu** (`StorageMarker.kt`): walidacja (`v`, `mode`, `dekId`, `attempts` 0 do 3), ocena brakującego i nieważnego znacznika (`dekId` zgodny z **którąkolwiek** kopią `keys.bin`), cofanie przerwanej migracji, wspólny licznik prób, pierwszeństwo klas problemów.
+- **„Zaczynam od nowa”** (`StartOver.kt`): kroki i plik `startover.pending`; po zabiciu procesu po kroku (1) zapisy są zablokowane do ukończenia kroków (2) i (3).
+- **„Usuń wszystkie dane”** kasuje też `*.odrzucony.json` / `.enc`, `*.uszkodzony.enc` i `*.nieczytelny.enc` (`Profiles.isLeftover`).
+- Testy w `core`: 5 nowych klas (format, klucze, znacznik, StartOver, pliki pomocnicze). Reguła odczytu, automat migracji i integracja ze `Store` są w części b etapu 1 i w etapie 2.
+
 ## Bez zmiany wersji (dokumentacja)
 
 - **Plan szyfrowania danych** (`docs/plan-szyfrowanie.md`, szkic do zatwierdzenia, bez kodu): klucz AES-GCM w Android Keystore, format pliku, migracja odporna na zabicie procesu, utrata klucza, kopie zapasowe, testy, wycofanie.
