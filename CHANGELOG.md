@@ -4,8 +4,9 @@
 
 Punkt z listy „Otwarte uwagi z review”: numer wersji przy lokalnej kompilacji.
 
-- **`versionCode` z wersji:** bez `-PversionCode=N` numer kompilacji wynika z `appVersionName` (`major*10000 + minor*100 + patch`, np. 0.14.5-preview daje 1405) zamiast stałego 1. CI nadal podaje numer przebiegu, więc wydania z Releases się nie zmieniają. Uwaga: lokalny numer jest wyższy niż numer przebiegu CI, więc APK z Releases nie zainstaluje się na wierzch lokalnej kompilacji (najpierw kopia danych i odinstalowanie).
-- Zmiana dotyczy tylko skryptu budowania `app`; sprawdza ją CI (bez `-PversionCode` nie budujemy lokalnie).
+- **`versionCode` z wersji i przebiegu CI:** numer kompilacji to `numer wersji * 1000 + (numer przebiegu CI % 1000)`, gdzie numer wersji to `major*10000 + minor*100 + patch` (0.14.5-preview i przebieg 101 dają 1405101). Dotąd lokalna kompilacja miała stałe 1, a CI podawało sam numer przebiegu. Lokalnie (bez `-PbuildNumber`) przebieg to 0, więc numer jest zawsze niższy niż w CI dla tej samej wersji i APK z Releases instaluje się na wierzch lokalnej kompilacji. Numery rosną z wersją i przebiegiem, więc aktualizacje z 0.14.4 (numer 100) przechodzą. CI podaje `-PbuildNumber=<przebieg>` zamiast `-PversionCode`; `-PversionCode=N` nadal nadpisuje całość.
+- Ograniczenie: przebieg jest brany modulo 1000, więc w obrębie jednej wersji aplikacji numer maleje dopiero po 1000 przebiegach (wtedy podbij wersję).
+- Zmiana dotyczy skryptu budowania `app` i workflow; sprawdza ją CI (wynik w nazwie pliku/wydaniu nie zmienia się, a numer widać w `aapt2 dump badging`).
 
 ## 0.14.4-preview
 

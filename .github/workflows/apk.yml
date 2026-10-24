@@ -69,13 +69,25 @@ jobs:
               echo "LEKI_KEY_ALIAS=androiddebugkey"; echo "LEKI_KEY_PASSWORD=android"; } >> "$GITHUB_ENV"
           fi
       - name: Testy logiki i zbudowanie APK
-        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PbuildNumber=${{ github.run_number }} --no-daemon
       - name: Sprawdź, że APK nie ma uprawnienia INTERNET
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           AAPT2=$(ls "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)
           "$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | tee permissions.txt
           if grep -q 'android.permission.INTERNET' permissions.txt; then echo "::error::APK ma uprawnienie INTERNET, a aplikacja ma działać bez sieci"; exit 1; fi
+      - name: Sprawdź numer kompilacji (versionCode = numer wersji * 1000 + przebieg mod 1000)
+        env:
+          RUN: ${{ github.run_number }}
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT2=$(ls "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)
+          VN=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
+          IFS=. read -r MA MI PA _ <<< "${VN%%-*}"
+          EXPECT=$(( (10#$MA * 10000 + 10#$MI * 100 + 10#$PA) * 1000 + RUN % 1000 ))
+          GOT=$("$AAPT2" dump badging app/build/outputs/apk/release/app-release.apk | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+          echo "versionCode APK: ${GOT}, oczekiwany: ${EXPECT}"
+          [ "$GOT" = "$EXPECT" ] || { echo "::error::versionCode APK (${GOT}) nie zgadza się z oczekiwanym (${EXPECT})"; exit 1; }
       - name: Nazwij plik według wersji
         run: |
           VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)

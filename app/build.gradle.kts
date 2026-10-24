@@ -6,11 +6,13 @@ plugins {
 }
 
 val appVersionName: String = providers.gradleProperty("appVersionName").get()
-// -PversionCode=N (CI: numer przebiegu) ma pierwszeństwo; bez niego numer wynika z wersji: 0.14.5-preview -> 1405 (major*10000 + minor*100 + patch).
-// Uwaga: taki lokalny numer jest wyższy niż numer przebiegu CI, więc APK z CI nie zainstaluje się na wierzch lokalnej kompilacji (najpierw kopia i odinstalowanie).
-val versionCodeFromName: Int = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(appVersionName)?.destructured
+// Numer kompilacji = numer wersji * 1000 + numer przebiegu CI (mod 1000), np. 0.14.5-preview i przebieg 101 -> 1405101 (numer wersji = major*10000 + minor*100 + patch).
+// Lokalnie (bez -PbuildNumber) przebieg to 0, więc numer jest zawsze niższy niż w CI dla tej samej wersji: APK z Releases instaluje się na wierzch lokalnej kompilacji.
+// Numery rosną z wersją i przebiegiem; -PversionCode=N nadpisuje całość.
+val versionNumber: Int = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(appVersionName)?.destructured
     ?.let { (major, minor, patch) -> major.toInt() * 10_000 + minor.toInt().coerceAtMost(99) * 100 + patch.toInt().coerceAtMost(99) } ?: 1
-val appVersionCode: Int = providers.gradleProperty("versionCode").map { it.toInt() }.orElse(versionCodeFromName).get()
+val buildNumber: Int = providers.gradleProperty("buildNumber").map { it.toInt() }.orElse(0).get()
+val appVersionCode: Int = providers.gradleProperty("versionCode").map { it.toInt() }.orElse(versionNumber * 1000 + buildNumber % 1000).get()
 
 android {
     namespace = "pl.asystent.leki"
