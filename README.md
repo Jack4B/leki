@@ -242,7 +242,7 @@ Wymagane: Java 21 i Android SDK (`ANDROID_HOME`).
 ./gradlew checkChangelog :core:test :app:assembleRelease
 ```
 
-APK: `app/build/outputs/apk/release/app-release.apk`. Numer wersji jest w `gradle.properties` (`appVersionName`), a `-PversionCode=N` ustawia numer kompilacji (workflow podaje numer przebiegu).
+APK: `app/build/outputs/apk/release/app-release.apk`. Numer wersji jest w `gradle.properties` (`appVersionName`), a numer kompilacji (`versionCode`) to `numer wersji * 1000 + numer przebiegu CI (mod 1000)`, gdzie numer wersji to `major*10000 + minor*100 + patch` (0.14.5-preview i przebieg 101 dają 1405101). Workflow podaje `-PbuildNumber=<przebieg>`; lokalnie przebieg to 0, więc numer jest niższy niż w CI dla tej samej wersji i APK z Releases instaluje się na wierzch lokalnej kompilacji. `-PversionCode=N` nadpisuje całość. Przebieg jest brany modulo 1000: po 1000 przebiegach w obrębie jednej wersji podbij wersję.
 
 Samą logikę (moduł `core`) można budować i testować bez Androida: `./gradlew :core:test` w projekcie zawierającym tylko ten moduł.
 
@@ -281,7 +281,7 @@ Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychcza
 
 Dziś dystrybucja jest prywatna: GitHub Releases i Obtainium (opis wyżej). Do publicznego wydania w sklepie potrzeba więcej. Poniższa lista jest przeglądem; wymagania sklepów się zmieniają, więc przed zgłoszeniem sprawdź aktualne zasady w Play Console.
 
-**Co jest gotowe:** stałe `applicationId` (`pl.asystent.leki`), rosnący `versionCode` (numer przebiegu CI), `targetSdk 35`, 64-bitowe biblioteki (arm64-v8a), brak uprawnienia INTERNET (sprawdzane w CI), `allowBackup=false`.
+**Co jest gotowe:** stałe `applicationId` (`pl.asystent.leki`), rosnący `versionCode` (wersja i numer przebiegu CI), `targetSdk 35`, 64-bitowe biblioteki (arm64-v8a), brak uprawnienia INTERNET (sprawdzane w CI), `allowBackup=false`.
 
 **Google Play (kolejność):**
 1. Konto w Google Play Console (jednorazowa opłata, weryfikacja tożsamości). Konta osobiste założone w ostatnich latach muszą przed publikacją przejść **zamknięty test** (kilkanaście osób przez 14 dni).

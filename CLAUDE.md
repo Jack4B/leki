@@ -66,7 +66,6 @@ Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w 
 - `state.json` z danymi zdrowotnymi jest jawnym JSON w `filesDir` (`Store.kt`). Blokada biometryczna zasłania tylko UI. Rozważyć szyfrowanie kluczem z Android Keystore z migracją.
 - `Store` (po PR #1, wiele osób, `AtomicFile`): uszkodzony plik trafia do `*.uszkodzony.json` i nie jest nadpisywany pustym stanem. Zostaje do sprawdzenia kopiowanie `.bak` i blokada zapisu do decyzji użytkownika.
 - Ręczne `Thread {}` w `Reminders.kt` (receivery z `goAsync`, limit ok. 10 s) i w `AutoBackup.maybeRun` (PBKDF2 600 tys. iteracji). Przenieść AutoBackup do WorkManager.
-- `versionCode` domyślnie 1 przy buildzie lokalnym (`app/build.gradle.kts`). Wyliczać go z `appVersionName`.
 - Brak R8/minifikacji w release (potrzebne przed Google Play, z regułami dla ML Kit i serialization). Brak AAB (`bundleRelease`).
 - Job `zrzuty` w CI ma `contents: write` i nadpisuje wydanie `zrzuty-ekranow` przy każdym pushu. Lepiej publikować artefakt z `contents: read`.
 - Mieszane JDK: `core` używa toolchain 21, `app` ma `jvmTarget 17`. Ujednolicić albo opisać.
