@@ -44,3 +44,23 @@ body{padding-top:calc(66px + env(safe-area-inset-top,0px));padding-bottom:calc(2
 .sheet{max-height:calc(100vh - 76px - env(safe-area-inset-top,0px))}
 body{padding-top:calc(76px + env(safe-area-inset-top,0px))}
 .legend .dot,.legend .sw{margin-right:5px}
+
+/* Czytelność kalendarza i wykresów (zwłaszcza w ciemnym motywie): komórki szansy mają te same barwy co legenda, osie i etykiety mają kontrast */
+:root[data-theme="dark"]{--green-bg:#1f5646;--green-soft:#183d31;--line2:#3d5248}
+.day.lv-high{background:var(--green);color:var(--surface);font-weight:800}
+:root[data-theme="dark"] .day.lv-high{color:#06201a}
+.day.lv-mid{background:var(--green-bg)}
+.day.lv-high .ov{color:var(--surface)}
+:root[data-theme="dark"] .day.lv-high .ov{color:#06201a}
+.day.bleed{background:var(--rose-bg);color:var(--rose);font-weight:800}
+.dot{width:8px;height:8px}
+.dots{gap:3px}
+.track{fill:var(--line2)}
+.bleedb{opacity:1}
+.ev{stroke-width:2}
+.val,.ax{paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.val{font-weight:600}
+.band{opacity:.2}
+.ma{stroke:var(--ink);opacity:.7}
+.sbar.lv-low{background:var(--line2)}
+.legend .sw.dashed{background:var(--pred-bg);border:2px dashed var(--rose);box-sizing:border-box}

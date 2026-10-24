@@ -117,6 +117,11 @@ class ScreenshotTest {
     @Test fun leki() = slices("leki", 3) { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
     @Test fun lekiCiemny() = slices("leki-ciemny", 1, ThemeMode.Dark) { MedsScreen(state, store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
     @Test fun lekiPuste() = slices("leki-puste", 1) { MedsScreen(AppState(), store, nav, onGoData = {}, recoveredFrom = null, listState = it) }
+    @Test fun cisnienieCiemny() = slices("cisnienie-ciemny", 2, ThemeMode.Dark) { BpScreen(state, store, listState = it) }
+    @Test fun cisnienieRokCiemny() = slices("cisnienie-rok-ciemny", 1, ThemeMode.Dark) { BpScreen(yearState, store, listState = it, initialRange = 365) }
+    @Test fun badaniaMapaCiemny() = slices("badania-mapa-ciemny", 1, ThemeMode.Dark) { LabsScreen(state, store, onImport = {}, listState = it, initialMode = 1) }
+    @Test fun badaniaCiemny() = slices("badania-ciemny", 1, ThemeMode.Dark) { LabsScreen(state, store, onImport = {}, listState = it) }
+    @Test fun ekgCiemny() = slices("badania-ekg-ciemny", 1, ThemeMode.Dark) { LabsScreen(ecgState, store, onImport = {}, listState = it, initialMode = 3) }
     @Test fun cisnienie() = slices("cisnienie", 3) { BpScreen(state, store, listState = it) }
     /** Zmyślone pomiary z całego roku, liczone od dzisiaj: sprawdza przewijany wykres z zakresem min–max i podpisami miesięcy. */
     private val yearState: AppState = run {
