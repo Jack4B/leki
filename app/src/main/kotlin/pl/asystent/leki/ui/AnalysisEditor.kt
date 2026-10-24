@@ -15,6 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import pl.asystent.leki.Platform
 import pl.asystent.leki.Store
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import pl.asystent.leki.core.AiImport
 import pl.asystent.leki.core.Analysis
 import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.deleteAnalysis
@@ -45,14 +49,40 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
     val sections = remember(text) { Markdown.sections(text) }
     val shown = remember(text, excluded) { Markdown.selected(text, excluded) }
 
-    fun paste() {
-        val t = Platform.pasteText(ctx).trim()
-        if (t.isEmpty()) { toast("Schowek jest pusty"); return }
+    // tekst czekający na potwierdzenie zastąpienia wpisanej treści (z podpisem źródła do komunikatu i propozycją tytułu)
+    var incoming by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
+
+    fun acceptText(t: String, source: String, suggestedTitle: String?) {
         text = t
+        // tytuł podpowiadamy tylko wtedy, gdy użytkownik go jeszcze nie zmieniał
+        if (suggestedTitle != null && (title.isBlank() || title == "Analiza AI")) title = suggestedTitle.take(80)
         // długą odpowiedź od razu skracamy do podsumowania i pytań; użytkownik może to zmienić poniżej
         val ex = if (t.length > LONG_TEXT) Markdown.shortExclusions(t) else emptyList()
         setExcluded(ex)
-        toast(if (ex.isEmpty()) "Wklejono tekst" else "Wklejono i skrócono do podsumowania i pytań")
+        toast(if (ex.isEmpty()) "$source: wczytano tekst" else "$source: wczytano i skrócono do podsumowania i pytań")
+    }
+    fun offer(t: String, source: String, suggestedTitle: String?) {
+        if (text.isNotBlank() && text.trim() != t) incoming = Triple(t, source, suggestedTitle) else acceptText(t, source, suggestedTitle)
+    }
+    fun paste() {
+        val t = Platform.pasteText(ctx).trim()
+        if (t.isEmpty()) { toast("Schowek jest pusty"); return }
+        offer(t, "Ze schowka", null)
+    }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val res = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = Platform.readBytesLimited(ctx, uri, AiImport.MAX_BYTES)
+                    AiImport.decode(bytes, Platform.displayName(ctx, uri))
+                }
+            }
+            res.onSuccess { r ->
+                offer(r.text, "Z pliku", r.title)
+                if (r.fallbackCharset) toast("Plik nie był w UTF-8; odczytano go jako Windows-1250. Sprawdź polskie znaki.")
+            }.onFailure { e -> toast(if (e is AiImport.ImportException) e.message.orEmpty() else "Nie udało się wczytać pliku.") }
+        }
     }
 
     FullScreenDialog(
@@ -70,11 +100,15 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
             }
         },
     ) {
-        BodyText("Wklej odpowiedź modelu AI na raport z karty „Dla AI”. Zostanie dołączona na końcu raportu dla lekarza, wyraźnie opisana jako analiza AI, i zapisze się w kopii zapasowej. Jeśli model trzymał się formatu z polecenia, w raporcie zobaczysz kolorowe ramki (Pilne, Do omówienia, Informacja), tabele, plakietki ważności i wyróżnione sekcje: podsumowanie, sprawy pilne i pytania do lekarza.")
-        LekiButton("Wklej ze schowka", { paste() }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Copy)
+        BodyText("Wklej albo wczytaj z pliku odpowiedź modelu AI na raport z karty „Dla AI”. Zostanie dołączona na końcu raportu dla lekarza, wyraźnie opisana jako analiza AI, i zapisze się w kopii zapasowej. Jeśli model trzymał się formatu z polecenia, w raporcie zobaczysz kolorowe ramki (Pilne, Do omówienia, Informacja), tabele, plakietki ważności i wyróżnione sekcje: podsumowanie, sprawy pilne i pytania do lekarza.")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LekiButton("Wklej ze schowka", { paste() }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
+            LekiButton("Wczytaj z pliku", { picker.launch(arrayOf("text/markdown", "text/x-markdown", "text/plain", "application/octet-stream", "*/*")) }, Modifier.weight(1f), tonal = true, icon = Ph.UploadSimple)
+        }
+        Hint("Plik Markdown (.md) albo tekstowy (.txt) z odpowiedzią AI, do 1 MB. Polskie znaki w UTF-8, UTF-16 i Windows-1250 wczytają się poprawnie.")
         LekiField("Tytuł", title, { title = it.take(80) })
         DateField("Data analizy", LocalDate.parse(dateStr), { dateStr = it.toString() })
-        LekiField("Treść (Markdown)", text, { text = it }, singleLine = false, minLines = 8, placeholder = "Tu wklej odpowiedź AI. Wzory LaTeX i znaczniki Markdown zostaną uporządkowane w raporcie.")
+        LekiField("Treść (Markdown)", text, { text = it }, singleLine = false, minLines = 8, placeholder = "Tu wklej odpowiedź AI albo wczytaj ją z pliku. Wzory LaTeX i znaczniki Markdown zostaną uporządkowane w raporcie.")
         if (sections.size > 1) {
             Overline("Co trafi do raportu", Modifier.padding(top = 4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -90,6 +124,10 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, onClose: 
         }
         if (text.isNotBlank()) Hint("W raporcie: ${shown.length} z ${text.length} znaków.")
         if (initial != null) LinkButton("Usuń tę analizę", { confirmDelete = true }, danger = true)
+    }
+    incoming?.let { (t, source, suggested) ->
+        ConfirmDialog("Zastąpić wpisaną treść?", "W polu jest już tekst (${text.length} znaków). Nowy tekst ($source) ma ${t.length} znaków i go zastąpi.", "Zastąp",
+            onConfirm = { acceptText(t, source, suggested); incoming = null }, onDismiss = { incoming = null })
     }
     if (confirmDelete && initial != null) {
         ConfirmDialog("Usunąć analizę?", "Zniknie z aplikacji i z przyszłych kopii zapasowych.", "Usuń", onConfirm = { store.update { it.deleteAnalysis(initial.id) }; toast("Usunięto analizę"); onClose() }, onDismiss = { confirmDelete = false }, danger = true)

@@ -62,6 +62,24 @@ object Platform {
     fun readFromUri(ctx: Context, uri: Uri): String =
         ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Nie można otworzyć pliku")
 
+    /** Czyta plik z limitem rozmiaru: zwraca najwyżej [max] + 1 bajtów, więc za duży plik da się rozpoznać bez wczytywania go w całości do pamięci. */
+    fun readBytesLimited(ctx: Context, uri: Uri, max: Int): ByteArray =
+        ctx.contentResolver.openInputStream(uri)?.use { input ->
+            val out = java.io.ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            while (out.size() <= max) {
+                val n = input.read(buf, 0, minOf(buf.size, max + 1 - out.size()))
+                if (n < 0) break
+                out.write(buf, 0, n)
+            }
+            out.toByteArray()
+        } ?: error("Nie można otworzyć pliku")
+
+    /** Nazwa pliku z systemowego okna wyboru (może się nie udać, wtedy null). */
+    fun displayName(ctx: Context, uri: Uri): String? = runCatching {
+        ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    }.getOrNull()
+
     /** Drukuje dokument HTML lub zapisuje go jako PDF (okno druku Androida). */
     // WebView musi żyć do końca zadania druku, więc trzymamy referencję (kontekst aplikacji, żeby nie wyciekała aktywność)
     private var printWeb: WebView? = null

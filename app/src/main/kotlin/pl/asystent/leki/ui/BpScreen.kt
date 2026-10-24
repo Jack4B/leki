@@ -51,9 +51,13 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
     var dia by rememberSaveable { mutableStateOf("") }
     var pulse by rememberSaveable { mutableStateOf("") }
     var bpNote by rememberSaveable { mutableStateOf("") }
-    var dateStr by rememberSaveable { mutableStateOf(today.toString()) }
-    var timeStr by rememberSaveable { mutableStateOf(now.toLocalTime().withSecond(0).withNano(0).toString()) }
-    var ctxIdx by rememberSaveable { mutableStateOf(if (now.hour < 11) 0 else if (now.hour >= 17) 1 else 2) }
+    // puste = „teraz”: data, godzina i pora pomiaru podążają za zegarem, dopóki użytkownik ich nie zmieni (formularz bywa otwarty od rana do wieczora)
+    var dateStr by rememberSaveable { mutableStateOf("") }
+    var timeStr by rememberSaveable { mutableStateOf("") }
+    var ctxSel by rememberSaveable { mutableStateOf(-1) }
+    val dateVal = if (dateStr.isEmpty()) today else LocalDate.parse(dateStr)
+    val timeVal = if (timeStr.isEmpty()) now.toLocalTime().withSecond(0).withNano(0) else LocalTime.parse(timeStr)
+    val ctxIdx = if (ctxSel >= 0) ctxSel else if (now.hour < 11) 0 else if (now.hour >= 17) 1 else 2
     var err by remember { mutableStateOf("") }
     var range by rememberSaveable { mutableStateOf(initialRange) }
     var delId by remember { mutableStateOf<String?>(null) }
@@ -75,12 +79,12 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                     LekiField("Tętno", pulse, { pulse = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DateField("Data", LocalDate.parse(dateStr), { dateStr = it.toString() }, Modifier.weight(1f))
-                    TimeField("Godzina", LocalTime.parse(timeStr), { timeStr = it.toString() }, Modifier.weight(1f))
+                    DateField("Data", dateVal, { dateStr = it.toString() }, Modifier.weight(1f))
+                    TimeField("Godzina", timeVal, { timeStr = it.toString() }, Modifier.weight(1f))
                 }
                 Column {
                     Text("Pora pomiaru", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                    SegRow(listOf("Rano", "Wieczór", "Inne"), ctxIdx, { ctxIdx = it })
+                    SegRow(listOf("Rano", "Wieczór", "Inne"), ctxIdx, { ctxSel = it })
                 }
                 LekiField("Notatka (opcjonalnie)", bpNote, { bpNote = it }, placeholder = "np. po spacerze, brak skurczów")
                 ErrorText(err)
@@ -94,10 +98,10 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                         else -> ""
                     }
                     if (err.isEmpty()) {
-                        store.update { it.addBp(Bp(newId(), LocalDate.parse(dateStr), LocalTime.parse(timeStr), sy!!, di!!, pu, ctxNames[ctxIdx], bpNote.trim())) }
+                        store.update { it.addBp(Bp(newId(), dateVal, timeVal, sy!!, di!!, pu, ctxNames[ctxIdx], bpNote.trim())) }
                         toast("Zapisano pomiar $sy/$di")
                         sys = ""; dia = ""; pulse = ""; bpNote = ""
-                        dateStr = today.toString(); timeStr = now.toLocalTime().withSecond(0).withNano(0).toString()
+                        dateStr = ""; timeStr = ""; ctxSel = -1
                     }
                 }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Plus)
             }

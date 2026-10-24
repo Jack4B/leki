@@ -1,5 +1,20 @@
 # Zmiany
 
+## 0.9.10-preview
+
+- **Import odpowiedzi AI z pliku.** W edytorze analizy (Raport → Dla lekarza → Analiza AI) obok „Wklej ze schowka” jest **„Wczytaj z pliku”**: plik Markdown (.md) albo tekstowy (.txt), do 1 MB. Rozpoznawane jest kodowanie (UTF-8 z BOM i bez, UTF-16, awaryjnie Windows-1250), ujednolicane są znaki końca linii, a tytuł jest podpowiadany z pierwszego nagłówka `# …` albo z nazwy pliku (tylko gdy nie zmieniono go ręcznie). Plik binarny, pusty, za duży albo będący kopią zapasową aplikacji jest odrzucany z wyjaśnieniem. Gdy w polu jest już tekst, aplikacja pyta o zastąpienie (dotyczy też wklejania). Nowy `AiImport` w `core` z 5 testami.
+- **Przegląd kodu i poprawki błędów:**
+  - Liczby były zaokrąglane po dokładnym rozwoju binarnym, więc np. 1,005 dawało „1” zamiast „1,01”; teraz używany jest najkrótszy zapis dziesiętny.
+  - Kilka wyników tego samego parametru z jednego dnia: „ostatni” w Przeglądzie zależał od losowego id, a w porównaniu dni od kolejności dodania. Teraz wszędzie jest to ostatnio dodany (sortowanie stabilne).
+  - Przypomnienie o kopii zapasowej (baner na ekranie Leki) pomijało użytkowników, którzy mają tylko leki, badania, EKG albo analizy (liczyło tylko ciśnienie i odhaczenia).
+  - Eksport CSV badań i raport dla AI podawały zawsze zakres parametru, nawet gdy wynik miał własny zakres z badania; tak samo tabela pojedynczych wyników w raporcie dla lekarza.
+  - „Wszystko” w raporcie za cały okres zaczynało się od dnia założenia aplikacji, a nie od najstarszego badania lub EKG.
+  - Markdown w odpowiedzi AI: bloki kodu (```), odnośniki `[tekst](adres)` (zostaje tekst z adresem) i tabele bez początkowej kreski `|` są teraz poprawnie obsługiwane; nagłówek wewnątrz bloku kodu nie dzieli już tekstu na sekcje.
+- **Poprawki interfejsu:**
+  - **Stan zakładek przeżywa przełączanie** (wybrany dzień na Lekach, zakres 7/30/90 dni w Ciśnieniu, widok i filtry w Badaniach, przewinięcie). Wcześniej każde przejście do innej zakładki wszystko resetowało.
+  - **Formularz ciśnienia nie zostawia starej godziny:** data, godzina i pora pomiaru podążają za zegarem, dopóki ich nie zmienisz (wcześniej po całym dniu w otwartej aplikacji nowy pomiar dostawał poranną godzinę).
+  - Ekran Leki ma skrót **„Dodaj lek ›”** pod listą dnia (wcześniej dodawanie było tylko w Ustawieniach, a przycisk tylko przy pustej liście). Pola szklanek wody mają wysokość 48 dp i opisy z poprawną odmianą („1 szklanka”, „5 szklanek”) oraz stanem wypite/niewypite dla czytnika ekranu.
+
 ## 0.9.9-preview
 
 Przebudowa Badań pod obserwowanie wyników w czasie, także przez wiele lat. Część rzeczy pojawia się dopiero wraz z przyrostem danych (tendencje od trzech wyników, porównanie z rokiem wcześniej po roku badań, okno czasu po ponad roku).

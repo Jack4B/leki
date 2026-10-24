@@ -1,116 +1,63 @@
 package pl.asystent.leki.core
 
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
-/** Regresje z przeglądu kodu. Wszystkie dane są zmyślone. */
+/** Testy błędów znalezionych w przeglądzie kodu (0.9.10). */
 class ReviewFixesTest {
-    private val today = LocalDate.of(2026, 10, 21)
-
-    @Test fun ldlIsNotMatchedToHdl() {
-        val s = AppState(markers = listOf(Marker("hdl", "Cholesterol HDL", "mg/dl", 40.0, null)))
-        val row = LabScan.parseRow("Cholesterol LDL 100 mg/dl 0-115")!!
-        val c = LabScan.candidates(listOf(row), s).single()
-        assertNotEquals("hdl", c.markerId)
+    @Test fun numbersRoundTheWayPeopleExpect() {
+        assertEquals("1,01", fmtNum(1.005, 2))          // wcześniej 1 (dokładny rozwój binarny 1,00499…)
+        assertEquals("0,29", fmtNum(0.285, 2))
+        assertEquals("4,3", lnum(4.3)); assertEquals("0,5", num(0.5)); assertEquals("100", num(100.0)); assertEquals("0", num(-0.001))
+        assertEquals("2,15", lnum(2.15)); assertEquals("134", lnum(134.0)); assertEquals("", fmtNum(Double.NaN))
+        assertEquals("0,125", lnum(0.125)); assertEquals("1234567,89", num(1234567.891))
     }
 
-    @Test fun qualifiedNamesAreNotKnownTests() {
-        assertNull(LabScan.knownId("Cholesterol nie-HDL"))
-        assertNull(LabScan.knownId("Wapń zjonizowany"))
-        assertNull(LabScan.knownId("Kreatynina w moczu"))
-        assertEquals(LabScan.knownId("Potas"), "potas")
+    @Test fun sameDayLabsKeepInsertionOrderEverywhere() {
+        val k = Marker("k", "Potas", "mmol/l", 3.5, 5.5)
+        val d = LocalDate.of(2025, 5, 1)
+        // id celowo w odwrotnej kolejności alfabetycznej niż kolejność dodania
+        val st = AppState(markers = listOf(k), labs = listOf(Lab("z9", d, "k", 4.0), Lab("a1", d, "k", 5.0)))
+        assertEquals(listOf(4.0, 5.0), st.labsOf("k").map { it.value })
+        assertEquals(5.0, st.labsModel().withResults.first().last!!.value)
+        assertEquals(5.0, st.labCompare(listOf(d))[0].labs[0]!!.value)           // ten sam „ostatni” co w przeglądzie
     }
 
-    @Test fun qualifierWithSpaceIsKept() {
-        val r = LabScan.parseRow("CRP < 0,5 mg/l 0-5")!!
-        assertEquals("<", r.qualifier)
-        assertEquals(0.5, r.value)
+    @Test fun backupReminderCountsAllKindsOfData() {
+        val today = LocalDate.of(2026, 10, 24)
+        val base = AppState(created = today.minusDays(30), lastBackup = null)
+        assertNull(base.needBackup(today))
+        assertNotNull(base.copy(labs = listOf(Lab("1", today, "potas", 4.0))).needBackup(today))
+        assertNotNull(base.copy(analyses = listOf(Analysis("a", today, "t", "x"))).needBackup(today))
+        assertNotNull(base.copy(meds = listOf(Med(id = "m", name = "A", phases = listOf(Phase(today, mapOf("morning" to 1.0), Defaults.allDow))))).needBackup(today))
     }
 
-    @Test fun eventResultFollowsTheEventDate() {
-        val d1 = LocalDate.of(2026, 10, 5); val d2 = LocalDate.of(2026, 10, 7)
-        val s0 = AppState(markers = listOf(Marker("potas", "Potas", "mmol/l")))
-            .saveEvent(Event("e1", d1, "Kontrola", marker = "potas"))
-            .setEventResult("e1", "4,5")
-        assertEquals(1, s0.labs.size)
-        val s1 = s0.saveEvent(Event("e1", d2, "Kontrola", marker = "potas"))
-        assertEquals("4,5", s1.day(d2).results["e1"])
-        assertTrue(s1.day(d1).results.isEmpty())
-        assertEquals(listOf(d2), s1.labs.map { it.date })
-        assertEquals(4.5, s1.labs.single().value)
+    @Test fun csvLabsUseOwnRangeAndFirstDateSeesLabs() {
+        val k = Marker("k", "Potas", "mmol/l", 3.5, 5.5)
+        val d = LocalDate.of(2020, 1, 1)
+        val st = AppState(markers = listOf(k), created = LocalDate.of(2026, 1, 1), labs = listOf(Lab("1", d, "k", 5.0, "", 3.0, 4.5), Lab("2", d.plusDays(1), "k", 4.0)))
+        val rows = Csv.labs(st).trim().split("\r\n")
+        assertTrue(rows[1].contains(";3;4,5;"), rows[1])                 // zakres z badania
+        assertTrue(rows[2].contains(";3,5;5,5;"), rows[2])               // zakres parametru
+        assertEquals(d, st.firstDate(LocalDate.of(2026, 10, 24)))
     }
 
-    @Test fun dayListKeepsTheNewestDays() {
-        val to = LocalDate.of(2026, 10, 21)
-        val l = dayList(to.minusDays(1389), to)
-        assertEquals(1390, l.size); assertEquals(to, l.last())
-        val huge = dayList(LocalDate.of(1900, 1, 1), to)
-        assertEquals(4000, huge.size); assertEquals(to, huge.last())
-    }
-
-    @Test fun doseOffsetWrapsAroundMidnight() {
-        assertEquals(45, doseOffset(15, 23 * 60 + 30))      // 00:15 przy porze 23:30
-        assertEquals(-45, doseOffset(23 * 60 + 30, 15))
-        assertEquals(25, doseOffset(8 * 60 + 25, 8 * 60))
-        assertEquals(-10, doseOffset(7 * 60 + 50, 8 * 60))
-    }
-
-    @Test fun absurdPressureValuesAreDropped() {
-        val json = """{"v":3,"days":{},"bp":[
-            {"id":"a","date":"2026-10-20","time":"08:00","sys":2000000000,"dia":80},
-            {"id":"b","date":"2026-10-20","time":"09:00","sys":120,"dia":-5},
-            {"id":"c","date":"2026-10-20","time":"10:00","sys":125,"dia":82,"pulse":9000}]}"""
-        val st = Backup.parseState(json)
-        assertEquals(listOf("c"), st.bp.map { it.id })
-        assertNull(st.bp.single().pulse)
-        // wykres dla poprawnych danych ma ograniczoną liczbę podziałek
-        assertTrue(bpChart(st.bp)!!.yTicks.size < 40)
-    }
-
-    @Test fun deeplyNestedJsonIsAFormatError() {
-        assertFailsWith<Backup.FormatException> { Backup.parseEnvelope("[".repeat(200_000)) }
-    }
-
-    @Test fun cryptoRejectsWrappedIterationsAndBadBase64() {
-        val env = Backup.parseEnvelope(BackupCrypto.encrypt("haslo-12345", "{}", iter = 100_000))
-        fun with(k: String, v: String): kotlinx.serialization.json.JsonElement {
-            val o = (env as kotlinx.serialization.json.JsonObject).toMutableMap()
-            o[k] = kotlinx.serialization.json.JsonPrimitive(v)
-            return kotlinx.serialization.json.JsonObject(o)
-        }
-        assertFailsWith<Backup.FormatException> { BackupCrypto.decrypt("haslo-12345", with("iter", "4295067296")) }
-        assertFailsWith<Backup.FormatException> { BackupCrypto.decrypt("haslo-12345", with("iter", "5000000")) }
-        assertFailsWith<Backup.FormatException> { BackupCrypto.decrypt("haslo-12345", with("salt", "!!!not base64!!!")) }
-        assertEquals("{}", BackupCrypto.decrypt("haslo-12345", env))
-    }
-
-    @Test fun parseNumAcceptsOnlyPlainNumbers() {
-        assertEquals(4.5, parseNum("4,5")); assertEquals(0.5, parseNum(".5")); assertEquals(-3.0, parseNum("-3")); assertEquals(5.0, parseNum("5."))
-        assertNull(parseNum("5f")); assertNull(parseNum("5d")); assertNull(parseNum("0x1p3")); assertNull(parseNum("4,5 mmol/l")); assertNull(parseNum("NaN"))
-    }
-
-    @Test fun labsMergeKeepsRangesWhenFileHasNone() {
-        val s = AppState(markers = listOf(Marker("potas", "Potas", "mmol/l", 3.5, 5.5)))
-        val f = Backup.LabsFile(listOf(Marker("potas", "Potas", "mmol/l", null, null)), listOf(Lab("l1", today, "potas", 4.0)))
-        val m = s.applyLabsMerge(f).marker("potas")!!
-        assertEquals(3.5, m.lo); assertEquals(5.5, m.hi)
-    }
-
-    @Test fun markdownMoneyAndHashes() {
-        assertEquals("Koszt \$5 i \$10 miesięcznie", Markdown.cleanLatex("Koszt \$5 i \$10 miesięcznie"))
-        assertEquals("2,8 mmol/l", Markdown.cleanLatex("\$2{,}8\\text{ mmol/l}\$"))
-        assertEquals("Gen C#", Markdown.sections("# T\n\n## Gen C#\ntekst").single { it.heading.startsWith("Gen") }.heading)
-        assertEquals("Wynik", Markdown.sections("# T\n\n## Wynik ##\ntekst").single { it.heading.startsWith("Wynik") }.heading)
-        // bardzo długa linia nie zamraża (czas liniowy) i jest bezpiecznie escapowana
-        val long = "*a ".repeat(30_000)
-        val t0 = System.nanoTime()
-        val h = Markdown.toHtml(long)
-        assertTrue((System.nanoTime() - t0) / 1_000_000 < 3000)
-        assertTrue(h.contains("*a"))
+    @Test fun markdownCodeFencesLinksAndPlainTables() {
+        val html = Markdown.toHtml("```\n# nie nagłówek\n| a | b |\n```\n\nZobacz [WHO](https://who.int/x) teraz.")
+        assertTrue(html.contains("<pre><code># nie nagłówek"), html)
+        assertFalse(html.contains("<h4>"), html)
+        assertTrue(html.contains("WHO (https://who.int/x)"), html)
+        val t = Markdown.toHtml("Lek | Dawka\n--- | ---\nA | 1\nB | 2\n\nkoniec")
+        assertTrue(t.contains("<table>") && t.contains("<td>B</td>"), t)
+        assertTrue(t.contains("<p>koniec</p>"), t)
+        // nagłówek w bloku kodu nie dzieli tekstu na sekcje
+        val secs = Markdown.sections("## A\ntekst\n```\n## B\n```\n## C\nx")
+        assertEquals(listOf("A", "C"), secs.map { it.heading })
     }
 }

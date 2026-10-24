@@ -50,7 +50,10 @@ object Markdown {
     /** Dzieli tekst na sekcje według nagłówków najwyższego poziomu poniżej tytułu (zwykle ##). Tekst przed pierwszą sekcją to "Wstęp". */
     fun sections(md: String): List<Section> {
         val lines = md.replace("\r\n", "\n").split("\n")
-        val levels = lines.mapNotNull { headingRe.find(it)?.groupValues?.get(1)?.length }.filter { it >= 2 }
+        var fence = false
+        val levels = lines.mapNotNull { ln ->
+            if (ln.trim().startsWith("```")) { fence = !fence; null } else if (fence) null else headingRe.find(ln)?.groupValues?.get(1)?.length
+        }.filter { it >= 2 }
         if (levels.isEmpty()) return if (md.isBlank()) emptyList() else listOf(Section("Całość", md.trim()))
         val split = levels.min()
         val out = ArrayList<Section>()
@@ -61,8 +64,10 @@ object Markdown {
             val b = cur.toString().trim()
             if (b.isNotEmpty() && (started || b.isNotBlank())) out.add(Section(title, b))
         }
+        var inFence = false
         for (ln in lines) {
-            val h = headingRe.find(ln)
+            if (ln.trim().startsWith("```")) inFence = !inFence
+            val h = if (inFence) null else headingRe.find(ln)
             if (h != null && h.groupValues[1].length == split) {
                 flush(); cur = StringBuilder(); started = true; title = headingText(h.groupValues[2])
             }
@@ -91,6 +96,8 @@ object Markdown {
     private val boldRe = Regex("""\*\*(.+?)\*\*""")
     private val italicRe = Regex("""(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?![*\w])""")
     private val codeRe = Regex("""`([^`]+)`""")
+    /** Odnośniki [tekst](adres) w raporcie do druku nie działają, więc zostaje tekst z adresem w nawiasie. */
+    private val linkRe = Regex("""\[([^\]\[]+)]\((https?://[^\s)]+)\)""")
     private val listRe = Regex("""^(\s*)([-*+•]|\d+[.)])\s+(.*)$""")
     private val sepRe = Regex("""^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$""")
 
@@ -107,6 +114,7 @@ object Markdown {
         // bardzo długie linie bez formatowania: wyrażenia regularne mają tu kwadratowy czas i zamrażały ekran
         if (s.length > 3000) return esc(s)
         var t = esc(s)
+        t = linkRe.replace(t) { "${it.groupValues[1]} (${it.groupValues[2]})" }
         t = codeRe.replace(t) { "<code>${it.groupValues[1]}</code>" }
         t = boldRe.replace(t) { "<b>${it.groupValues[1]}</b>" }
         t = italicRe.replace(t) { "<i>${it.groupValues[1]}</i>" }
@@ -156,6 +164,16 @@ object Markdown {
             val ln = lines[i]
             val t = ln.trim()
             if (t.isEmpty()) { flushPara(); i++; continue }
+            if (t.startsWith("```")) {
+                // blok kodu: bez interpretacji Markdown w środku
+                flushPara()
+                val code = ArrayList<String>()
+                i++
+                while (i < lines.size && !lines[i].trim().startsWith("```")) { code.add(lines[i]); i++ }
+                i++ // zamykające ```
+                out.append("<pre><code>").append(esc(code.joinToString("\n"))).append("</code></pre>")
+                continue
+            }
             val h = headingRe.find(t)
             if (h != null) {
                 flushPara()
@@ -168,12 +186,12 @@ object Markdown {
                 i++; continue
             }
             if (Regex("""^(-{3,}|\*{3,}|_{3,})$""").matches(t)) { flushPara(); out.append("<hr>"); i++; continue }
-            if (t.startsWith("|") && i + 1 < lines.size && sepRe.matches(lines[i + 1])) {
+            if (t.contains("|") && i + 1 < lines.size && sepRe.matches(lines[i + 1]) && lines[i + 1].contains("-")) {
                 flushPara()
                 val head = cells(t)
                 out.append("<div class=\"tbl\"><table><thead><tr>").append(head.joinToString("") { "<th>${inline(it)}</th>" }).append("</tr></thead><tbody>")
                 i += 2
-                while (i < lines.size && lines[i].trim().startsWith("|")) {
+                while (i < lines.size && lines[i].isNotBlank() && lines[i].contains("|")) {
                     out.append("<tr>").append(cells(lines[i]).joinToString("") { "<td>${inline(it)}</td>" }).append("</tr>")
                     i++
                 }

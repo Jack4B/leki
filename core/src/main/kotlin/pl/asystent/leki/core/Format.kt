@@ -30,7 +30,8 @@ fun longDay(d: LocalDate): String =
 /** Liczba z przecinkiem dziesiętnym, bez zbędnych zer: 1 → "1", 0.5 → "0,5". */
 fun fmtNum(n: Double, decimals: Int = 2): String {
     if (n.isNaN() || n.isInfinite()) return ""
-    val s = BigDecimal(n).setScale(decimals, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+    // valueOf (najkrótszy zapis dziesiętny), a nie BigDecimal(n): 1,005 ma się zaokrąglić do 1,01, a nie do 1 przez dokładny rozwój binarny (1,00499…)
+    val s = BigDecimal.valueOf(n).setScale(decimals, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
     return s.replace('.', ',')
 }
 

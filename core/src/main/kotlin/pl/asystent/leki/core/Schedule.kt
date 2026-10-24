@@ -60,6 +60,8 @@ fun AppState.firstDate(today: LocalDate): LocalDate {
     if (created < d) d = created
     days.keys.forEach { if (it < d) d = it }
     bp.forEach { if (it.date < d) d = it.date }
+    labs.forEach { if (it.date < d) d = it.date }
+    ecgs.forEach { if (it.date < d) d = it.date }
     return d
 }
 

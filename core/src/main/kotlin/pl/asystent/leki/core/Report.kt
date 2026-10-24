@@ -68,6 +68,7 @@ p{margin:4px 0 8px;font-size:12.5px}
 blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--line);color:var(--ink-2);font-size:12.5px}
 hr{border:0;border-top:1px solid var(--line);margin:10px 0}
 code{font-family:var(--mono);font-size:12px}
+pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font-size:11.5px;white-space:pre-wrap;word-break:break-word}
 .ai table{margin:6px 0 10px}
 .co{margin:6px 0 8px;padding:7px 11px;border-radius:8px;border-left:4px solid;font-size:12.5px}
 .co-urgent{background:#fdecea;border-color:#b3261e}
@@ -275,7 +276,7 @@ code{font-family:var(--mono);font-size:12px}
             h.append("<div class=\"rp-lab\">Pojedyncze wyniki</div><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Parametr</th><th>Wynik</th><th>Zakres</th><th>Ocena</th></tr></thead><tbody>")
             singles.forEach { (m, l) ->
                 val f = labFlag(l, m)
-                h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td>${esc(m.name)}</td><td class=\"num\"><b>${lnum(l.value)}</b> ${esc(m.unit)}</td><td class=\"num\">${esc(rangeText(m).ifEmpty { "-" })}</td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td></tr>")
+                h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td>${esc(m.name)}</td><td class=\"num\"><b>${lnum(l.value)}</b> ${esc(m.unit)}</td><td class=\"num\">${esc(rangeText(l, m).ifEmpty { "-" })}</td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td></tr>")
             }
             h.append("</tbody></table></div>")
         }

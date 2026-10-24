@@ -143,7 +143,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
                         val picked = s.reportAnalysis()
                         if (s.analyses.isEmpty()) {
-                            BodyText("Wklej odpowiedź AI na raport z karty „Dla AI”, a trafi na koniec raportu dla lekarza (opisana jako analiza AI).")
+                            BodyText("Wklej odpowiedź AI na raport z karty „Dla AI” albo wczytaj ją z pliku Markdown, a trafi na koniec raportu dla lekarza (opisana jako analiza AI).")
                         } else LekiCard {
                             s.analyses.sortedByDescending { it.date }.forEachIndexed { i, a ->
                                 if (i > 0) Divider()
@@ -155,7 +155,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                                 }
                             }
                         }
-                        LekiButton(if (s.analyses.isEmpty()) "Wklej odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
+                        LekiButton(if (s.analyses.isEmpty()) "Wklej lub wczytaj odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
                     if (rp.labs) {
                         Spacer8()
@@ -206,7 +206,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     }
                     LinkButton((if (showAi) "▾ " else "▸ ") + "Podgląd treści", { showAi = !showAi }, Modifier.padding(top = 4.dp))
                     if (showAi) LekiField("", text, {}, readOnly = true, singleLine = false, minLines = 8, mono = true)
-                    LinkButton("Wklej odpowiedź AI do raportu dla lekarza", { editId = ""; editorOpen = true }, Modifier.padding(top = 4.dp))
+                    LinkButton("Wklej lub wczytaj odpowiedź AI do raportu dla lekarza", { editId = ""; editorOpen = true }, Modifier.padding(top = 4.dp))
                     Hint("Długość: ${"%,d".format(java.util.Locale.forLanguageTag("pl"), text.length)} znaków (około ${Math.round(text.length / 3.5 / 100) * 100} tokenów). Odpowiedź AI to pomoc w przygotowaniu pytań do lekarza lub farmaceuty, a nie porada medyczna.")
                 }
             }

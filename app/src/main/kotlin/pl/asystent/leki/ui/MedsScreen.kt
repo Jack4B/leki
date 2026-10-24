@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -71,6 +72,7 @@ import pl.asystent.leki.core.setDayNote
 import pl.asystent.leki.core.setDoseTime
 import pl.asystent.leki.core.setEventResult
 import pl.asystent.leki.core.setWater
+import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.shortDate
 import pl.asystent.leki.core.skipDose
 import pl.asystent.leki.core.lowStock
@@ -243,10 +245,10 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
                     for (i in 1..goal) {
                         val on = i <= rec.water
                         Box(
-                            Modifier.size(width = 31.dp, height = 40.dp).clip(CtlShape).border(1.dp, if (on) pal.accent else pal.line, CtlShape)
+                            Modifier.size(width = 31.dp, height = 48.dp).clip(CtlShape).border(1.dp, if (on) pal.accent else pal.line, CtlShape)
                                 .background(if (on) pal.accent else pal.surface)
                                 .clickable(role = Role.Button) { if (sel > today) toast("Nie można zapisywać wody z przyszłości.") else store.update { it.setWater(sel, i) } }
-                                .semantics { contentDescription = "$i szklanek" },
+                                .semantics { contentDescription = "$i ${plN(i, "szklanka", "szklanki", "szklanek")}"; stateDescription = if (on) "wypite" else "niewypite" },
                             contentAlignment = Alignment.Center,
                         ) { PhIcon(Ph.Drop, size = 16.dp, tint = if (on) pal.accentInk else pal.ink3) }
                     }
@@ -255,8 +257,12 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, recove
             }
         }
 
-        if (s.stockOverview(today).isNotEmpty()) item {
-            LinkButton("Sprawdź zapasy leków ›", nav.showMeds, Modifier.padding(top = 16.dp))
+        // dodawanie leku nie ma być schowane tylko w Ustawieniach: skróty pod listą dnia
+        if (s.meds.isNotEmpty()) item {
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                LinkButton("Dodaj lek ›", nav.newMed)
+                if (s.stockOverview(today).isNotEmpty()) LinkButton("Zapasy leków ›", nav.showMeds)
+            }
         }
         item {
             var note by remember(selStr) { mutableStateOf(rec.note) }

@@ -211,7 +211,8 @@ fun AppState.deleteMed(id: String): AppState {
 
 /** Tekst przypomnienia o kopii zapasowej albo null, gdy nie trzeba. */
 fun AppState.needBackup(today: LocalDate): String? {
-    if (bp.isEmpty() && days.isEmpty()) return null
+    // dane do stracenia to nie tylko ciśnienie i odhaczenia, ale też leki, badania, EKG i analizy
+    if (bp.isEmpty() && days.isEmpty() && meds.isEmpty() && labs.isEmpty() && ecgs.isEmpty() && analyses.isEmpty()) return null
     val lb = lastBackup ?: return if (daysBetween(created, today) >= 3) "nigdy" else null
     val n = daysBetween(lb, today)
     return if (n >= 7) "$n dni temu" else null

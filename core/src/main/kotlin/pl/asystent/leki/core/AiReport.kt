@@ -194,7 +194,7 @@ object AiReport {
                 val all = s.labsOf(m.id, per.to)
                 if (all.isEmpty()) return@mapNotNull null
                 val f = labFlag(all.last(), m)
-                listOf(m.name, m.unit, rangeText(m).ifEmpty { "brak" }, all.takeLast(8).joinToString("; ") { plDate(it.date) + ": " + lnum(it.value) }, f.ifEmpty { "w zakresie" })
+                listOf(m.name, m.unit, rangeText(all.last(), m).ifEmpty { "brak" }, all.takeLast(8).joinToString("; ") { plDate(it.date) + ": " + lnum(it.value) }, f.ifEmpty { "w zakresie" })
             }
             if (rows.isNotEmpty()) {
                 p(table(listOf("Parametr", "Jednostka", "Zakres odniesienia", "Ostatnie wyniki (od najstarszego)", "Ocena ostatniego wyniku"), rows))

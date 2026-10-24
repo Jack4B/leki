@@ -61,7 +61,8 @@ fun rangeText(m: Marker): String = when {
 }
 
 fun AppState.labsOf(markerId: String, upTo: LocalDate? = null): List<Lab> =
-    labs.filter { it.marker == markerId && (upTo == null || it.date <= upTo) }.sortedWith(compareBy({ it.date }, { it.id }))
+    // sortowanie jest stabilne: kilka wyników z tego samego dnia zostaje w kolejności dodania, więc „ostatni” to ostatnio dodany (tak samo w porównaniu dni)
+    labs.filter { it.marker == markerId && (upTo == null || it.date <= upTo) }.sortedBy { it.date }
 
 data class LabRow(val marker: Marker, val list: List<Lab>) {
     val last: Lab? get() = list.lastOrNull()

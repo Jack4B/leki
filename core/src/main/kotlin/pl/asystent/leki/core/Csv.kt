@@ -35,7 +35,10 @@ object Csv {
         listOf("Data", "Parametr", "Wartość", "Jednostka", "Norma od", "Norma do", "Notatka"),
         s.labs.filter { inRange(it.date, from, to) }.sortedWith(compareBy<Lab> { it.date }.thenBy { it.marker }).map { l ->
             val m = s.marker(l.marker)
-            listOf(l.date.toString(), m?.name ?: l.marker, lnum(l.value), m?.unit ?: "", m?.lo?.let { lnum(it) } ?: "", m?.hi?.let { lnum(it) } ?: "", l.note)
+            // zakres z danego badania, a gdy go nie ma, zakres parametru
+            val lo = if (l.lo != null || l.hi != null) l.lo else m?.lo
+            val hi = if (l.lo != null || l.hi != null) l.hi else m?.hi
+            listOf(l.date.toString(), m?.name ?: l.marker, lnum(l.value), m?.unit ?: "", lo?.let { lnum(it) } ?: "", hi?.let { lnum(it) } ?: "", l.note)
         },
     )
 
