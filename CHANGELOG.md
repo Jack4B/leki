@@ -1,5 +1,9 @@
 # Zmiany
 
+## Bez zmiany wersji (dokumentacja)
+
+- **Plan szyfrowania danych** (`docs/plan-szyfrowanie.md`, szkic do zatwierdzenia, bez kodu): klucz AES-GCM w Android Keystore, format pliku, migracja odporna na zabicie procesu, utrata klucza, kopie zapasowe, testy, wycofanie.
+
 ## 0.14.4-preview
 
 Poprawki z review PR #1 (Nexus): dwa P1 dotyczące ochrony danych w `Store`, trzy P2 (limit dawki, CSP, testy magazynu osób).
