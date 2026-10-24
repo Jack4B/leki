@@ -30,6 +30,14 @@ object Backup {
     /** Górny limit rozmiaru importowanego pliku kopii (zwykła kopia ma kilkaset KB; EKG może ją powiększyć do kilku MB). */
     const val MAX_IMPORT_BYTES = 20 * 1024 * 1024
 
+    /**
+     * Największa dawka jednorazowa wczytywana z kopii, w jednostce leku (tabletki, ml, mg…). Dawki bywają podawane w mg (np. 500 albo 850),
+     * więc dawny limit 50 po cichu usuwał prawidłowe dawki; 1000 mieści typowe dawki w mg i odrzuca tylko oczywiste błędy (np. wynik
+     * pomyłki w znaku dziesiętnym). Limit nie zależy od jednostki: taka walidacja wymagałaby listy jednostek i znajomości leku, a błędne
+     * odrzucenie dawki jest groźniejsze niż przepuszczenie niezwykłej wartości (użytkownik widzi ją w aplikacji i może poprawić).
+     */
+    const val MAX_DOSE = 1000.0
+
     class TooLargeException : Exception("Plik jest za duży (limit ${MAX_IMPORT_BYTES / (1024 * 1024)} MB). To nie wygląda na kopię z tej aplikacji.")
 
     /** Zamienia bajty odczytane z limitem (najwyżej [MAX_IMPORT_BYTES] + 1) na tekst; za duży plik kończy się [TooLargeException]. */
@@ -163,7 +171,7 @@ object Backup {
                 val from = p["from"].date() ?: return@mapNotNull null
                 val dosesIn = p["doses"] as? JsonObject ?: return@mapNotNull null
                 val doses = LinkedHashMap<String, Double>()
-                dosesIn.forEach { (k, v) -> val n = jsFloat(v) ?: 0.0; if (n > 0 && n <= 1000) doses[k] = n }
+                dosesIn.forEach { (k, v) -> val n = jsFloat(v) ?: 0.0; if (n > 0 && n <= MAX_DOSE) doses[k] = n }
                 val dow = (p["dow"].arr()?.mapNotNull { it.number() } ?: Defaults.allDow.map { it.toDouble() })
                     .filter { it in 0.0..6.0 && it % 1.0 == 0.0 }.map { it.toInt() }
                 Phase(from, doses, dow.ifEmpty { Defaults.allDow })

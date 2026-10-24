@@ -39,6 +39,16 @@ class SafetyTest {
         assertEquals(10.0, back[st.slots.last().id])
     }
 
+    @Test fun doseLimitKeepsMilligramDosesAndDropsAbsurdOnes() {
+        val st = Fixtures.state
+        val med = st.meds.first()
+        val a = st.slots.first().id; val b = st.slots.last().id
+        val big = st.copy(meds = listOf(med.copy(phases = listOf(Phase(Fixtures.today.minusDays(5), mapOf(a to Backup.MAX_DOSE, b to Backup.MAX_DOSE + 1), Defaults.allDow)))))
+        val back = Backup.parseState(Backup.export(big)).meds.first().phases.first().doses
+        assertEquals(Backup.MAX_DOSE, back[a])
+        assertNull(back[b])
+    }
+
     @Test fun markAllKeepsSkippedDosesAndLaterSlotsToday() {
         val st = Fixtures.state
         val today = Fixtures.today
