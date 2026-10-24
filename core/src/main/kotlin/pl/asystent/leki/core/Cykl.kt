@@ -111,8 +111,11 @@ object Cykl {
         return JsonObject(m)
     }
 
-    /** Polityka treści strony modułu: żadnych zasobów spoza strony, tylko jej własny skrypt i style (plus blob/data do zapisu pliku). */
-    const val CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src blob: data:"
+    /**
+     * Polityka treści strony modułu: żadnych zasobów spoza strony, tylko jej własny skrypt i style (plus blob/data do zapisu pliku:
+     * `connect-src`, bo most w `host.js` pobiera `blob:` przez fetch). Ten sam napis jest w `cykl/src/index.html` (pilnuje tego test w `cykl/test`).
+     */
+    const val CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src blob: data:"
 
     /**
      * Składa stronę modułu: polityka treści i most z aplikacją na początku `<head>`, nakładka wyglądu na jego końcu.

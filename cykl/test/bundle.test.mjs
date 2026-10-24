@@ -90,3 +90,13 @@ test("osadzenie: motyw przyjmowany tylko od rodzica i tylko poprawne wartości",
   fire(a.win.parent, { type: "cykl-theme", theme: "<script>" });
   assert.equal(a.store.cykl_theme, "dark", "nieprawidłowa wartość ignorowana");
 });
+
+test("CSP: strona ma własną politykę treści, zgodną z Cykl.CSP po stronie aplikacji i bez zasobów z sieci", () => {
+  const csp = page.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)">/)?.[1];
+  assert.ok(csp, "brak meta CSP w cykl.html");
+  const kt = readFileSync(new URL("../../core/src/main/kotlin/pl/asystent/leki/core/Cykl.kt", import.meta.url), "utf8");
+  const ktCsp = kt.match(/const val CSP = "([^"]*)"/)?.[1];
+  assert.equal(csp, ktCsp, "CSP w index.html i Cykl.CSP muszą być takie same");
+  assert.match(csp, /^default-src 'none';/);
+  assert.ok(!/https?:|\*/.test(csp), "CSP nie może zezwalać na sieć");
+});
