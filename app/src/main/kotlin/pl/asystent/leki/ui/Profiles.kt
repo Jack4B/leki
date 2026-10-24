@@ -28,8 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -225,15 +227,22 @@ fun PeopleSection(s: AppState, store: Store) {
 @Composable
 fun BackupScopePicker(profiles: List<ProfileInfo>, selected: Set<String>, onChange: (Set<String>) -> Unit) {
     if (profiles.size < 2) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Co ma zawierać kopia", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToggleChip("Wszystkie osoby", selected.isEmpty()) { onChange(emptySet()) }
-            profiles.forEach { p -> ToggleChip(p.name, p.id in selected) { onChange(if (p.id in selected) selected - p.id else selected + p.id) } }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Co ma zawierać kopia (zaszyfrowana, Zapisz JSON i Kopiuj JSON)", Modifier.semantics { heading() }, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
+        androidx.compose.foundation.layout.FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ToggleChip("Wszystkie osoby", selected.isEmpty(), Role.RadioButton) { onChange(emptySet()) }
+            profiles.forEach { p ->
+                ToggleChip(p.name, p.id in selected) {
+                    val next = if (p.id in selected) selected - p.id else selected + p.id
+                    // wszystkie osoby zaznaczone pojedynczo to po prostu kopia całości
+                    onChange(if (next.size == profiles.size) emptySet() else next)
+                }
+            }
         }
         Hint(
             if (selected.isEmpty()) "Kopia obejmuje wszystkie osoby (do wczytania na tym samym albo nowym telefonie)."
-            else "Kopia obejmie tylko: " + profiles.filter { it.id in selected }.joinToString(", ") { it.name } + ". Wspólny dziennik cyklu zostanie dołączony do osoby, która z niego korzysta. Automatyczna kopia do folderu zawsze obejmuje wszystkie osoby.",
+            else "Kopia obejmie tylko: " + profiles.filter { it.id in selected }.joinToString(", ") { it.name } + ".",
+            live = true,
         )
     }
 }

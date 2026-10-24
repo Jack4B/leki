@@ -117,7 +117,7 @@ Wykres ma stałą skalę czasu, więc przy długim okresie nie zlewa się w kres
 Pod nazwą aplikacji w nagłówku jest wybór osoby (kółko z inicjałem i imię). Dotknięcie pokazuje listę osób, „Dodaj osobę” i „Zarządzaj osobami” (Ustawienia → Osoby). Każda osoba ma **osobne** leki, odhaczenia, ciśnienie, badania, EKG, analizy AI, ustawienia raportów, kontrole i dziennik cyklu, więc raporty (dla lekarza i dla AI), badania i wszystkie wykresy zawsze dotyczą wybranej osoby. Wspólne są tylko wygląd (motyw), blokada aplikacji i ustawienia automatycznej kopii. Do 8 osób.
 
 - **Kopie zapasowe** (zwykła, zaszyfrowana hasłem, „Kopiuj JSON”, automatyczna do folderu) domyślnie zawierają wszystkie osoby. W Ustawienia → Kopie zapasowe i dane można wybrać **tylko niektóre osoby** (np. żeby przenieść dane jednej osoby na jej telefon); wtedy wspólny dziennik cyklu jest dołączany do osoby, która z niego korzysta. Automatyczna kopia do folderu zawsze obejmuje wszystkich.
-- **Wczytywanie kopii na innym telefonie:** zainstaluj aplikację, w Ustawieniach wybierz „Wczytaj kopię z pliku” (pasuje do kopii wszystkich albo wybranych osób, także zaszyfrowanej). Gdy w aplikacji już ktoś jest, możesz **dopisać osoby z pliku** zamiast zastępować wszystko. Starsza wersja aplikacji wczyta z nich pierwszą osobę.
+- **Wczytywanie kopii na innym telefonie:** zainstaluj aplikację, wybierz Ustawienia → Kopie zapasowe i dane → „Wczytaj kopię z pliku” (pasuje do kopii wszystkich albo wybranych osób, także zaszyfrowanej). Na świeżej aplikacji jest jedno „Wczytaj kopię”. Gdy w aplikacji już ktoś jest, okno wylicza osoby z pliku i daje wybór: **„Dodaj osoby z pliku”** (niczego nie usuwa; powtórzone imię dostaje dopisek „(z pliku)”, limit 8 osób, po dodaniu otwiera się dodana osoba, a jej przypomnienia o lekach działają od razu na tym telefonie) albo **„Zastąp wszystkie dane”** (usuwa osoby z telefonu; można to od razu wycofać przyciskiem „Cofnij”, po cofnięciu aktywna jest pierwsza osoba). Starsza wersja aplikacji wczyta z kopii pierwszą osobę. **Uwaga:** „Zapisz JSON” i „Kopiuj JSON” nie szyfrują danych. Plik, który wysyłasz komuś albo do chmury, rób jako zaszyfrowaną kopię, a hasło przekaż osobno. Nazwy plików nie zawierają imion (JSON: `leki-kopia-RRRR-MM-DD[-wybrane].json`).
 - **Przypomnienia** działają dla wszystkich osób; przy więcej niż jednej osobie tytuł powiadomienia zaczyna się od imienia.
 - **Wspólny dziennik cyklu:** Ustawienia → Moduł Cykl → „Czyj dziennik”: osoby mogą współdzielić jeden dziennik (wpisy zmieniane przez jedną są widoczne u drugiej). Dane są zapisane u osoby-właściciela; raporty i „Podsumowanie cyklu” korzystają z dziennika wspólnego. Działa w jednej aplikacji na jednym telefonie; między dwoma telefonami nie ma synchronizacji (aplikacja nie ma sieci), można przenosić plik dziennika lub kopię zapasową.
 - **Przeniesienie dziennika cyklu:** Ustawienia → Osoby → „Przenieś do: …” (gdy wybrana osoba ma dziennik, a inna go nie ma).
@@ -175,8 +175,8 @@ Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na ins
 
 Wersja 0.3 ma inny identyfikator (`pl.asystent.leki`), więc instaluje się **obok** starej i niczego jej nie kasuje.
 
-1. W starej aplikacji: **Ustawienia → Dane → Zaszyfrowana kopia** (albo Pobierz JSON) i zapisz plik.
-2. W nowej aplikacji: **Ustawienia → Dane → Wczytaj kopię z pliku**, wybierz plik (przy zaszyfrowanym wpisz hasło).
+1. W starej aplikacji: **Ustawienia → Kopie zapasowe i dane → Zaszyfrowana kopia** (albo Pobierz JSON) i zapisz plik.
+2. W nowej aplikacji: **Ustawienia → Kopie zapasowe i dane → Wczytaj kopię z pliku**, wybierz plik (przy zaszyfrowanym wpisz hasło).
 3. Włącz przypomnienia w **Ustawienia → Przypomnienia o lekach** (Android poprosi o zgodę na powiadomienia). Przycisk **„Wyślij testowe powiadomienie”** też o nią prosi i wysyła dwa powiadomienia: od razu oraz po kilku sekundach z alarmu. Gdy przychodzi tylko pierwsze, zezwól aplikacji na pracę w tle i autostart (Realme, Oppo, Xiaomi: Ustawienia aplikacji w telefonie → Bateria).
 4. Dopiero gdy wszystko się zgadza, odinstaluj starą aplikację.
 
@@ -212,7 +212,7 @@ Nowy APK instaluje się **na wierzch** (bez odinstalowywania) i dane zostają, a
 3. **Zachowaj kopię klucza** (plik albo napis base64) w menedżerze haseł, poza repozytorium. Bez niego nie da się podpisać aktualizacji tym samym podpisem, a zgubienie klucza oznacza jednorazową reinstalację aplikacji (z kopii zapasowej danych). Klucz nigdy nie może trafić do repozytorium (`*.keystore` jest w `.gitignore`, a repozytorium jest publiczne).
 4. Po poprawnej konfiguracji opis każdego wydania zawiera linię „Podpis: stały klucz” z odciskiem certyfikatu (SHA-256). Ten odcisk ma być taki sam w każdej wersji.
 
-Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
+Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Kopie zapasowe i dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
 
 ### Aktualizacje przez Obtainium
 

@@ -115,8 +115,10 @@ fun SettingsScreen(
     var showEnded by rememberSaveable { mutableStateOf(false) }
     // zakres kopii: puste = wszystkie osoby
     var backupIds by remember { mutableStateOf(setOf<String>()) }
-    val backupOnly: Set<String>? = backupIds.takeIf { it.isNotEmpty() }
-    val saveJson = rememberJsonSaver(s, store) { backupIds.takeIf { it.isNotEmpty() } }
+    // usunięta osoba nie może zostać w zakresie (inaczej nazwa pliku mówiłaby „wybrane”, a kopia obejmowała wszystkich)
+    fun validScope(): Set<String>? = backupIds.intersect(store.profiles.value.map { it.id }.toSet()).takeIf { it.isNotEmpty() }
+    val backupOnly: Set<String>? = validScope()
+    val saveJson = rememberJsonSaver(s, store) { validScope() }
 
     BackHandler(enabled = page != Page.Home) { pageName = Page.Home.name }
     LaunchedEffect(showMedsRequest) { if (showMedsRequest) { pageName = Page.Meds.name; onShowMedsHandled() } }
@@ -213,8 +215,15 @@ fun SettingsScreen(
                 Page.Data -> item {
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BodyText("Ostatnia kopia: " + (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
-                            BackupScopePicker(store.profiles.value, backupIds) { backupIds = it }
+                            BodyText("Ostatnia kopia: " + (if (store.profiles.value.size > 1) store.allStates().joinToString(", ") { (pr, st) -> pr.name + " " + (st.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono") } else (s.lastBackup?.let { plDate(it) } ?: "jeszcze nie zrobiono")) + ". Dane są zapisane tylko na tym urządzeniu, w tej aplikacji. Odinstalowanie aplikacji albo wyczyszczenie jej danych usunie je, dopóki nie wczytasz kopii.")
+                            Overline("Zrób kopię", Modifier.padding(bottom = 0.dp))
+                            BackupScopePicker(store.profiles.value, backupOnly.orEmpty()) { backupIds = it }
+                            if (store.profiles.value.size > 1) Hint("Automatyczna kopia do folderu zawsze obejmuje wszystkie osoby.")
+                            val shared = store.profiles.value.filter { backupOnly == null || it.id in backupOnly }.mapNotNull { pr ->
+                                val owner = store.cyklOwner(pr.id)
+                                if (owner != pr.id && backupOnly != null && owner !in backupOnly) pr.name to (store.profiles.value.firstOrNull { it.id == owner }?.name ?: "") else null
+                            }
+                            if (shared.isNotEmpty()) BodyText(shared.joinToString(" ") { (who, owner) -> "$who korzysta z dziennika cyklu osoby $owner, więc ten dziennik trafi do kopii. Na nowym telefonie będzie to osobna kopia dziennika, bez synchronizacji." })
                             LekiButton("Zaszyfrowana kopia (hasło)", { encrypt = true }, Modifier.fillMaxWidth(), primary = true, icon = Ph.LockKey)
                             Hint("Zalecane do chmury (Dysk Google, Filen). Dane są szyfrowane na tym urządzeniu, zanim opuszczą telefon.")
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -225,6 +234,9 @@ fun SettingsScreen(
                                     } else toast("Za dużo danych na schowek. Użyj „Zapisz JSON” albo zaszyfrowanej kopii.")
                                 }, Modifier.weight(1f), tonal = true, icon = Ph.Copy)
                             }
+                            Hint("JSON nie jest szyfrowany: kto dostanie plik albo skopiowany tekst, przeczyta leki, pomiary i wyniki. Do wysłania komuś lub do chmury użyj kopii zaszyfrowanej. Nie wysyłaj JSON komunikatorem ani mailem.")
+                            Divider()
+                            Overline("Wczytaj kopię", Modifier.padding(bottom = 0.dp))
                             LekiButton("Wczytaj kopię z pliku", importer, Modifier.fillMaxWidth(), icon = Ph.UploadSimple)
                         }
                     }

@@ -4,7 +4,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,24 +95,50 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
         }
     }
 
+    val undo = LocalUndo.current
+    /** Wczytanie kopii zamiast wszystkiego, co jest na telefonie, z migawką w pamięci do natychmiastowego cofnięcia. */
+    fun replaceWithUndo(list: List<AppState>) {
+        val before = store.allStates()
+        val snap = store.exportStates().mapIndexed { i, st -> st.copy(lastBackup = before[i].second.lastBackup) }
+        store.replaceAll(list)
+        undo("Wczytano kopię. Poprzednie dane można jeszcze przywrócić.") { store.replaceAll(snap) }
+    }
     when (val p = pending) {
         is Pending.Replace -> androidx.compose.material3.AlertDialog(
             onDismissRequest = { pending = null },
             title = { Text("Wczytać tę kopię?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    BodyText("W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}" + (if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else "") + ".")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    BodyText("W pliku:")
+                    p.all.forEachIndexed { i, a ->
+                        BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${if (i == 0) cyklNote(s, a) else ""}")
+                    }
                     // świeża aplikacja bez żadnych danych: zwykłe wczytanie, bez wyboru
                     val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty
-                    if (emptyHere) LekiButton("Wczytaj kopię", { store.replaceAll(p.all); pending = null; toast("Wczytano kopię danych") }, Modifier.fillMaxWidth(), primary = true)
-                    else BodyText("„Zastąp wszystkie dane” usuwa wszystko, co jest teraz na tym telefonie (" + store.profiles.value.let { ps -> "${ps.size} ${plN(ps.size, "osoba", "osoby", "osób")}" } + "), a w jej miejsce wczytuje kopię. „Dodaj osoby z pliku” zostawia dane z telefonu i dopisuje osoby z kopii. Jeśli masz tu coś ważnego, najpierw zrób kopię.")
-                    if (!emptyHere) LekiButton("Dodaj osoby z pliku", {
-                        val ids = store.addProfilesFrom(p.all)
-                        pending = null
-                        if (ids.isEmpty()) toast("Nie dodano nikogo: osiągnięto limit osób (${Backup.MAX_PROFILES}).") else { store.switchTo(ids.first()); toast("Dodano ${ids.size} ${plN(ids.size, "osobę", "osoby", "osób")} z pliku") }
-                    }, Modifier.fillMaxWidth(), primary = true)
-                    if (!emptyHere) LekiButton("Zastąp wszystkie dane", { store.replaceAll(p.all); pending = null; toast("Wczytano kopię danych") }, Modifier.fillMaxWidth(), danger = true)
-                    LinkButton("Anuluj", { pending = null })
+                    if (emptyHere) {
+                        LekiButton("Wczytaj kopię", { replaceWithUndo(p.all); pending = null }, Modifier.fillMaxWidth(), primary = true)
+                        LinkButton("Anuluj", { pending = null })
+                    } else {
+                        val here = store.profiles.value
+                        val room = Backup.MAX_PROFILES - here.size
+                        val known = here.map { it.name.trim().lowercase() }.toSet()
+                        BodyText("„Dodaj osoby z pliku” niczego nie usuwa: osoby z kopii pojawią się obok obecnych, a ich przypomnienia o lekach zaczną działać na tym telefonie. „Zastąp wszystkie dane” usuwa z tego telefonu: ${here.joinToString(", ") { it.name }} (wszystkie leki, pomiary i wyniki), a potem wczytuje kopię. Cofnąć można tylko od razu, przyciskiem „Cofnij”. Aby najpierw zrobić kopię, wybierz Anuluj i użyj Ustawienia → Kopie zapasowe i dane.")
+                        if (p.all.all { it.patient.trim().lowercase() in known }) Hint("Wszystkie te osoby już są na tym telefonie. „Dodaj” utworzy duplikaty z dopiskiem „(z pliku)”. Aby odtworzyć dane z kopii, użyj „Zastąp”.")
+                        else if (p.all.any { it.patient.trim().lowercase() in known }) Hint("Osoba o tym samym imieniu jest już na telefonie: zostanie dodana z dopiskiem „(z pliku)”.")
+                        if (room < p.all.size) Hint("Limit ${Backup.MAX_PROFILES} osób: na tym telefonie jest miejsce na $room, a w pliku jest ${p.all.size}. Usuń osobę (Ustawienia → Osoby) albo zastąp dane.")
+                        LekiButton("Dodaj osoby z pliku", {
+                            val ids = store.addProfilesFrom(p.all)
+                            pending = null
+                            if (ids.isEmpty()) toast("Nie dodano nikogo: osiągnięto limit osób (${Backup.MAX_PROFILES}).")
+                            else {
+                                store.switchTo(ids.first())
+                                toast("Dodano ${ids.size} ${plN(ids.size, "osobę", "osoby", "osób")} z pliku. Teraz widać dane: ${store.profiles.value.firstOrNull { it.id == ids.first() }?.name.orEmpty()}.")
+                            }
+                        }, Modifier.fillMaxWidth(), primary = true, enabled = room >= p.all.size)
+                        LekiButton("Anuluj", { pending = null }, Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(6.dp))
+                        LekiButton("Zastąp wszystkie dane", { replaceWithUndo(p.all); pending = null }, Modifier.fillMaxWidth(), danger = true)
+                    }
                 }
             },
             confirmButton = {},
@@ -137,7 +167,7 @@ private fun DecryptDialog(env: JsonElement, onDecrypted: (String) -> Unit, onDis
     var busy by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Zaszyfrowana kopia", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+        title = { Text("Odszyfruj kopię", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 BodyText("Wpisz hasło użyte przy tworzeniu kopii.")
@@ -185,13 +215,15 @@ fun EncryptBackupDialog(s: AppState, store: Store, only: Set<String>? = null, on
         title = { Text(if (out == null) "Zaszyfrowana kopia" else "Kopia gotowa", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                val who = store.allStates().filter { only == null || it.first.id in only }.joinToString(", ") { it.first.name }
+                BodyText("Kopia obejmie: ${if (only == null && store.profiles.value.size > 1) "wszystkie osoby ($who)" else who}.")
                 if (out == null) {
                     BodyText("Dane zostaną zaszyfrowane na tym urządzeniu hasłem, które wpiszesz poniżej. Plik możesz bezpiecznie zapisać w chmurze (Dysk Google, Filen). Hasła nie da się odzyskać: bez niego plik jest nie do odczytania.")
                     LekiField("Hasło (min. 8 znaków)", pw, { pw = it; err = "" }, password = true)
                     LekiField("Powtórz hasło", pw2, { pw2 = it; err = "" }, password = true)
                     ErrorText(err)
                 } else {
-                    BodyText("Plik jest zaszyfrowany. Zapisz go w chmurze albo na dysku. Zapamiętaj hasło, bo bez niego plik nie otworzy się nigdzie.")
+                    BodyText("Plik jest zaszyfrowany. Zapisz go w chmurze albo na dysku. Zapamiętaj hasło, bo bez niego plik nie otworzy się nigdzie. Jeśli plik trafia do kogoś innego, hasło przekaż osobno, nie w tej samej wiadomości.")
                     LekiButton("Udostępnij (Dysk Google, Filen…)", { Platform.shareFile(ctx, name, out!!, "application/json", "Kopia Asystenta leków (zaszyfrowana)") }, Modifier.fillMaxWidth(), primary = true)
                     LekiButton("Zapisz w pliku", { saver.launch(name) }, Modifier.fillMaxWidth())
                 }

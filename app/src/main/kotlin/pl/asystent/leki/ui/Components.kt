@@ -67,6 +67,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -117,8 +119,8 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composab
 }
 
 @Composable
-fun Hint(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier, style = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, color = pal.ink3))
+fun Hint(text: String, modifier: Modifier = Modifier, live: Boolean = false) {
+    Text(text, modifier = if (live) modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite } else modifier, style = TextStyle(fontSize = 12.5.sp, lineHeight = 17.sp, color = pal.ink3))
 }
 
 @Composable
@@ -516,14 +518,17 @@ fun DropdownField(label: String, options: List<Pair<String, String>>, selectedId
 
 /** Przełączana pigułka z ptaszkiem (wybór wielu opcji). */
 @Composable
-fun ToggleChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
-            .background(if (selected) pal.accentSoft else pal.surface).toggleable(value = selected, role = Role.Checkbox, onValueChange = { onClick() }).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (selected) { Icon(Ph.Check, null, Modifier.size(15.dp), tint = pal.accent); Spacer(Modifier.size(6.dp)) }
-        Text(text, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accent else pal.ink2))
+fun ToggleChip(text: String, selected: Boolean, role: Role = Role.Checkbox, onClick: () -> Unit) {
+    // zewnętrzny obszar dotyku ma 48 dp, widoczny „chip” jest niższy
+    Box(Modifier.heightIn(min = 48.dp).toggleable(value = selected, role = role, onValueChange = { onClick() }), contentAlignment = Alignment.CenterStart) {
+        Row(
+            Modifier.heightIn(min = 36.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
+                .background(if (selected) pal.accentSoft else pal.surface).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) { Icon(Ph.Check, null, Modifier.size(15.dp), tint = pal.accent); Spacer(Modifier.size(6.dp)) }
+            Text(text, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accent else pal.ink2))
+        }
     }
 }
 
