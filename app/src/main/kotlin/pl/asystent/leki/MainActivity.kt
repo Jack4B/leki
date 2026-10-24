@@ -113,14 +113,17 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleIntent(i: Intent?) {
-        when (i?.action) {
+        if (i == null) return
+        when (i.action) {
             ACTION_ADD_BP -> requestedTab = 1
             Intent.ACTION_SEND -> {
-                val text = i.getStringExtra(Intent.EXTRA_TEXT)
-                val uri = androidx.core.content.IntentCompat.getParcelableExtra(i, Intent.EXTRA_STREAM, android.net.Uri::class.java)
-                if (!text.isNullOrBlank() || uri != null) { incoming = IncomingAi(text?.takeIf { it.isNotBlank() }, if (text.isNullOrBlank()) uri else null); requestedTab = 3 }
+                // EXTRA_TEXT bywa Spanned (aplikacje AI, przeglądarki), więc czytamy jako CharSequence; plik tylko jako content://
+                val text = i.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+                val uri = androidx.core.content.IntentCompat.getParcelableExtra(i, Intent.EXTRA_STREAM, android.net.Uri::class.java)?.takeIf { it.scheme == "content" }
+                if (!text.isNullOrBlank()) { incoming = IncomingAi(text, null); requestedTab = 3 }
+                else if (uri != null) { incoming = IncomingAi(null, uri); requestedTab = 3 }
             }
-            Intent.ACTION_VIEW -> i.data?.let { incoming = IncomingAi(null, it); requestedTab = 3 }
+            Intent.ACTION_VIEW -> i.data?.takeIf { it.scheme == "content" }?.let { incoming = IncomingAi(null, it); requestedTab = 3 }
         }
     }
 

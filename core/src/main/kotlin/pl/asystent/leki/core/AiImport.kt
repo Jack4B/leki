@@ -10,6 +10,8 @@ object AiImport {
     /** Odpowiedź AI to kilka–kilkadziesiąt tysięcy znaków; większy plik to prawie na pewno pomyłka (np. zdjęcie albo kopia danych). */
     const val MAX_BYTES = 1_000_000
 
+    private val backupKeyRe = Regex("\"(app|days|meds|slots|bp|labs|markers)\"\\s*:")
+
     class ImportException(message: String) : Exception(message)
 
     /** [title] to propozycja tytułu (pierwszy nagłówek H1 albo nazwa pliku), [fallbackCharset] mówi, że plik nie był w UTF-8 i odczytano go jako Windows-1250. */
@@ -36,7 +38,8 @@ object AiImport {
         // plik binarny (PDF, obraz, archiwum) zawiera znaki sterujące
         val sample = text.take(4000)
         if (sample.count { it == '\u0000' || (it < ' ' && it != '\n' && it != '\t') } * 100 > sample.length) throw ImportException("To nie jest plik tekstowy. Wybierz plik Markdown (.md) albo tekstowy (.txt) z odpowiedzią AI.")
-        if (text.startsWith("{") && sample.contains("\"app\"")) throw ImportException("To wygląda na kopię zapasową aplikacji, a nie na odpowiedź AI. Kopię wczytasz w Ustawienia → Kopie zapasowe i dane.")
+        // kopia z obwolutą ma klucz "app", a wewnętrzny plik danych (zwarty zapis) "days"/"meds"/"slots" i numer wersji
+        if (text.startsWith("{") && backupKeyRe.containsMatchIn(sample)) throw ImportException("To wygląda na kopię zapasową aplikacji, a nie na odpowiedź AI. Kopię wczytasz w Ustawienia → Kopie zapasowe i dane.")
         return Result(text, titleOf(text, fileName), fallback)
     }
 

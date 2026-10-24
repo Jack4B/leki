@@ -41,15 +41,19 @@ fun AppState.openDoses(d: LocalDate, slotId: String): List<Item> {
     return scheduleFor(d).filter { it.slot.id == slotId && it.key !in r.taken && it.key !in r.skipped }
 }
 
-/** Odhacza jednym ruchem wszystkie jeszcze otwarte dawki pory (przycisk „Wzięte” w powiadomieniu); godzina przyjęcia to teraz (dla dzisiaj) albo pora z planu. */
+/**
+ * Odhacza jednym ruchem wszystkie jeszcze otwarte dawki pory (przycisk „Wzięte” w powiadomieniu), tak jak ręczne odhaczenie: godzina przyjęcia to teraz
+ * (dla dzisiaj) albo pora z planu, a lek ze stoperem uruchamia odliczanie.
+ */
 fun AppState.markSlot(d: LocalDate, slotId: String, today: LocalDate, now: LocalDateTime): AppState {
     var s = this
-    for (x in openDoses(d, slotId)) {
-        val t = if (d == today) now.toLocalTime().withSecond(0).withNano(0) else x.slot.time
-        s = s.updateDay(d) { it.copy(taken = it.taken + x.key, times = it.times + (x.key to t), skipped = it.skipped - x.key) }
-    }
+    for (x in openDoses(d, slotId)) s = s.toggleDose(d, x.key, today, now)
     return s
 }
+
+/** Cofa odhaczenie dawek o podanych kluczach (przycisk „Cofnij” po „Wzięte”): zdejmuje odhaczenie i godzinę; stoper zostaje zatrzymany przez [clearTimer] po stronie wywołującego. */
+fun AppState.unmarkDoses(d: LocalDate, keys: Collection<String>): AppState =
+    if (keys.isEmpty()) this else updateDay(d) { it.copy(taken = it.taken - keys.toSet(), times = it.times - keys.toSet()) }
 
 fun AppState.setDoseTime(d: LocalDate, key: String, t: LocalTime): AppState = updateDay(d) { it.copy(times = it.times + (key to t)) }
 

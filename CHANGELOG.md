@@ -1,5 +1,18 @@
 # Zmiany
 
+## 0.10.1-preview
+
+Poprawki po niezależnym przeglądzie kodu wersji 0.10.0 (drugi agent) oraz po błędach kompilacji.
+
+- **Udostępnianie do aplikacji:** tekst z `Spanned` (aplikacje AI i przeglądarki) był ignorowany, więc edytor się nie otwierał; teraz czytamy go jako `CharSequence`. Pliki przyjmujemy tylko jako `content://` (usunięty schemat `file://`, przez który inna aplikacja mogłaby podsunąć wewnętrzny plik danych). Wewnętrzny, zwarty zapis danych (`"days"`, `"meds"`…) jest odrzucany tak samo jak kopia z obwolutą.
+- **Powiadomienie o dawkach:** odłożenie ma osobny identyfikator dla każdej pory i dnia (odłożenie „Śniadania” i „Obiadu” już się nie nadpisuje); odłożone przypomnienie nie dzwoni, gdy w międzyczasie wyłączono przypomnienia. **„Wzięte” uruchamia stoper po dawce** jak ręczne odhaczenie i pokazuje ciche potwierdzenie **„Odhaczono dawki” z przyciskiem „Cofnij”** (30 s), więc przypadkowy dotyk nie psuje po cichu statystyk zgodności.
+- **Automatyczna kopia:** okno hasła nie zamyka się dotknięciem obok (rezygnacja z szyfrowania tylko przyciskiem „Bez hasła”), a wyłączenie szyfrowania wymaga potwierdzenia; po nieudanej próbie następna jest najwcześniej po godzinie (wcześniej każdy zapis danych ponawiał próbę); kopie nie piszą równolegle (automatyczna i „Zrób teraz”); zapis idzie najpierw do pliku roboczego, dopiero potem podmienia dzisiejszą kopię (nieudany zapis jej nie kasuje), z obejściem dla dostawców plików bez zmiany nazwy; poprzedni folder oddaje uprawnienie; etykieta folderu dla chmur. Reguły (kiedy kopia jest należna, nazwa pliku, które pliki usunąć) są w `core` (`AutoBackupPlan`) z testem.
+- „Cofnij” po usunięciu analizy przywraca także jej wybór do raportu.
+- Markdown: wzory LaTeX wewnątrz bloków kodu nie są już przerabiane.
+- Podgląd ustawień kopii nie wywala testów renderowania (konfiguracja z zabezpieczeniem).
+- Błędy kompilacji 0.10.0: zdublowana nazwa zmiennej na ekranie Leki, kolejność parametrów edytora analizy. Karta „najbliższe kontrole” nie powtarza kontroli, które pokazuje blok „za 1–3 dni”.
+- README: usunięta nieaktualna wzmianka o potwierdzeniu przy usuwaniu EKG. 4 nowe testy.
+
 ## 0.10.0-preview
 
 Sześć zmian ułatwiających codzienne użycie (propozycje z przeglądu interfejsu).

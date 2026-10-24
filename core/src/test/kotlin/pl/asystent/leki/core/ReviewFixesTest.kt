@@ -4,6 +4,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -80,5 +81,41 @@ class ReviewFixesTest {
         val r = st.reminders(zone, today.atTime(6, 0).atZone(zone).toInstant().toEpochMilli(), today).filter { it.slotId != null }
         assertTrue(r.isNotEmpty() && r.all { it.date != null })
         assertTrue(r.any { it.date == today && it.slotId == "morning" })
+    }
+
+    @Test fun autoBackupRulesAndRetention() {
+        val today = LocalDate.of(2026, 10, 24); val now = 1_000_000_000_000L
+        assertTrue(AutoBackupPlan.due(-1, today, 1, 0, now))                                     // pierwsza kopia
+        assertFalse(AutoBackupPlan.due(today.toEpochDay(), today, 1, 0, now))                     // dziś już była
+        assertTrue(AutoBackupPlan.due(today.toEpochDay() - 1, today, 1, 0, now))
+        assertFalse(AutoBackupPlan.due(today.toEpochDay() - 3, today, 7, 0, now))                 // co tydzień: za wcześnie
+        assertTrue(AutoBackupPlan.due(today.toEpochDay() - 7, today, 7, 0, now))
+        assertFalse(AutoBackupPlan.due(-1, today, 1, now - 60_000, now))                          // świeża nieudana próba: czekamy
+        assertTrue(AutoBackupPlan.due(-1, today, 1, now - AutoBackupPlan.RETRY_MS - 1, now))
+        assertTrue(AutoBackupPlan.due(-1, today, 1, now + 5_000_000, now))                        // zegar cofnięty: nie blokujemy na zawsze
+        assertEquals("asystent-lekow-kopia-2026-10-24.zaszyfrowana.json", AutoBackupPlan.fileName(today, true))
+        val names = (1..10).map { AutoBackupPlan.fileName(today.minusDays(it.toLong()), false) } + listOf("moje-zdjecie.jpg", "asystent-lekow-kopia-notatka.txt")
+        val del = AutoBackupPlan.toDelete(names)
+        assertEquals(3, del.size)
+        assertTrue(del.all { it.startsWith(AutoBackupPlan.PREFIX) } && AutoBackupPlan.fileName(today.minusDays(1), false) !in del)   // zostaje 7 najnowszych, obce pliki nietknięte
+    }
+
+    @Test fun compactBackupAndCodeBlocksAreHandled() {
+        assertFailsWith<AiImport.ImportException> { AiImport.decode("""{"v":3,"days":{},"meds":[]}""".toByteArray()) }          // wewnętrzny, zwarty zapis danych
+        assertEquals("{ nie kopia }", AiImport.decode("{ nie kopia }".toByteArray()).text)
+        val html = Markdown.toHtml("Wzór ${'$'}2{,}8\\text{ mmol/l}${'$'} oraz\n\n```\nkod ${'$'}a_b${'$'}\n```")
+        assertTrue(html.contains("2,8 mmol/l"), html)
+        assertTrue(html.contains("<code>kod ${'$'}a_b${'$'}"), html)                                                             // kod bez zmian
+    }
+
+    @Test fun markSlotStartsTimerAndUnmarkRestores() {
+        val today = LocalDate.of(2026, 10, 24)
+        val m = Med(id = "a", name = "Lek", timerMin = 30, phases = listOf(Phase(today.minusDays(2), mapOf("morning" to 1.0), Defaults.allDow)))
+        val st = AppState(meds = listOf(m))
+        val now = today.atTime(8, 5)
+        val after = st.markSlot(today, "morning", today, now)
+        assertTrue(after.timerEnd > 0 && after.timerMed == "Lek")                                 // „Wzięte” uruchamia stoper jak ręczne odhaczenie
+        val back = after.unmarkDoses(today, listOf(Item.key("a", "morning")))
+        assertTrue(back.day(today).taken.isEmpty() && back.day(today).times.isEmpty())
     }
 }

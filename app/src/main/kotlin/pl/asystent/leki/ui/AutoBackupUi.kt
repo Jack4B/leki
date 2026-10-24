@@ -39,8 +39,10 @@ fun AutoBackupSection(s: AppState, store: Store) {
     val toast = LocalToast.current
     val scope = rememberCoroutineScope()
     var rev by remember { mutableIntStateOf(0) }
-    val cfg = remember(rev, s.lastBackup) { AutoBackup.config(ctx) }
+    // w podglądach (testy renderowania) ustawienia systemowe mogą być niedostępne: wtedy pusta konfiguracja
+    val cfg = remember(rev, s.lastBackup) { runCatching { AutoBackup.config(ctx) }.getOrDefault(AutoBackup.Config(null, 1, false, false, -1L, "")) }
     var askPassword by remember { mutableStateOf(false) }
+    var confirmPlain by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) { AutoBackup.setFolder(ctx, uri); rev++; askPassword = true }
@@ -55,7 +57,7 @@ fun AutoBackupSection(s: AppState, store: Store) {
             } else {
                 BodyText("Folder: ${AutoBackup.folderLabel(folder)}")
                 SegRow(listOf("Codziennie", "Co tydzień"), if (cfg.intervalDays <= 1) 0 else 1, { AutoBackup.setInterval(ctx, if (it == 0) 1 else 7); rev++ })
-                Row { ToggleChip("Szyfruj hasłem (zalecane)", cfg.encrypted) { if (cfg.encrypted) { AutoBackup.setEncryption(ctx, null); rev++ } else askPassword = true } }
+                Row { ToggleChip("Szyfruj hasłem (zalecane)", cfg.encrypted) { if (cfg.encrypted) confirmPlain = true else askPassword = true } }
                 if (!cfg.encrypted) Hint("Bez hasła kopia to zwykły plik z danymi zdrowotnymi. Jeśli folder jest synchronizowany z chmurą, włącz szyfrowanie.")
                 else if (!cfg.hasPassword) Hint("Brak zapisanego hasła, więc kopia się nie zrobi. Ustaw je ponownie.")
                 Hint(
@@ -77,6 +79,10 @@ fun AutoBackupSection(s: AppState, store: Store) {
             }
         }
     }
+    if (confirmPlain) ConfirmDialog(
+        "Wyłączyć szyfrowanie?", "Kolejne kopie będą zwykłymi plikami z danymi zdrowotnymi. Jeśli folder jest synchronizowany z chmurą, trafią tam bez zabezpieczenia.", "Wyłącz szyfrowanie",
+        onConfirm = { AutoBackup.setEncryption(ctx, null); rev++; confirmPlain = false }, onDismiss = { confirmPlain = false }, danger = true,
+    )
     if (askPassword) PasswordDialog(
         onSet = { pw -> AutoBackup.setEncryption(ctx, pw); rev++; askPassword = false; toast("Kopie będą szyfrowane. Zapamiętaj hasło: bez niego nie otworzysz pliku.") },
         onSkip = { askPassword = false },
@@ -89,7 +95,8 @@ private fun PasswordDialog(onSet: (String) -> Unit, onSkip: () -> Unit) {
     var pw2 by remember { mutableStateOf("") }
     var err by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onSkip,
+        // zamknięcie dotknięciem obok okna nie wybiera „Bez hasła”: rezygnacja z szyfrowania wymaga świadomego przycisku
+        onDismissRequest = {},
         title = { Text("Hasło do kopii", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {

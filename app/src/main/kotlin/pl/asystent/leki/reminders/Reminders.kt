@@ -16,7 +16,9 @@ import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.REMINDER_BACKUP
 import pl.asystent.leki.core.REMINDER_STOCK
+import pl.asystent.leki.core.clearTimer
 import pl.asystent.leki.core.markSlot
+import pl.asystent.leki.core.unmarkDoses
 import pl.asystent.leki.core.num
 import pl.asystent.leki.core.openDoses
 import pl.asystent.leki.core.reminders
@@ -32,8 +34,12 @@ object Reminders {
     /** Przyciski w powiadomieniu o dawkach: odhacz wszystko z tej pory albo przypomnij za [SNOOZE_MIN] minut. */
     const val ACTION_TAKEN = "pl.asystent.leki.REMIND_TAKEN"
     const val ACTION_SNOOZE = "pl.asystent.leki.REMIND_SNOOZE"
-    const val SNOOZE_ID = 5
+    const val ACTION_UNDO = "pl.asystent.leki.REMIND_UNDO"
     const val SNOOZE_MIN = 15
+    private const val SNOOZE_BASE = 10_000_000
+
+    /** Osobny identyfikator odłożonego przypomnienia dla każdej pory dnia i dnia, żeby odłożenie dwóch pór nie nadpisywało się (ponad zakresem zwykłych id, które sięgają ok. 2 000 000). */
+    fun snoozeId(date: String, slot: String): Int = SNOOZE_BASE + Math.floorMod("$date|$slot".hashCode(), 100_000)
 
     fun ensureChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -103,7 +109,7 @@ object Reminders {
     /** Odłożenie przypomnienia o dawkach: ten sam dzwonek za [SNOOZE_MIN] minut (przy dzwonku aplikacja i tak sprawdzi, co zostało do wzięcia). */
     fun snooze(ctx: Context, title: String, body: String, date: String, slot: String) {
         val am = ctx.getSystemService(AlarmManager::class.java)
-        val pi = pending(ctx, SNOOZE_ID, title, body, true, date, slot) ?: return
+        val pi = pending(ctx, snoozeId(date, slot), title, body, true, date, slot) ?: return
         setAlarm(am, System.currentTimeMillis() + SNOOZE_MIN * 60_000L, pi, canScheduleExact(ctx))
     }
 
@@ -112,6 +118,29 @@ object Reminders {
             ctx, id, Intent(ctx, ReminderReceiver::class.java).setAction(action).putExtra("id", id).putExtra("title", title).putExtra("body", body).putExtra("date", date).putExtra("slot", slot),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
+    /** Potwierdzenie po „Wzięte”: krótkie, ciche powiadomienie z przyciskiem „Cofnij” (znika po 30 s). */
+    fun showTaken(ctx: Context, id: Int, what: String, date: String, keys: List<String>) {
+        if (!canNotify(ctx)) return
+        ensureChannel(ctx)
+        val undo = PendingIntent.getBroadcast(
+            ctx, id, Intent(ctx, ReminderReceiver::class.java).setAction(ACTION_UNDO).putExtra("id", id).putExtra("date", date).putStringArrayListExtra("keys", ArrayList(keys)),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(ctx, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_pill)
+            .setColor(0xFF0B6B58.toInt())
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_stat_pill).setContentTitle("Asystent leków").setContentText("Odhaczono dawki").build())
+            .setContentTitle("Odhaczono dawki")
+            .setContentText(what)
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(30_000)
+            .addAction(0, "Cofnij", undo)
+            .build()
+        try { NotificationManagerCompat.from(ctx).notify(id, n) } catch (e: SecurityException) { /* brak zgody na powiadomienia */ }
+    }
 
     fun show(ctx: Context, id: Int, title: String, body: String, date: String? = null, slot: String? = null) {
         if (!canNotify(ctx)) return
@@ -166,7 +195,8 @@ class ReminderReceiver : BroadcastReceiver() {
                     val s = (context.applicationContext as? pl.asystent.leki.LekiApp)?.store?.state?.value
                     if (s != null) {
                         val open = s.openDoses(date, slot)
-                        if (open.isEmpty()) show = false else body = open.joinToString(", ") { it.med.name + " " + num(it.dose) + " " + it.med.unit }
+                        // przypomnienia wyłączone po zaplanowaniu (także odłożone) już nie dzwonią
+                        if (open.isEmpty() || !s.settings.remindOn) show = false else body = open.joinToString(", ") { it.med.name + " " + num(it.dose) + " " + it.med.unit }
                     }
                 }
                 if (show) Reminders.show(context, id, intent.getStringExtra("title") ?: "Asystent leków", body, dateStr, slot)
@@ -180,10 +210,35 @@ class ReminderReceiver : BroadcastReceiver() {
                 Thread {
                     try {
                         val store = (context.applicationContext as pl.asystent.leki.LekiApp).store
+                        val keys = store.state.value.openDoses(date, slot).map { it.key }
                         store.update { it.markSlot(date, slot, LocalDate.now(), LocalDateTime.now()) }
                         store.flush()   // zapis od razu: proces może zostać zabity zaraz po odebraniu komunikatu
+                        // potwierdzenie z możliwością cofnięcia: jeden dotyk w powiadomieniu nie może po cichu psuć statystyk zgodności
+                        if (keys.isNotEmpty()) Reminders.showTaken(context, id, intent.getStringExtra("title")?.removePrefix("Pora na leki: ") ?: "dawki", dateStr!!, keys)
                     } catch (e: Exception) {
                         android.util.Log.e("Reminders", "Nie udało się odhaczyć dawek z powiadomienia", e)
+                    } finally {
+                        pending.finish()
+                    }
+                }.start()
+            }
+            Reminders.ACTION_UNDO -> {
+                NotificationManagerCompat.from(context).cancel(id)
+                val keys = intent.getStringArrayListExtra("keys")
+                if (date == null || keys.isNullOrEmpty()) return
+                val pending = goAsync()
+                Thread {
+                    try {
+                        val store = (context.applicationContext as pl.asystent.leki.LekiApp).store
+                        store.update { st ->
+                            // stoper po cofniętej dawce też gasimy (tylko wtedy, gdy odlicza właśnie ten lek)
+                            val timerMeds = keys.mapNotNull { k -> st.med(k.substringBefore('|'))?.takeIf { it.timerMin > 0 }?.name }
+                            val r = st.unmarkDoses(date, keys)
+                            if (st.timerMed in timerMeds) r.clearTimer() else r
+                        }
+                        store.flush()
+                    } catch (e: Exception) {
+                        android.util.Log.e("Reminders", "Nie udało się cofnąć odhaczenia z powiadomienia", e)
                     } finally {
                         pending.finish()
                     }

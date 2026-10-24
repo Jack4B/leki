@@ -139,8 +139,12 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, prefill: 
         }
         if (text.isNotBlank()) Hint("W raporcie: ${shown.length} z ${text.length} znaków.")
         if (initial != null) LinkButton("Usuń tę analizę", {
+            // usunięcie wybranej do raportu analizy zeruje wybór; cofnięcie ma go przywrócić
+            val wasPicked = store.state.value.settings.rp.analysisId == initial.id
             store.update { it.deleteAnalysis(initial.id) }
-            undo("Usunięto analizę") { store.update { it.saveAnalysis(initial) } }
+            undo("Usunięto analizę") {
+                store.update { st -> st.saveAnalysis(initial).let { if (wasPicked) it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(analysisId = initial.id))) else it } }
+            }
             onClose()
         }, danger = true)
     }

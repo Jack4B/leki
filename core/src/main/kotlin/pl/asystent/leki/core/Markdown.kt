@@ -39,6 +39,20 @@ object Markdown {
         return s
     }
 
+    /** Czyści wzory LaTeX poza blokami kodu (w kodzie `$a_b$` ma zostać bez zmian). */
+    fun cleanLatexOutsideCode(md: String): String {
+        if (!md.contains("```")) return cleanLatex(md)
+        val out = StringBuilder(); val seg = StringBuilder(); var fence = false
+        for (ln in md.split("\n")) {
+            if (ln.trim().startsWith("```")) {
+                if (!fence) { out.append(cleanLatex(seg.toString())); seg.clear() }
+                out.append(ln).append('\n'); fence = !fence
+            } else if (fence) out.append(ln).append('\n') else seg.append(ln).append('\n')
+        }
+        out.append(cleanLatex(seg.toString()))
+        return out.toString()
+    }
+
     // ---------- Sekcje ----------
 
     data class Section(val heading: String, val body: String)
@@ -151,7 +165,7 @@ object Markdown {
 
     /** Zamienia Markdown (po oczyszczeniu wzorów) na HTML do raportu. Nagłówki są niższego poziomu niż tytuły sekcji raportu. */
     fun toHtml(md: String): String {
-        val lines = cleanLatex(md).replace("\r\n", "\n").split("\n")
+        val lines = cleanLatexOutsideCode(md).replace("\r\n", "\n").split("\n")
         val out = StringBuilder()
         var card = false
         fun closeCard() { if (card) { out.append("</div>"); card = false } }

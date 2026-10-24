@@ -457,7 +457,6 @@ private fun EventEditor(s: AppState, e: Event?, onSave: (Event) -> Unit, onDelet
     var marker by remember { mutableStateOf(e?.marker ?: "") }
     var field by remember { mutableStateOf(e?.field ?: "") }
     var err by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf(false) }
     FullScreenDialog(if (e != null) "Edycja kontroli" else "Nowa kontrola", onDismiss) {
         LekiField("Nazwa", title, { title = it; err = "" }, placeholder = "np. Wizyta u kardiologa")
         DateField("Data", date, { date = it })
