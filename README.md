@@ -140,7 +140,7 @@ Wskazówki: cała tabela w kadrze, tekst poziomo, bez cienia i odblasków. PDF p
 
 ## Pobranie APK z GitHuba
 
-Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków <wersja> (kompilacja N)** (sekcja **Assets**: plik `asystent-lekow-<wersja>.apk` i suma kontrolna `.sha256`). Każde wypchnięcie zmian na gałąź tworzy nowe wydanie testowe (prerelease) z tagiem `v<wersja>-b<N>`; zostaje 5 ostatnich. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
+Najnowszy APK jest w zakładce **Releases** repozytorium, w wydaniu **Asystent leków <wersja> (kompilacja N)** (sekcja **Assets**: plik `asystent-lekow-<wersja>.apk` i suma kontrolna `.sha256`). Wydanie testowe (prerelease) z tagiem `v<wersja>-b<N>` powstaje przy wypchnięciu na gałąź domyślną albo tag `v*`, a z gałęzi roboczej (`feat/`, `fix/`) tylko na żądanie: **Actions → Zbuduj APK → Run workflow**, wybierz gałąź i zaznacz „Opublikuj wydanie testowe”. Zostaje 5 ostatnich. Ten sam plik jest też w artefakcie przebiegu **Actions → Zbuduj APK**.
 
 Instalacja: skopiuj APK na telefon i otwórz go (Android poprosi o zgodę na instalację z nieznanych źródeł dla przeglądarki lub menedżera plików). Wymagany Android 8.0 lub nowszy.
 
@@ -185,11 +185,13 @@ Nowy APK instaluje się **na wierzch** (bez odinstalowywania) i dane zostają, a
 3. **Zachowaj kopię klucza** (plik albo napis base64) w menedżerze haseł, poza repozytorium. Bez niego nie da się podpisać aktualizacji tym samym podpisem, a zgubienie klucza oznacza jednorazową reinstalację aplikacji (z kopii zapasowej danych). Klucz nigdy nie może trafić do repozytorium (`*.keystore` jest w `.gitignore`, a repozytorium jest publiczne).
 4. Po poprawnej konfiguracji opis każdego wydania zawiera linię „Podpis: stały klucz” z odciskiem certyfikatu (SHA-256). Ten odcisk ma być taki sam w każdej wersji.
 
+**Klucz release (opcjonalnie, zalecane przed Google Play):** ustaw sekrety `LEKI_RELEASE_KEYSTORE_BASE64` (plik `.jks` w base64), `LEKI_KEYSTORE_PASSWORD`, `LEKI_KEY_ALIAS` i `LEKI_KEY_PASSWORD`. Gdy są ustawione, mają pierwszeństwo przed `DEBUG_KEYSTORE_BASE64`. Lokalnie te same nazwy działają jako zmienne środowiskowe (z `LEKI_KEYSTORE_PATH` zamiast base64) albo jako `-P...`. **Uwaga:** zmiana klucza oznacza, że APK nie zainstaluje się na wierzch wersji podpisanej kluczem debug (trzeba odinstalować aplikację po zrobieniu kopii). Wydania są publikowane z gałęzi domyślnej i z tagów `v*`, a z gałęzi roboczych tylko po ręcznym uruchomieniu workflow z zaznaczonym „Opublikuj wydanie testowe”.
+
 Przy **pierwszym** przejściu na stały klucz trzeba raz odinstalować dotychczasową aplikację, bo była podpisana innym, przypadkowym kluczem: najpierw zrób kopię (Ustawienia → Dane), potem odinstaluj, zainstaluj nową wersję i wczytaj kopię. Później aktualizacje wchodzą na wierzch.
 
 ### Aktualizacje przez Obtainium
 
-[Obtainium](https://obtainium.imranr.dev/) sprawdza wydania w GitHubie i instaluje aktualizacje. Każda kompilacja ma własne wydanie z unikalnym tagiem w postaci `v<wersja>-b<numer>` (np. `v0.5.1-preview-b16`), więc Obtainium widzi każdą nową kompilację. Zostaje 5 ostatnich wydań kompilacji, starsze są usuwane automatycznie.
+[Obtainium](https://obtainium.imranr.dev/) sprawdza wydania w GitHubie i instaluje aktualizacje. Każda kompilacja opublikowana jako wydanie (gałąź domyślna, tag albo ręczne uruchomienie) ma własne wydanie z unikalnym tagiem w postaci `v<wersja>-b<numer>` (np. `v0.5.1-preview-b16`), więc Obtainium widzi każdą nową kompilację. Zostaje 5 ostatnich wydań kompilacji, starsze są usuwane automatycznie.
 
 1. W Obtainium: **Dodaj aplikację**, adres `https://github.com/Jack4B/leki`.
 2. Włącz **Uwzględniaj wersje wstępne** (Include prereleases), bo wydania są oznaczone jako testowe.

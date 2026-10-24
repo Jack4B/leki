@@ -2,8 +2,14 @@ name: Zbuduj APK
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Opublikuj wydanie testowe (pre-release) z wybranej gałęzi'
+        type: boolean
+        default: false
   push:
     branches: ['**']
+    tags: ['v*']
 
 concurrency:
   group: apk-${{ github.ref }}
@@ -23,23 +29,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Android SDK z obrazu runnera, akceptacja licencji
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-      - name: Klucz podpisu (stały z sekretu DEBUG_KEYSTORE_BASE64 albo nowy)
+      - name: Klucz podpisu (klucz release z sekretów, inaczej stały klucz debug z DEBUG_KEYSTORE_BASE64, inaczej tymczasowy)
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          LEKI_RELEASE_KEYSTORE_BASE64: ${{ secrets.LEKI_RELEASE_KEYSTORE_BASE64 }}
+          LEKI_KEYSTORE_PASSWORD: ${{ secrets.LEKI_KEYSTORE_PASSWORD }}
+          LEKI_KEY_ALIAS: ${{ secrets.LEKI_KEY_ALIAS }}
+          LEKI_KEY_PASSWORD: ${{ secrets.LEKI_KEY_PASSWORD }}
+        # Gradle zawsze dostaje jawną ścieżkę klucza (LEKI_KEYSTORE_PATH itd. przez GITHUB_ENV), żeby podpis nie zależał od domyślnego miejsca klucza debug.
         run: |
           mkdir -p ~/.android
-          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+          if [ -n "$LEKI_RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$LEKI_RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            { echo "LEKI_KEYSTORE_PATH=$RUNNER_TEMP/release.jks"; echo "LEKI_KEYSTORE_PASSWORD=$LEKI_KEYSTORE_PASSWORD"
+              echo "LEKI_KEY_ALIAS=$LEKI_KEY_ALIAS"; echo "LEKI_KEY_PASSWORD=$LEKI_KEY_PASSWORD"; } >> "$GITHUB_ENV"
+            echo release > key-source.txt
+            echo "Użyto klucza release z sekretów."
+          elif [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
             echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
             echo stały > key-source.txt
-            echo "Użyto klucza z sekretu."
-          elif [ ! -f ~/.android/debug.keystore ]; then
+            echo "Użyto klucza debug z sekretu."
+          else
             keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android \
               -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
             echo tymczasowy > key-source.txt
-            echo "::warning::Brak sekretu DEBUG_KEYSTORE_BASE64: APK podpisany nowym, tymczasowym kluczem (aktualizacja na wierzch i Obtainium nie zadziałają)."
+            echo "::warning::Brak sekretów podpisu: APK podpisany nowym, tymczasowym kluczem (aktualizacja na wierzch i Obtainium nie zadziałają)."
+          fi
+          if [ ! -f "$RUNNER_TEMP/release.jks" ] || [ -z "$LEKI_RELEASE_KEYSTORE_BASE64" ]; then
+            # klucz debug: standardowe, publicznie znane hasła debug (nie są to sekrety), podane tylko w CI
+            { echo "LEKI_KEYSTORE_PATH=$HOME/.android/debug.keystore"; echo "LEKI_KEYSTORE_PASSWORD=android"
+              echo "LEKI_KEY_ALIAS=androiddebugkey"; echo "LEKI_KEY_PASSWORD=android"; } >> "$GITHUB_ENV"
           fi
       - name: Testy logiki i zbudowanie APK
-        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} -PlekiKeystore="$HOME/.android/debug.keystore" --no-daemon
+        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
       - name: Sprawdź, że APK nie ma uprawnienia INTERNET
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -58,10 +80,11 @@ jobs:
           OUT=$("$APKSIGNER" verify -v --print-certs "asystent-lekow-${VERSION}.apk" 2>&1 || true)
           echo "$OUT" | head -20
           FP=$(echo "$OUT" | grep -i 'certificate SHA-256 digest' | head -1 | sed 's/.*: *//' | tr -d ': ' | tr 'A-F' 'a-f' || true)
-          KS=$(keytool -list -keystore ~/.android/debug.keystore -storepass android | sed -n 's/^Certificate fingerprint (SHA-256): //p' | tr -d ':' | tr 'A-F' 'a-f')
+          KS_FILE="$LEKI_KEYSTORE_PATH"; KS_PASS="$LEKI_KEYSTORE_PASSWORD"; KS_ALIAS="$LEKI_KEY_ALIAS"
+          KS=$(keytool -list -v -keystore "$KS_FILE" -storepass "$KS_PASS" -alias "$KS_ALIAS" | sed -n 's/^.*SHA256: //p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')
           echo "Klucz w pliku: ${KS}"; echo "Podpis APK:    ${FP}"
           [ -n "$FP" ] || { echo "::error::Nie udało się odczytać podpisu APK"; exit 1; }
-          [ "$FP" = "$KS" ] || { echo "::error::Podpis APK nie pochodzi z klucza w ~/.android/debug.keystore"; exit 1; }
+          [ "$FP" = "$KS" ] || { echo "::error::Podpis APK nie pochodzi z klucza z LEKI_KEYSTORE_PATH"; exit 1; }
           echo "klucz=$(cat key-source.txt)" > asystent-lekow-podpis.txt
           echo "sha256=${FP}" >> asystent-lekow-podpis.txt
           cat asystent-lekow-podpis.txt
@@ -81,6 +104,12 @@ jobs:
 
   release:
     needs: apk
+    # Wydania tylko z gałęzi domyślnej albo z tagu v*; gałęzie robocze (feat/, fix/, Claude Code) kończą się na artefakcie,
+    # chyba że ktoś ręcznie uruchomi workflow (Actions → Zbuduj APK → Run workflow) z zaznaczonym „Opublikuj wydanie testowe”.
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      || startsWith(github.ref, 'refs/tags/v')
+      || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,7 +135,9 @@ jobs:
             echo
             echo "Commit: ${SHA:0:7} ${SUBJECT}"
             echo
-            if [ "$KEY" = "stały" ]; then
+            if [ "$KEY" = "release" ]; then
+              echo "Podpis: klucz release. Odcisk certyfikatu (SHA-256): \`${FP}\`"
+            elif [ "$KEY" = "stały" ]; then
               echo "Podpis: stały klucz, można aktualizować na wierzch. Odcisk certyfikatu (SHA-256): \`${FP}\`"
             else
               echo "**Uwaga: podpis tymczasowym kluczem.** Ten APK nie zaktualizuje się na wierzch po innej kompilacji. Ustaw sekret DEBUG_KEYSTORE_BASE64 (opis w README)."
@@ -118,9 +149,12 @@ jobs:
           gh release create "$TAG" asystent-lekow-*.apk asystent-lekow-*.apk.sha256 \
             --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Asystent leków ${VERSION} (kompilacja ${RUN})" \
             --prerelease --notes-file notes.md
-          # Zostaje 5 ostatnich kompilacji; starsze wydania i tagi są usuwane, żeby lista nie rosła bez końca.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | test("-b[0-9]+$"))] | sort_by(.created_at) | reverse | .[5:] | .[].tag_name' \
-            | while read -r old; do gh release delete "$old" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true; done
+          # Sprzątanie: zostaje 5 ostatnich kompilacji. Usuwane są wyłącznie automatyczne wydania testowe tego workflow
+          # (prerelease, tag dokładnie w formacie v<wersja>-b<numer>, nie szkic); ręczne wydania i tagi wersji nie są ruszane.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.prerelease and (.draft | not) and (.tag_name | test("^v[0-9][0-9A-Za-z.\\-]*-b[0-9]+$"))) | [.created_at, .tag_name] | @tsv' \
+            | sort -r | tail -n +6 | cut -f2 \
+            | while read -r old; do echo "Usuwam stare wydanie testowe $old"; gh release delete "$old" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true; done
 
   # Zrzuty ekranów do kontroli układu (nie blokują wydania). Wydanie "zrzuty-ekranow" jest nadpisywane przy każdym przebiegu.
   zrzuty:

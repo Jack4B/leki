@@ -70,8 +70,10 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
-            val text = withContext(Dispatchers.IO) { runCatching { Platform.readFromUri(ctx, uri) }.getOrNull() }
-            if (text == null) toast("Nie można otworzyć pliku.") else handle(text)
+            val read = withContext(Dispatchers.IO) { runCatching { Platform.readFromUri(ctx, uri) } }
+            read.onSuccess { handle(it) }.onFailure { e ->
+                toast(if (e is Backup.TooLargeException) e.message.orEmpty() else "Nie można otworzyć pliku.")
+            }
         }
     }
 

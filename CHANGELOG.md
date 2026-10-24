@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.10.3-preview
+
+Poprawki P1 z przeglądu kodu (Nexus).
+
+- **CI, wydania:** Releases są publikowane tylko z gałęzi domyślnej albo z tagu `v*`. Gałęzie robocze (`feat/`, `fix/`) budują tylko artefakt. Sprzątanie usuwa wyłącznie automatyczne wydania testowe (prerelease z tagiem `v<wersja>-b<numer>`) poza 5 najnowszymi. Ręcznych wydań nie rusza.
+- **CI, ręczne wydanie z gałęzi roboczej:** w Actions → Zbuduj APK → Run workflow można wybrać gałąź i zaznaczyć „Opublikuj wydanie testowe”. Powstaje wtedy zwykłe wydanie testowe (prerelease `v<wersja>-b<numer>`), np. do testów na telefonie z gałęzi `feat/` lub `fix/`. Bez tego zaznaczenia (i przy zwykłym pushu) gałąź robocza buduje tylko artefakt.
+- **CI:** komunikat błędu weryfikacji podpisu wskazuje klucz z `LEKI_KEYSTORE_PATH`.
+- **Podpis release:** klucz i hasła pochodzą ze zmiennych `LEKI_KEYSTORE_PATH`, `LEKI_KEYSTORE_PASSWORD`, `LEKI_KEY_ALIAS`, `LEKI_KEY_PASSWORD` (albo `-P...`). W CI pochodzą z sekretów. Bez nich release jest podpisywany kluczem debug, tak jak dotąd. Z konfiguracji release zniknęły zaszyte hasła.
+- **Import kopii:** plik jest czytany strumieniowo z limitem 20 MB. Za duży plik daje czytelny komunikat zamiast awarii z braku pamięci. Test w `core`.
+
 ## 0.10.2-preview
 
 Naprawa „Wyślij testowe powiadomienie” (zgłoszone na telefonie z Androidem 16).
