@@ -38,6 +38,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> android.util.Log.e("Store", "Błąd w zadaniu zapisu", e) })
     private var saveJob: Job? = null
     private val lock = Any()
+    /** Osobna blokada zapisu listy osób, żeby przełączanie osoby z interfejsu nie czekało na zapis wszystkich plików danych. */
+    private val indexLock = Any()
 
     /** Gdy któryś plik danych był uszkodzony: nazwa kopii, do której go przeniesiono. */
     val recoveredFrom: String?
@@ -77,6 +79,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         }
     }
 
+    private fun publishProfiles() { synchronized(lock) { _profiles.value = infos() } }
+
     private fun infos(): List<ProfileInfo> = synchronized(lock) {
         states.entries.mapIndexed { i, e -> ProfileInfo(e.key, e.value.patient.trim().ifEmpty { "Osoba ${i + 1}" }) }
     }
@@ -92,7 +96,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             states[id] = _state.value
             dirty.add(id)
         }
-        _profiles.value = infos()
+        publishProfiles()
         scheduleSave()
     }
 
@@ -106,7 +110,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             states[id] = f(cur)
             dirty.add(id)
         }
-        _profiles.value = infos()
+        publishProfiles()
         scheduleSave()
     }
 
@@ -116,7 +120,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             states.keys.toList().forEach { id -> states[id] = f(states.getValue(id)); dirty.add(id) }
             _state.value = states.getValue(active)
         }
-        _profiles.value = infos()
+        publishProfiles()
         scheduleSave()
     }
 
@@ -151,12 +155,13 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val id: String
         synchronized(lock) {
             if (states.size >= Backup.MAX_PROFILES) return null
-            id = generateSequence(2) { it + 1 }.map { "p$it" }.first { it !in states }
+            // wolny numer: także taki, którego plik nie leży już na dysku (uszkodzona lista osób nie może prowadzić do nadpisania cudzych danych)
+            id = generateSequence(2) { it + 1 }.map { "p$it" }.first { it !in states && !File(dir, fileOf(it)).exists() }
             val theme = states.getValue(active).settings.theme
             states[id] = AppState(patient = name.trim(), settings = pl.asystent.leki.core.Settings(theme = theme))
             dirty.add(id)
         }
-        _profiles.value = infos()
+        publishProfiles()
         writeIndex()
         scheduleSave()
         return id
@@ -164,33 +169,51 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
 
     /** Usuwa osobę z jej danymi. Nie da się usunąć ostatniej. Zwraca prawdę, gdy usunięto. */
     fun removeProfile(id: String): Boolean {
+        val gone: List<String>
         synchronized(lock) {
             if (states.size <= 1 || id !in states) return false
             states.remove(id); dirty.remove(id)
-            runCatching { File(dir, fileOf(id)).delete(); File(dir, fileOf(id) + ".bak").delete() }
+            gone = listOf(fileOf(id), fileOf(id) + ".bak", sideFile(id))
             if (active == id) { active = states.keys.first(); _state.value = states.getValue(active) }
         }
-        _profiles.value = infos()
+        // pliki kasujemy pod blokadą zapisu (nie zagnieżdżoną w `lock`), żeby trwający zapis nie odtworzył pliku usuniętej osoby
+        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } } }
+        publishProfiles()
         _activeId.value = active
         writeIndex()
+        scheduleSave()   // alarmy usuniętej osoby mają zniknąć od razu
         return true
     }
 
     /** Wczytanie kopii zapasowej: cała zawartość aplikacji (wszystkie osoby) zostaje zastąpiona; aktywna jest pierwsza osoba. */
     fun replaceAll(list: List<AppState>) {
         require(list.isNotEmpty())
+        val gone = ArrayList<String>()
         synchronized(lock) {
             val old = states.keys.toList()
             states.clear(); dirty.clear()
-            list.take(Backup.MAX_PROFILES).forEachIndexed { i, s -> val id = "p${i + 1}"; states[id] = s; dirty.add(id) }
-            old.filter { it !in states }.forEach { runCatching { File(dir, fileOf(it)).delete(); File(dir, fileOf(it) + ".bak").delete() } }
+            // wygląd (motyw) jest wspólny: wszystkie osoby z kopii dostają motyw pierwszej
+            val theme = list.first().settings.theme
+            list.take(Backup.MAX_PROFILES).forEachIndexed { i, s -> val id = "p${i + 1}"; states[id] = s.copy(settings = s.settings.copy(theme = theme)); dirty.add(id) }
+            old.filter { it !in states }.forEach { gone.add(fileOf(it)); gone.add(fileOf(it) + ".bak"); gone.add(sideFile(it)) }
             active = "p1"
             _state.value = states.getValue(active)
         }
-        _profiles.value = infos()
+        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } } }
+        publishProfiles()
         _activeId.value = active
         writeIndex()
+        writeDirty()     // od razu: zabicie procesu w oknie opóźnionego zapisu nie może zostawić nowego indeksu przy starych danych
         scheduleSave()
+    }
+
+    /** „Usuń wszystkie dane”: wszystkie osoby i pliki pomocnicze (zapas sprzed osób, kopie uszkodzonych plików) znikają, zostaje jedna pusta osoba. */
+    fun wipeAll() {
+        replaceAll(listOf(AppState()))
+        synchronized(this) {
+            runCatching { File(dir, "state.przed-osobami.json").delete() }
+            runCatching { dir.listFiles { f -> f.name.endsWith(".uszkodzony.json") }?.forEach { it.delete() } }
+        }
     }
 
     // ---------- Zapis ----------
@@ -218,28 +241,29 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             dirty.clear()
             l
         }
-        todo.forEach { (id, s) -> write(id, s) }
+        var ok = true
+        todo.forEach { (id, s) -> if (!write(id, s)) ok = false }
+        if (todo.isNotEmpty()) _saveFailed.value = !ok     // ostrzeżenie znika dopiero, gdy cała partia się zapisała
     }
 
-    private fun write(id: String, s: AppState) {
+    private fun write(id: String, s: AppState): Boolean {
         var out: java.io.FileOutputStream? = null
         val atomic = android.util.AtomicFile(File(dir, fileOf(id)))
-        try {
+        return try {
             dir.mkdirs()
             out = atomic.startWrite()
             out.write(Backup.serialize(s).toByteArray(Charsets.UTF_8))
             atomic.finishWrite(out)
-            _saveFailed.value = false
+            true
         } catch (e: Exception) {
             out?.let { atomic.failWrite(it) }
             synchronized(lock) { dirty.add(id) }
-            _saveFailed.value = true
             android.util.Log.e("Store", "Nie udało się zapisać danych", e)
+            false
         }
     }
 
-    @Synchronized
-    private fun writeIndex() {
+    private fun writeIndex() = synchronized(indexLock) {
         val (ids, act) = synchronized(lock) { states.keys.toList() to active }
         val atomic = android.util.AtomicFile(File(dir, INDEX))
         var out: java.io.FileOutputStream? = null
@@ -262,6 +286,9 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         const val INDEX = "profiles.json"
 
         fun fileOf(id: String): String = if (id == "p1") FILE_NAME else "state-$id.json"
+
+        /** Kopia uszkodzonego pliku danych danej osoby (jeśli powstała). */
+        fun sideFile(id: String): String = if (id == "p1") "state.uszkodzony.json" else "state-$id.uszkodzony.json"
 
         /**
          * Wczytuje dane jednej osoby; uszkodzony plik jest odkładany obok jako jedna kopia (np. state.uszkodzony.json), a osoba startuje pusta,
@@ -287,11 +314,16 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             val idx = File(dir, INDEX)
             var ids = listOf("p1")
             var act = "p1"
-            if (idx.exists()) runCatching {
+            if (idx.exists() || File(dir, "$INDEX.bak").exists()) runCatching {
                 val j = Json.parseToJsonElement(String(android.util.AtomicFile(idx).readFully(), Charsets.UTF_8)).jsonObject
                 val l = j["ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }?.filter { Regex("p\\d{1,2}").matches(it) }?.distinct().orEmpty()
                 if (l.isNotEmpty()) ids = l.take(Backup.MAX_PROFILES)
                 act = j["active"]?.jsonPrimitive?.contentOrNull?.takeIf { it in ids } ?: ids.first()
+            }.onFailure {
+                // uszkodzona lista osób: odtwarzamy ją z plików danych leżących w katalogu, żeby żadna osoba nie zniknęła
+                val found = dir.listFiles()?.mapNotNull { f -> Regex("state-(p\\d{1,2})\\.json").matchEntire(f.name)?.groupValues?.get(1) }.orEmpty().sortedBy { it.drop(1).toInt() }
+                ids = (listOf("p1") + found).distinct().take(Backup.MAX_PROFILES)
+                act = "p1"
             }
             var recovered: String? = null
             val list = ids.map { id -> val (s, bad) = readOne(dir, id); if (bad != null) recovered = bad; id to s }

@@ -94,7 +94,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
     when (val p = pending) {
         is Pending.Replace -> ConfirmDialog(
             "Wczytać tę kopię?",
-            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}${if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else ""}. Wczytanie zastąpi wszystkie dane na tym urządzeniu (także dane pozostałych osób) Jeśli masz tu coś ważnego, najpierw zrób kopię.",
+            "W pliku: ${p.next.meds.size} leków, ${p.next.days.size} dni z zapisami, ${p.next.bp.size} pomiarów ciśnienia, ${p.next.labs.size} wyników badań, ${p.next.ecgs.size} zapisów EKG${cyklNote(s, p.next)}${if (p.all.size > 1) ". W pliku jest więcej osób (razem ${p.all.size}): " + p.all.joinToString(", ") { it.patient.ifBlank { "bez imienia" } } else ""}. Wczytanie zastąpi wszystkie dane na tym urządzeniu (także dane pozostałych osób)${store.profiles.value.size.let { n -> if (p.all.size < n) ". Na tym urządzeniu jest $n ${plN(n, "osoba", "osoby", "osób")}, a w pliku ${p.all.size}, więc po wczytaniu zostanie ${p.all.size}" else "" }}. Jeśli masz tu coś ważnego, najpierw zrób kopię.",
             "Zastąp dane", onConfirm = { store.replaceAll(p.all); toast("Wczytano kopię danych") }, onDismiss = { pending = null },
         )
         is Pending.Labs -> {

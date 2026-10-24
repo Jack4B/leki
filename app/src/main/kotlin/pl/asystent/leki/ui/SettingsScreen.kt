@@ -280,8 +280,8 @@ fun SettingsScreen(
         }, onDismiss = { eventEdit = null; eventNew = false })
     if (encrypt) EncryptBackupDialog(s, store) { encrypt = false }
     if (confirmClear) ConfirmDialog(
-        "Usunąć wszystkie dane?", "Znikną leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań, dziennik cyklu (jeśli go używasz) i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
-        "Usuń wszystko", onConfirm = { store.replace(AppState()); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
+        "Usunąć wszystkie dane?", "Znikną dane wszystkich osób: leki, dawkowanie, odhaczenia, pomiary ciśnienia, wyniki badań, dziennik cyklu (jeśli go używasz) i ustawienia z tego urządzenia. Tej operacji nie da się cofnąć, chyba że masz kopię JSON lub zaszyfrowaną kopię.",
+        "Usuń wszystko", onConfirm = { store.wipeAll(); toast("Usunięto wszystkie dane") }, onDismiss = { confirmClear = false }, danger = true,
     )
 }
 
@@ -428,7 +428,7 @@ private fun CyklSection(s: AppState, store: Store, onOpen: () -> Unit) {
             LekiButton("Wczytaj plik z dziennikiem (JSON)", { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.UploadSimple)
             if (here > 0) LekiButton("Zapisz całą bazę do pliku (JSON)", { saver.launch("cykl-baza-${LocalDate.now()}.json") }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.DownloadSimple)
             Hint("Plik może pochodzić z modułu (Dane → Pobierz kopię) albo z innej aplikacji do cyklu o tym samym formacie. Przy wczytaniu wybierasz: połączyć z istniejącymi wpisami albo zastąpić.")
-            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu. Raporty, eksport CSV i tekst dla AI nie zawierają danych z tego modułu.")
+            Hint("To dane zdrowotne. Są tylko na tym urządzeniu i w kopii zapasowej aplikacji (Kopie zapasowe i dane); zaszyfrowana kopia obejmuje także dziennik cyklu. Eksport CSV nie zawiera danych z tego modułu, a raporty tylko opcjonalne, opisowe „Podsumowanie cyklu” (domyślnie wyłączone).")
             if (!s.cykl.isEmpty) LinkButton("Usuń dane modułu Cykl", { confirm = true }, danger = true)
         }
     }

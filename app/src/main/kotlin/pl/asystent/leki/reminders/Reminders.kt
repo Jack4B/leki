@@ -39,7 +39,7 @@ object Reminders {
     const val ACTION_UNDO = "pl.asystent.leki.REMIND_UNDO"
     const val SNOOZE_MIN = 15
     private const val SNOOZE_BASE = 10_000_000
-    /** Identyfikatory alarmów kolejnych osób są przesunięte o wielokrotność tej liczby (zwykłe id sięgają ok. 12 000 000). */
+    /** Identyfikatory alarmów kolejnych osób są przesunięte o wielokrotność tej liczby (zwykłe id sięgają ok. 2 000 000, odłożone ok. 10 100 000). */
     const val OFFSET = 100_000_000
 
     /** Osoba w aplikacji z jej danymi: numer w kolejności ([index]) decyduje o przesunięciu identyfikatorów alarmów. */
@@ -247,7 +247,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         val open = s.openDoses(date, slot)
                         // przypomnienia wyłączone po zaplanowaniu (także odłożone) już nie dzwonią
                         if (open.isEmpty() || !s.settings.remindOn) show = false else body = open.joinToString(", ") { it.med.name + " " + num(it.dose) + " " + it.med.unit }
-                    }
+                    } else show = false   // osoba usunięta w międzyczasie: jej przypomnienia już nie dzwonią
                 }
                 if (show) Reminders.show(context, id, intent.getStringExtra("title") ?: "Asystent leków", body, dateStr, slot, pid, who)
                 // okno alarmów jest kroczące (14 dni): po każdym przypomnieniu uzupełniamy je, żeby nie wygasło, gdy aplikacja długo nie jest otwierana

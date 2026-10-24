@@ -235,7 +235,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                             NavigationBarItem(
                                 selected = tab == i, onClick = { setTab(i) },
                                 icon = { Icon(icons[i], contentDescription = null, modifier = Modifier.size(24.dp)) },
-                                label = { Text(label, maxLines = 1, style = TextStyle(fontSize = if (shown.size > 5) 10.5.sp else 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
+                                label = { Text(label, maxLines = 1, style = TextStyle(fontSize = 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = pal.accent, selectedTextColor = pal.accent, indicatorColor = pal.accentSoft,
                                     unselectedIconColor = pal.ink3, unselectedTextColor = pal.ink3,
@@ -249,7 +249,8 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
                     val nav = Nav(goSettings = { setTab(4) }, newMed = { setTab(4); newMed = true }, showMeds = { setTab(4); showMeds = true }, showEvents = { setTab(4); showEvents = true })
                     // stan każdej zakładki (wybrany dzień, zakres, widok, przewinięcie) przeżywa przełączanie zakładek, a nie tylko obrót ekranu
-                    saveable.SaveableStateProvider(tab) {
+                    // po zmianie osoby ekrany startują od nowa (formularze i wersje robocze nie mogą przenieść danych jednej osoby do drugiej)
+                    androidx.compose.runtime.key(activeId) { saveable.SaveableStateProvider("$activeId:$tab") {
                         when (tab) {
                             0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) }, recoveredFrom = store.recoveredFrom)
                             1 -> BpScreen(s, store)
@@ -258,7 +259,7 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                             TAB_CYKL -> CyklScreen(store)
                             else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false })
                         }
-                    }
+                    } }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },
                         modifier = Modifier.align(Alignment.BottomCenter))
                 }
