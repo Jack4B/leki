@@ -414,6 +414,42 @@ object Backup {
 
     const val MAX_PROFILES = 8
 
+    /**
+     * Osoby do kopii: [states] to (identyfikator, stan) w kolejności aplikacji, [only] = null oznacza wszystkich, a zbiór bez żadnej
+     * znanej osoby jest błędem (kopia nigdy po cichu nie rozszerza się na wszystkich). [ownerOf] zwraca właściciela dziennika cyklu osoby.
+     * Powiązanie „osoba korzysta z cudzego dziennika” jest zapisywane jako „#numer” (w wynikowej liście); gdy właściciela nie ma w kopii,
+     * dziennik niesie pierwsza wybrana osoba, która go używa, a pozostałe wskazują na nią (dziennik właściciela jest w pliku raz).
+     */
+    fun selectForExport(states: List<Pair<String, AppState>>, only: Set<String>?, ownerOf: (String) -> String, today: LocalDate): List<AppState> {
+        val chosen = states.filter { only == null || it.first in only }
+        require(chosen.isNotEmpty()) { "Zakres kopii nie zawiera żadnej osoby." }
+        val ids = chosen.map { it.first }
+        val carrier = HashMap<String, Int>()
+        return chosen.mapIndexed { i, (id, st) ->
+            val owner = ownerOf(id)
+            var cykl = st.cykl
+            var link = ""
+            if (owner != id) {
+                if (owner in ids) link = "#" + ids.indexOf(owner)
+                else {
+                    val j = carrier[owner]
+                    if (j != null) link = "#$j" else { carrier[owner] = i; cykl = states.first { it.first == owner }.second.cykl }
+                }
+            }
+            st.copy(lastBackup = today, cykl = cykl, settings = st.settings.copy(cyklFrom = link))
+        }
+    }
+
+    /** Imię dla osoby dopisywanej z pliku: powtórzone (bez względu na wielkość liter) dostaje dopisek „(z pliku)”, a kolejne „(z pliku 3)” itd. */
+    fun uniqueName(name: String, taken: Set<String>): String {
+        val n = name.trim()
+        if (n.isEmpty() || n.lowercase() !in taken) return n
+        var k = 1
+        var candidate = n
+        while (candidate.lowercase() in taken) { k++; candidate = if (k == 2) "$n (z pliku)" else "$n (z pliku $k)" }
+        return candidate
+    }
+
     /** Stan zapisywany w pamięci aplikacji (bez obwoluty, zwarty). */
     fun serialize(s: AppState): String = compact.encodeToString(JsonElement.serializer(), toJson(s))
 

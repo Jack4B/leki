@@ -49,13 +49,10 @@ private sealed class Pending {
  * Wybór pliku z kopią i obsługa wszystkich jego rodzajów: zwykła kopia, kopia zaszyfrowana hasłem i plik z samymi wynikami badań.
  * Zwraca funkcję otwierającą wybór pliku; okna potwierdzeń pojawiają się same.
  */
-/** Dopisek do okna wczytywania kopii o dzienniku cyklu: wczytanie zastępuje też jego, a kopia sprzed modułu go zeruje. */
-private fun cyklNote(current: AppState, next: AppState): String {
+/** Dopisek do wiersza osoby w oknie wczytywania kopii: ile wpisów ma dziennik cyklu w pliku (gdy ma). */
+private fun cyklNote(next: AppState): String {
     val inFile = Cykl.summary(next.cykl.db)?.entries ?: 0
-    val here = Cykl.summary(current.cykl.db)?.entries ?: 0
-    if (inFile == 0 && here == 0) return ""
-    val file = "dziennik cyklu w pliku: $inFile ${plN(inFile, "wpis", "wpisy", "wpisów")}"
-    return ", $file" + if (here > 0) " (teraz na tym urządzeniu: $here, " + (if (inFile == 0) "zostanie usunięty)" else "zostanie zastąpiony)") else ""
+    return if (inFile == 0) "" else ", dziennik cyklu: $inFile ${plN(inFile, "wpis", "wpisy", "wpisów")}"
 }
 
 @Composable
@@ -110,11 +107,11 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                     BodyText("W pliku:")
-                    p.all.forEachIndexed { i, a ->
-                        BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${if (i == 0) cyklNote(s, a) else ""}")
+                    p.all.forEach { a ->
+                        BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${cyklNote(a)}")
                     }
                     // świeża aplikacja bez żadnych danych: zwykłe wczytanie, bez wyboru
-                    val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty
+                    val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty && s.events.isEmpty() && s.patient.isBlank() && s.rules.isBlank()
                     if (emptyHere) {
                         LekiButton("Wczytaj kopię", { replaceWithUndo(p.all); pending = null }, Modifier.fillMaxWidth(), primary = true)
                         LinkButton("Anuluj", { pending = null })
@@ -122,10 +119,10 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
                         val here = store.profiles.value
                         val room = Backup.MAX_PROFILES - here.size
                         val known = here.map { it.name.trim().lowercase() }.toSet()
-                        BodyText("„Dodaj osoby z pliku” niczego nie usuwa: osoby z kopii pojawią się obok obecnych, a ich przypomnienia o lekach zaczną działać na tym telefonie. „Zastąp wszystkie dane” usuwa z tego telefonu: ${here.joinToString(", ") { it.name }} (wszystkie leki, pomiary i wyniki), a potem wczytuje kopię. Cofnąć można tylko od razu, przyciskiem „Cofnij”. Aby najpierw zrobić kopię, wybierz Anuluj i użyj Ustawienia → Kopie zapasowe i dane.")
+                        BodyText("„Dodaj osoby z pliku” niczego nie usuwa: osoby z kopii pojawią się obok obecnych, a ich przypomnienia o lekach zaczną działać na tym telefonie. „Zastąp wszystkie dane” usuwa z tego telefonu: ${here.joinToString(", ") { it.name }} (wszystkie leki, pomiary, wyniki${if (store.allStates().any { (Cykl.summary(it.second.cykl.db)?.entries ?: 0) > 0 }) " i dzienniki cyklu" else ""}), a potem wczytuje kopię. Cofnąć można tylko od razu, przyciskiem „Cofnij”. Aby najpierw zrobić kopię, wybierz Anuluj i użyj Ustawienia → Kopie zapasowe i dane.")
                         if (p.all.all { it.patient.trim().lowercase() in known }) Hint("Wszystkie te osoby już są na tym telefonie. „Dodaj” utworzy duplikaty z dopiskiem „(z pliku)”. Aby odtworzyć dane z kopii, użyj „Zastąp”.")
-                        else if (p.all.any { it.patient.trim().lowercase() in known }) Hint("Osoba o tym samym imieniu jest już na telefonie: zostanie dodana z dopiskiem „(z pliku)”.")
-                        if (room < p.all.size) Hint("Limit ${Backup.MAX_PROFILES} osób: na tym telefonie jest miejsce na $room, a w pliku jest ${p.all.size}. Usuń osobę (Ustawienia → Osoby) albo zastąp dane.")
+                        else if (p.all.any { it.patient.trim().lowercase() in known }) Hint("Co najmniej jedno imię z pliku jest już na telefonie: taka osoba zostanie dodana z dopiskiem „(z pliku)”.")
+                        if (room < p.all.size) Hint("Limit osób to ${Backup.MAX_PROFILES}. Na tym telefonie zostało miejsce dla: $room, a w pliku jest osób: ${p.all.size}. Usuń osobę (Ustawienia → Osoby) albo zastąp dane.")
                         LekiButton("Dodaj osoby z pliku", {
                             val ids = store.addProfilesFrom(p.all)
                             pending = null
@@ -217,6 +214,7 @@ fun EncryptBackupDialog(s: AppState, store: Store, only: Set<String>? = null, on
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 val who = store.allStates().filter { only == null || it.first.id in only }.joinToString(", ") { it.first.name }
                 BodyText("Kopia obejmie: ${if (only == null && store.profiles.value.size > 1) "wszystkie osoby ($who)" else who}.")
+                if (only != null && store.allStates().any { (pr, _) -> pr.id in only && store.cyklOwner(pr.id) !in only }) Hint("Do kopii trafi też dziennik cyklu innej osoby, z którego korzysta ktoś z wybranych.")
                 if (out == null) {
                     BodyText("Dane zostaną zaszyfrowane na tym urządzeniu hasłem, które wpiszesz poniżej. Plik możesz bezpiecznie zapisać w chmurze (Dysk Google, Filen). Hasła nie da się odzyskać: bez niego plik jest nie do odczytania.")
                     LekiField("Hasło (min. 8 znaków)", pw, { pw = it; err = "" }, password = true)

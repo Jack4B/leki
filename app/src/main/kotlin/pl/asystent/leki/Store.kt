@@ -152,15 +152,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
      * gdy właściciel wspólnego dziennika nie wchodzi do kopii, jego dziennik jest dołączony do osoby, która z niego korzysta (kopia ma być kompletna).
      */
     fun exportStates(today: java.time.LocalDate = java.time.LocalDate.now(), only: Set<String>? = null): List<AppState> = synchronized(lock) {
-        val ids = states.keys.filter { only == null || it in only }.ifEmpty { states.keys.toList() }
-        ids.map { id ->
-            val st = states.getValue(id)
-            val owner = cyklOwner(id)
-            var cykl = st.cykl
-            var link = ""
-            if (owner != id) { if (owner in ids) link = "#" + ids.indexOf(owner) else cykl = states.getValue(owner).cykl }
-            st.copy(lastBackup = today, cykl = cykl, settings = st.settings.copy(cyklFrom = link))
-        }
+        Backup.selectForExport(states.map { it.key to it.value }, only, ::cyklOwner, today)
     }
 
     /** Kopia wybranych osób ([only] = null: wszystkich) jako tekst; starsze wersje aplikacji wczytają z niej pierwszą osobę. */
@@ -265,8 +257,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             for (s in list) {
                 if (states.size >= Backup.MAX_PROFILES) break
                 val id = generateSequence(2) { it + 1 }.map { "p$it" }.first { it !in states && !File(dir, fileOf(it)).exists() }
-                val n = s.patient.trim()
-                val name = if (n.isNotEmpty() && n.lowercase() in names) "$n (z pliku)" else n
+                val name = Backup.uniqueName(s.patient, names)
                 names.add(name.lowercase())
                 states[id] = s.copy(patient = name, settings = s.settings.copy(theme = theme)); dirty.add(id); added.add(id)
             }
@@ -277,7 +268,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
                 states[id] = st.copy(settings = st.settings.copy(cyklFrom = if (target != null && target != id) target else ""))
             }
         }
-        publishProfiles(); writeIndex(); scheduleSave()
+        // najpierw dane nowych osób, potem lista osób (zabicie procesu w tym oknie nie zostawi pustych osób na liście)
+        writeDirty(); publishProfiles(); writeIndex()
         return added
     }
 
