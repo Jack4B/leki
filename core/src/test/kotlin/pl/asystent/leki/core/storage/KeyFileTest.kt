@@ -5,6 +5,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class KeyFileTest {
     private val dek = ByteArray(32) { (it + 3).toByte() }
@@ -56,5 +57,47 @@ class KeyFileTest {
         assertEquals(b, KeyFile.binding(listOf(null, b), 1))
         assertNull(KeyFile.binding(listOf(a, b), 3))
         assertNull(KeyFile.binding(listOf(null, null), 1))
+    }
+
+    @Test fun bothCopiesWithTheSameDekIdAreCandidatesInOrderAndFallbackWorks() {
+        val w = wrap()
+        val first = KeyFile.encode(w, "leki_kek_2", 1, dek)     // keys.bin po rotacji (nowy alias)
+        val second = KeyFile.encode(w, "leki_kek_1", 1, dek)    // keys.bin.2 ze starym aliasem
+        val copies = listOf(KeyFile.decode(first), KeyFile.decode(second))
+        assertEquals(listOf("leki_kek_2", "leki_kek_1"), KeyFile.bindingCandidates(copies, 1).map { it.alias })
+        assertEquals(0, KeyFile.unwrapBinding(w, copies, 1).usedIndex)
+        // pierwsza kopia z uszkodzonym szyfrogramem (GCM): przejście na drugą
+        val broken = first.copyOf().also { it[it.size - 1] = (it[it.size - 1] + 1).toByte() }
+        val r = KeyFile.unwrapBinding(w, listOf(KeyFile.decode(broken), KeyFile.decode(second)), 1)
+        assertEquals(1, r.usedIndex); assertContentEquals(dek, r.dek)
+        // pierwsza kopia z aliasem, którego nie ma w Keystore: przejście na drugą
+        val w1 = FakeKeyWrap().also { it.add("leki_kek_1") }
+        assertEquals(1, KeyFile.unwrapBinding(w1, copies, 1).usedIndex)
+    }
+
+    @Test fun noWorkingBindingCopyIsKeysBrokenOrKeyError() {
+        val w = wrap()
+        val good = KeyFile.encode(w, "leki_kek_1", 1, dek)
+        val bad = good.copyOf().also { it[it.size - 1] = (it[it.size - 1] + 1).toByte() }
+        assertFailsWith<KeyFile.KeysBrokenException> { KeyFile.unwrapBinding(w, listOf(KeyFile.decode(bad), KeyFile.decode(bad)), 1) }
+        assertFailsWith<KeyFile.KeysBrokenException> { KeyFile.unwrapBinding(w, listOf(null, null), 1) }
+        assertFailsWith<KeyFile.KeysBrokenException> { KeyFile.unwrapBinding(w, listOf(KeyFile.decode(good)), 2) }   // dekId niezgodny: brak kandydata
+        val e = assertFailsWith<KeyUnavailableException> { KeyFile.unwrapBinding(FakeKeyWrap(), listOf(KeyFile.decode(good), KeyFile.decode(bad)), 1) }
+        assertTrue(e.aliasMissing)
+    }
+
+    @Test fun garbageOversizedAndBadUtf8NeverThrow() {
+        val good = KeyFile.encode(wrap(), "leki_kek_1", 1, dek)
+        assertNull(KeyFile.decode(good + ByteArray(KeyFile.MAX_BYTES)), "ponad ok. 1 KB")
+        val badUtf8 = good.copyOf().also { it[7] = 0xFF.toByte(); it[8] = 0xFE.toByte() }
+        assertNull(KeyFile.decode(badUtf8))
+        val ivOutside = good.copyOf().also { it[7 + it[6].toInt() and 0xFF] = 0xFF.toByte() }   // długość IV poza plikiem
+        assertNull(KeyFile.decode(ivOutside))
+        val rnd = java.util.Random(12345)
+        repeat(3000) {
+            val b = good.copyOf(1 + rnd.nextInt(good.size)).also { for (k in 0 until 3) it[rnd.nextInt(it.size)] = rnd.nextInt(256).toByte() }
+            KeyFile.decode(b)   // nie może rzucić wyjątku
+            KeyFile.decode(ByteArray(rnd.nextInt(80)).also { rnd.nextBytes(it) })
+        }
     }
 }

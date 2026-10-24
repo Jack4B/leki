@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.14.7-preview
+
+Szyfrowanie danych, etap 1 część b oraz poprawki z review części a (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).
+
+- **`StartOver`:** zapisy są zablokowane, gdy istnieje plik `startover.pending` (także pusty i nieczytelny), do jego usunięcia po ukończeniu operacji.
+- **`KeyFile`:** `bindingCandidates` (obie kopie o zgodnym `dekId`, w kolejności `keys.bin`, `keys.bin.2`) i `unwrapBinding` z przejściem na drugą kopię przy błędzie GCM lub klucza; klasa F tylko gdy żadna kopia nie działa. Limit rozmiaru `keys.bin` ok. 1 KB.
+- **`DataFile.open(…, expectedDekId)`:** inny `dekId` w nagłówku to osobny wyjątek (`DekMismatchException`), nowa wersja to `NewerVersionException`; limit rozmiaru pliku danych 32 MB; limit `storage.json` ok. 4 KB.
+- **Klasy problemów** z osobnymi komunikatami: uszkodzony plik (C) i błąd uwierzytelnienia treści (E) są rozróżniane przy odczycie; dodano `DEK_ID_MISMATCH`.
+- **Część b:** `FileOps`, `StorageReader` (reguła odczytu wg znacznika bez żadnego zapisu, także dla procesów w tle; brakujący lub nieważny znacznik przy `.enc` lub `keys.bin` = tryb tylko do odczytu), `Migration` (włączanie i wyłączanie, cofanie przerwanej migracji z licznikiem prób, usuwanie kandydatów poza błędem klucza). Kolejność przygotowania: najpierw znacznik `plain` z nowym `dekId`, potem `keys.bin`.
+- Testy: przerwanie po każdej operacji zapisu lub usunięcia w obie strony, zmiana każdego bajtu pliku, śmieci i zły UTF-8 w `keys.bin`, znacznik z dodatkowymi polami i `"v":1.0`, klasy błędów, brak zapisów przy odczycie. Razem 274 testy w `core`.
+
 ## 0.14.6-preview
 
 Szyfrowanie danych, etap 1 część a (plan: `docs/plan-szyfrowanie.md`). **Brak zmiany zachowania aplikacji:** nowy kod w `core` nie jest jeszcze używany, poza jedną zmianą w „Usuń wszystkie dane”.

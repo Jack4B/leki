@@ -30,20 +30,31 @@ class DataFileTest {
         assertEquals(DataFile.Format.NEWER_VERSION, DataFile.classify(newer))
         val flags = seal().also { it[5] = 0x02 }
         assertEquals(DataFile.Format.NEWER_VERSION, DataFile.classify(flags))
-        assertFailsWith<FormatException> { DataFile.open(c, newer, DataFile.Kind.STATE, "p1") }
+        assertFailsWith<NewerVersionException> { DataFile.open(c, newer, DataFile.Kind.STATE, "p1") }
     }
 
-    @Test fun anyChangedByteFailsAuthentication() {
+    @Test fun everySingleByteChangeAfterTheFixedPrefixFailsAuthentication() {
         val good = seal(gen = 7)
-        // nagłówek (poza magic, wersją i flagami, które klasyfikator odrzuca wcześniej): dekId i generacja są w AAD
-        for (i in listOf(6, 8, 9, 10, 11)) {
-            val bad = good.copyOf().also { it[i] = (it[i] + 1).toByte() }
+        // bajty 0 do 4 (magic, wersja) i 7 (długość IV) odrzuca klasyfikator; reszta (flagi, dekId, generacja, IV, szyfrogram, znacznik) musi dać błąd GCM
+        for (i in good.indices) {
+            if (i < 5 || i == 7) continue
+            val bad = good.copyOf().also { it[i] = (it[i].toInt() xor 0x01).toByte() }
             assertFailsWith<AuthFailedException>("bajt $i") { DataFile.open(c, bad, DataFile.Kind.STATE, "p1") }
         }
-        for (i in listOf(DataFile.HEADER, DataFile.HEADER + 5, DataFile.HEADER + DataFile.IV_LEN, good.size - 1)) {
-            val bad = good.copyOf().also { it[i] = (it[i] + 1).toByte() }
-            assertFailsWith<AuthFailedException>("bajt $i") { DataFile.open(c, bad, DataFile.Kind.STATE, "p1") }
+        for (i in listOf(0, 1, 2, 3, 4, 7)) {
+            val bad = good.copyOf().also { it[i] = (it[i].toInt() xor 0x01).toByte() }
+            assertTrue(DataFile.classify(bad) != DataFile.Format.ENCRYPTED, "bajt $i")
         }
+    }
+
+    @Test fun differentDekIdInHeaderIsItsOwnClassNotAuthFailure() {
+        val e = assertFailsWith<DekMismatchException> { DataFile.open(c, seal(), DataFile.Kind.STATE, "p1", expectedDekId = 2) }
+        assertEquals(1, e.found); assertEquals(2, e.expected)
+        assertContentEquals(json, DataFile.open(c, seal(), DataFile.Kind.STATE, "p1", expectedDekId = 1).plain)
+    }
+
+    @Test fun oversizedFileIsCorruptNotRead() {
+        assertEquals(DataFile.Format.CORRUPT, DataFile.classify(ByteArray(DataFile.MAX_FILE_BYTES + 1) { '{'.code.toByte() }))
     }
 
     @Test fun logicalIdentifierBindsPersonAndKindButFileNameDoesNot() {

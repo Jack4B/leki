@@ -17,6 +17,8 @@ class KeyHeader(val dekId: Int, val alias: String, val iv: ByteArray, val body: 
 object KeyFile {
     private val MAGIC = byteArrayOf(0x4C, 0x45, 0x4B, 0x4B)   // "LEKK"
     const val VERSION = 1
+    /** `keys.bin` ma ok. 100 bajtów; większy plik jest uszkodzony. */
+    const val MAX_BYTES = 1024
     private val ALIAS = Regex("^leki_kek_([1-9][0-9]{0,5})$")
 
     fun aad(dekId: Int, alias: String): ByteArray = "leki|dek|$dekId|$alias".toByteArray(Charsets.UTF_8)
@@ -31,7 +33,7 @@ object KeyFile {
 
     /** Czyta nagłówek bez deszyfrowania; null = uszkodzony strukturalnie (zła zawartość, ucięty, nieznana wersja). */
     fun decode(bytes: ByteArray): KeyHeader? {
-        if (bytes.size < 8 || (0 until 4).any { bytes[it] != MAGIC[it] } || (bytes[4].toInt() and 0xFF) != VERSION) return null
+        if (bytes.size < 8 || bytes.size > MAX_BYTES || (0 until 4).any { bytes[it] != MAGIC[it] } || (bytes[4].toInt() and 0xFF) != VERSION) return null
         val dekId = bytes[5].toInt() and 0xFF
         val aliasLen = bytes[6].toInt() and 0xFF
         var p = 7
@@ -51,6 +53,29 @@ object KeyFile {
     /** Następny alias: najwyższy numer spośród aliasów w Keystore i numerów zapisanych w kopiach `keys.bin`, plus 1 (pierwszy: `leki_kek_1`). */
     fun nextAlias(inKeystore: Collection<String>, inKeyFiles: Collection<String>): String =
         "leki_kek_" + ((inKeystore + inKeyFiles).mapNotNull { aliasNumber(it) }.maxOrNull() ?: 0).plus(1)
+
+    /** Obie kopie (w kolejności `keys.bin`, `keys.bin.2`), których `dekId` zgadza się ze znacznikiem; niezgodne służą tylko diagnostyce. */
+    fun bindingCandidates(copies: List<KeyHeader?>, markerDekId: Int): List<KeyHeader> = copies.filterNotNull().filter { it.dekId == markerDekId }
+
+    class Unwrapped(val dek: ByteArray, val dekId: Int, val usedIndex: Int)
+
+    /** Wszystkie wiążące kopie są nieczytelne albo nie dają się rozpakować działającym KEK: klasa F „keys.bin uszkodzony”. */
+    class KeysBrokenException : Exception("keys.bin uszkodzony")
+
+    /**
+     * Rozpakowuje DEK pierwszą kopią wiążącą; przy błędzie GCM albo klucza przechodzi na drugą. Gdy żadna nie działa: błąd klucza Keystore
+     * (brak aliasu lub klucz niedostępny, klasy B/A) ma pierwszeństwo, w przeciwnym razie [KeysBrokenException] (F).
+     */
+    fun unwrapBinding(wrap: KeyWrap, copies: List<KeyHeader?>, markerDekId: Int): Unwrapped {
+        val candidates = bindingCandidates(copies, markerDekId)
+        var keyError: KeyUnavailableException? = null
+        for ((i, h) in candidates.withIndex()) {
+            try { return Unwrapped(unwrap(wrap, h), h.dekId, i) }
+            catch (e: KeyUnavailableException) { if (keyError == null) keyError = e }
+            catch (e: AuthFailedException) { /* spróbuj następnej kopii */ }
+        }
+        throw keyError ?: KeysBrokenException()
+    }
 
     /** Wiążąca jest czytelna kopia o `dekId` zgodnym ze znacznikiem (pierwsza w kolejności); niezgodna służy tylko diagnostyce. */
     fun binding(copies: List<KeyHeader?>, markerDekId: Int): KeyHeader? = copies.firstOrNull { it != null && it.dekId == markerDekId }

@@ -17,8 +17,15 @@ object StartOver {
         return steps.toSet().takeIf { d -> steps.size == d.size && d.all { s -> Step.values().take(s.ordinal).all { it in d } } }
     }
 
-    /** Zapisy danych są zablokowane po wykonaniu RENAME, dopóki nie ukończono KEYS i MARKER. */
-    fun writesBlocked(done: Set<Step>): Boolean = Step.RENAME in done && !(Step.KEYS in done && Step.MARKER in done)
+    /**
+     * Zapisy danych są zablokowane, **gdy istnieje plik [PENDING_FILE]**, niezależnie od jego treści: także pusty (proces zabity w trakcie
+     * kroku 1, zanim zapisano postęp) i nieczytelny. [pendingText] = treść pliku albo null, gdy go nie ma. Blokadę zdejmuje dopiero usunięcie
+     * pliku po ukończeniu wszystkich kroków (pierwszy plan dokańcza operację do przodu).
+     */
+    fun writesBlocked(pendingText: String?): Boolean = pendingText != null
+
+    /** Pozostałe kroki dla pliku postępu; nieczytelny postęp (null) = zaczynamy od kroku (1) jeszcze raz (zmiana nazw jest powtarzalna). */
+    fun remainingFor(pendingText: String): List<Step> = remaining(decode(pendingText) ?: emptySet())
 
     /** Pozostałe kroki do wykonania (dokończenie do przodu na pierwszym planie po restarcie). */
     fun remaining(done: Set<Step>): List<Step> = Step.values().filter { it !in done }

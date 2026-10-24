@@ -48,9 +48,11 @@ data class StorageMarker(val mode: StorageMode, val dekId: Int, val attempts: In
 
     companion object {
         const val MAX_ATTEMPTS = 3
+        /** `storage.json` ma ok. 70 znaków; większy tekst jest nieważny. */
+        const val MAX_CHARS = 4096
 
         /** Parsuje i waliduje strukturę: `v == 1`, `mode` z dozwolonego zbioru, `dekId >= 1`, `attempts` 0..3. Null = nieważny. */
-        fun parse(text: String): StorageMarker? = runCatching {
+        fun parse(text: String): StorageMarker? = if (text.length > MAX_CHARS) null else runCatching {
             val o = Json.parseToJsonElement(text).jsonObject
             if (o["v"]?.jsonPrimitive?.num() != 1) return null
             val mode = StorageMode.values().firstOrNull { it.id == o["mode"]?.jsonPrimitive?.contentOrNull } ?: return null
@@ -74,7 +76,19 @@ data class StorageMarker(val mode: StorageMode, val dekId: Int, val attempts: In
     }
 }
 
-/** Klasy problemów z danymi, od najwyższego pierwszeństwa (plan, rozdział 4). */
-enum class StorageProblem { KEYS_FILE_BROKEN, MARKER_INVALID, KEY_ALIAS_MISSING, KEY_UNAVAILABLE, NEWER_VERSION, FILE_CORRUPT;
+/**
+ * Klasy problemów z danymi, od najwyższego pierwszeństwa (plan, rozdział 4), każda z własnym komunikatem (neutralnym płciowo).
+ * C (uszkodzony plik) i E (błąd uwierzytelnienia treści przy działającym kluczu) są rozróżniane w miejscu odczytu ([StorageReader]).
+ */
+enum class StorageProblem(val message: String) {
+    KEYS_FILE_BROKEN("Plik z kluczami szyfrowania jest uszkodzony, a jego zapasowa kopia też. Pliki z danymi zostały zachowane, ale bez tego pliku nie da się ich odczytać. Wczytaj ostatnią kopię zapasową z hasłem w Ustawieniach albo zacznij od nowa."),
+    MARKER_INVALID("Znacznik trybu przechowywania jest uszkodzony. Aplikacja działa tylko do odczytu. Zrób kopię zapasową z hasłem i odtwórz znacznik."),
+    KEY_ALIAS_MISSING("Te dane wyglądają na przeniesione z innego telefonu: w tym telefonie nie ma klucza, którym je zaszyfrowano, i nie da się ich odczytać. Wczytaj kopię zapasową z hasłem zrobioną na poprzednim telefonie."),
+    KEY_UNAVAILABLE("Nie można odczytać zaszyfrowanych danych. Klucz zabezpieczający w telefonie jest niedostępny, ale pliki z danymi zostały zachowane. Wczytaj ostatnią kopię zapasową w Ustawieniach albo zacznij od nowa."),
+    NEWER_VERSION("Dane zapisano w nowszej wersji aplikacji. Zaktualizuj aplikację."),
+    DEK_ID_MISMATCH("Plik z danymi pochodzi z innego zestawu kluczy niż ten, który jest w telefonie. Pliki zostały zachowane. Wczytaj ostatnią kopię zapasową w Ustawieniach albo zacznij od nowa."),
+    FILE_CORRUPT("Plik danych był uszkodzony. Uszkodzony plik zachowano w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach."),
+    CONTENT_AUTH_FAILED("Treść pliku z danymi nie przeszła sprawdzenia (plik zmieniono albo uszkodzono). Plik zachowano w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach.");
+
     companion object { fun first(found: Collection<StorageProblem>): StorageProblem? = found.minByOrNull { it.ordinal } }
 }

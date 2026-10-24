@@ -6,6 +6,12 @@ class KeyUnavailableException(message: String, val aliasMissing: Boolean = false
 /** Nie przeszło uwierzytelnienie GCM (zła treść, zły nagłówek, zła osoba albo zły klucz). */
 class AuthFailedException(message: String = "Uwierzytelnienie nie powiodło się", cause: Throwable? = null) : Exception(message, cause)
 
+/** Plik zapisała nowsza wersja aplikacji (klasa D); nie ruszamy go. */
+class NewerVersionException : Exception("nowsza wersja")
+
+/** `dekId` w nagłówku pliku nie zgadza się z oczekiwanym (znacznik / `keys.bin`): osobna klasa, nie błąd uwierzytelnienia. */
+class DekMismatchException(val found: Int, val expected: Int) : Exception("dekId $found zamiast $expected")
+
 /** Plik jest strukturalnie uszkodzony (zły nagłówek, ucięty, nie jest ani JSON-em, ani kopertą). */
 class FormatException(message: String) : Exception(message)
 
@@ -32,6 +38,8 @@ object DataFile {
     const val HEADER = 12
     const val IV_LEN = 12
     const val TAG_LEN = 16
+    /** Górny limit rozmiaru pliku danych (kopia importu ma limit 20 MB, `Backup.MAX_IMPORT_BYTES`; zapas na koperty i EKG). Większy plik jest uszkodzony. */
+    const val MAX_FILE_BYTES = 32 * 1024 * 1024
 
     enum class Kind(val id: String) { STATE("state"), USZKODZONY("uszkodzony") }
 
@@ -41,7 +49,7 @@ object DataFile {
 
     /** Rozpoznaje zawartość pliku: `LEKI` = zaszyfrowany, `{` (po białych znakach i BOM) = jawny JSON, reszta uszkodzona. */
     fun classify(bytes: ByteArray): Format {
-        if (bytes.isEmpty()) return Format.CORRUPT
+        if (bytes.isEmpty() || bytes.size > MAX_FILE_BYTES) return Format.CORRUPT
         if (bytes.size >= 4 && (0 until 4).all { bytes[it] == MAGIC[it] }) {
             if (bytes.size < HEADER) return Format.CORRUPT
             val version = bytes[4].toInt() and 0xFF
@@ -75,14 +83,16 @@ object DataFile {
         return h + s.iv + s.body
     }
 
-    /** Odszyfrowuje plik. Rzuca [FormatException] (uszkodzony / nowsza wersja), [AuthFailedException] albo [KeyUnavailableException]. */
-    fun open(cipher: DataCipher, blob: ByteArray, kind: Kind, person: String): Opened {
+    /** Odszyfrowuje plik. Rzuca [FormatException] (uszkodzony / nowsza wersja), [DekMismatchException], [AuthFailedException] albo [KeyUnavailableException]. */
+    fun open(cipher: DataCipher, blob: ByteArray, kind: Kind, person: String, expectedDekId: Int? = null): Opened {
         when (classify(blob)) {
             Format.ENCRYPTED -> {}
-            Format.NEWER_VERSION -> throw FormatException("nowsza wersja")
+            Format.NEWER_VERSION -> throw NewerVersionException()
             else -> throw FormatException("nie jest zaszyfrowanym plikiem danych")
         }
         val h = blob.copyOfRange(0, HEADER)
+        val found = h[6].toInt() and 0xFF
+        if (expectedDekId != null && found != expectedDekId) throw DekMismatchException(found, expectedDekId)
         val iv = blob.copyOfRange(HEADER, HEADER + IV_LEN)
         val body = blob.copyOfRange(HEADER + IV_LEN, blob.size)
         val plain = cipher.decrypt(iv, body, aad(h, kind, person))

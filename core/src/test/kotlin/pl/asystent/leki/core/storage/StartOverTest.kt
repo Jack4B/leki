@@ -9,12 +9,18 @@ import pl.asystent.leki.core.Profiles
 import pl.asystent.leki.core.storage.StartOver.Step
 
 class StartOverTest {
-    @Test fun writesBlockedFromRenameUntilKeysAndMarkerAreDone() {
-        assertFalse(StartOver.writesBlocked(emptySet()))
-        assertTrue(StartOver.writesBlocked(setOf(Step.RENAME)), "proces zabity po kroku (1)")
-        assertTrue(StartOver.writesBlocked(setOf(Step.RENAME, Step.KEYS)))
-        assertFalse(StartOver.writesBlocked(setOf(Step.RENAME, Step.KEYS, Step.MARKER)))
-        assertFalse(StartOver.writesBlocked(Step.values().toSet()))
+    @Test fun writesAreBlockedWheneverThePendingFileExistsWhateverItsContent() {
+        assertFalse(StartOver.writesBlocked(null), "brak pliku postępu")
+        assertTrue(StartOver.writesBlocked(""), "proces zabity w trakcie kroku (1), zanim zapisano postęp")
+        assertTrue(StartOver.writesBlocked(StartOver.encode(setOf(Step.RENAME))))
+        assertTrue(StartOver.writesBlocked(StartOver.encode(setOf(Step.RENAME, Step.KEYS, Step.MARKER))), "do usunięcia pliku po kroku (4)")
+        assertTrue(StartOver.writesBlocked("\u0000śmieci{{"), "nieczytelny postęp też blokuje")
+        assertNull(StartOver.decode("\u0000śmieci{{"))
+    }
+
+    @Test fun unreadableProgressRestartsFromTheFirstStep() {
+        assertEquals(Step.values().toList(), StartOver.remainingFor("nieczytelne"))
+        assertEquals(listOf(Step.KEYS2), StartOver.remainingFor("RENAME,KEYS,MARKER"))
     }
 
     @Test fun remainingStepsContinueForward() {

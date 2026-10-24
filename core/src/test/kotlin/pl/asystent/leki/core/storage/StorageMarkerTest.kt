@@ -60,4 +60,11 @@ class StorageMarkerTest {
         assertEquals(StorageProblem.KEY_ALIAS_MISSING, StorageProblem.first(listOf(StorageProblem.KEY_UNAVAILABLE, StorageProblem.KEY_ALIAS_MISSING)))
         assertNull(StorageProblem.first(emptyList()))
     }
+
+    @Test fun extraFieldsAreIgnoredButVersionMustBeTheIntegerOne() {
+        assertEquals(StorageMarker(StorageMode.ENC, 2, 1), StorageMarker.parse("""{"v":1,"mode":"enc","dekId":2,"attempts":1,"nowe":{"a":[1,2]},"x":"y"}"""))
+        assertNull(StorageMarker.parse("""{"v":1.0,"mode":"enc","dekId":1,"attempts":0}"""), "1.0 nie jest liczbą całkowitą")
+        assertNull(StorageMarker.parse("""{"v":1,"mode":"enc","dekId":1.5,"attempts":0}"""))
+        assertNull(StorageMarker.parse("""{"v":1,"mode":"enc","dekId":1,"attempts":0}""" + " ".repeat(StorageMarker.MAX_CHARS)), "ponad ok. 4 KB")
+    }
 }
