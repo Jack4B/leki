@@ -27,6 +27,17 @@ object Backup {
 
     class FormatException(message: String) : Exception(message)
 
+    /** Górny limit rozmiaru importowanego pliku kopii (zwykła kopia ma kilkaset KB; EKG może ją powiększyć do kilku MB). */
+    const val MAX_IMPORT_BYTES = 20 * 1024 * 1024
+
+    class TooLargeException : Exception("Plik jest za duży (limit ${MAX_IMPORT_BYTES / (1024 * 1024)} MB). To nie wygląda na kopię z tej aplikacji.")
+
+    /** Zamienia bajty odczytane z limitem (najwyżej [MAX_IMPORT_BYTES] + 1) na tekst; za duży plik kończy się [TooLargeException]. */
+    fun decodeImport(bytes: ByteArray): String {
+        if (bytes.size > MAX_IMPORT_BYTES) throw TooLargeException()
+        return String(bytes, Charsets.UTF_8)
+    }
+
     // ---------- Pomocnicze odczyty ----------
 
     private val isoRe = Regex("""^\d{4}-\d\d-\d\d$""")

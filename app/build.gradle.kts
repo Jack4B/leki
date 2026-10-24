@@ -27,25 +27,33 @@ android {
         buildConfig = true
     }
 
-    // CI podaje jawnie plik klucza (-PlekiKeystore=...), żeby podpis był stały i nie zależał od domyślnego miejsca klucza debug.
-    // Bez tego parametru (build lokalny) używany jest zwykły klucz debug.
-    val lekiKeystore: String? = providers.gradleProperty("lekiKeystore").orNull
+    // Podpis release ze zmiennych środowiskowych albo właściwości Gradle (-P), nigdy z hasła zapisanego w repozytorium:
+    // LEKI_KEYSTORE_PATH, LEKI_KEYSTORE_PASSWORD, LEKI_KEY_ALIAS, LEKI_KEY_PASSWORD (w CI z sekretów GitHub).
+    // Gdy któregoś brakuje, release jest podpisywany zwykłym kluczem debug (~/.android/debug.keystore) — wersja preview/lokalna.
+    fun signingValue(name: String): String? =
+        (providers.environmentVariable(name).orNull ?: providers.gradleProperty(name).orNull)?.takeIf { it.isNotBlank() }
+    val ksPath = signingValue("LEKI_KEYSTORE_PATH")
+    val ksPassword = signingValue("LEKI_KEYSTORE_PASSWORD")
+    val ksAlias = signingValue("LEKI_KEY_ALIAS")
+    val ksKeyPassword = signingValue("LEKI_KEY_PASSWORD")
+    val hasReleaseKey = ksPath != null && ksPassword != null && ksAlias != null && ksKeyPassword != null
     signingConfigs {
-        if (lekiKeystore != null) {
+        if (hasReleaseKey) {
             create("leki") {
-                storeFile = file(lekiKeystore)
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+                storeFile = file(ksPath!!)
+                storePassword = ksPassword
+                keyAlias = ksAlias
+                keyPassword = ksKeyPassword
             }
         }
     }
+    if (!hasReleaseKey) logger.warn("Brak LEKI_KEYSTORE_PATH/LEKI_KEYSTORE_PASSWORD/LEKI_KEY_ALIAS/LEKI_KEY_PASSWORD: release podpisany kluczem debug.")
 
     buildTypes {
         release {
             // Wersja preview: bez minifikacji (mniejsze ryzyko błędów w czasie działania).
             isMinifyEnabled = false
-            signingConfig = if (lekiKeystore != null) signingConfigs.getByName("leki") else signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) signingConfigs.getByName("leki") else signingConfigs.getByName("debug")
         }
     }
 
