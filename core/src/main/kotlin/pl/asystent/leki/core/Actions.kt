@@ -26,11 +26,12 @@ fun AppState.toggleDose(d: LocalDate, key: String, today: LocalDate, now: LocalD
     return next
 }
 
+/** Odhacza dawki dnia, które są już po porze i nie zostały świadomie pominięte (pominięcie z powodem zostaje, a dawki z późniejszych pór dziś nie są ruszane). */
 fun AppState.markAll(d: LocalDate, today: LocalDate, now: LocalDateTime): AppState {
     var s = this
-    for (x in scheduleFor(d)) if (x.key !in s.day(d).taken) {
+    for (x in scheduleFor(d)) if (x.key !in s.day(d).taken && x.key !in s.day(d).skipped && !(d == today && x.slot.time.minutes > now.hour * 60 + now.minute)) {
         val t = if (d == today) now.toLocalTime().withSecond(0).withNano(0) else x.slot.time
-        s = s.updateDay(d) { it.copy(taken = it.taken + x.key, times = it.times + (x.key to t), skipped = it.skipped - x.key) }
+        s = s.updateDay(d) { it.copy(taken = it.taken + x.key, times = it.times + (x.key to t), skipped = it.skipped) }
     }
     return s
 }

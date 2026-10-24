@@ -195,7 +195,7 @@ fun rememberEcgImporter(onDraft: (Ecg) -> Unit): () -> Unit {
                 val draft = withContext(Dispatchers.Default) {
                     try { readPdfEcg(ctx, uri, DPI) } catch (e: OutOfMemoryError) { System.gc(); readPdfEcg(ctx, uri, DPI_FALLBACK) }
                 }
-                if (draft == null) toast("Nie znaleziono przebiegu EKG w tym pliku. Wczytaj PDF wyeksportowany z aplikacji zegarka.")
+                if (draft == null) toast("Nie rozpoznano przebiegu EKG w tym pliku (inny układ strony lub skala wydruku). Wczytaj PDF wyeksportowany z aplikacji zegarka (25 mm/s, 10 mm/mV).")
                 else {
                     onDraft(draft.ecg)
                     if (!draft.dateRead) toast("Nie odczytano daty z wydruku. Ustaw datę i godzinę ręcznie.")

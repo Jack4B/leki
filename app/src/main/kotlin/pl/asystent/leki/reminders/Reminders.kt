@@ -197,7 +197,7 @@ object Reminders {
             .setSmallIcon(R.drawable.ic_stat_pill)
             .setColor(0xFF0B6B58.toInt())
             .setContentTitle("Asystent leków")
-            .setContentText(if (id % OFFSET == REMINDER_BACKUP || id % OFFSET == REMINDER_STOCK) "Przypomnienie z aplikacji" else "Czas na przyjęcie leku")
+            .setContentText(if (id % OFFSET == REMINDER_BACKUP || id % OFFSET == REMINDER_STOCK) "Przypomnienie z aplikacji" else if (id % OFFSET == 1) "Minął czas stopera po dawce" else "Czas na przyjęcie leku")
             .build()
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_pill)

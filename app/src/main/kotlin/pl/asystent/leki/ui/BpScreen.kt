@@ -27,7 +27,12 @@ import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.Bp
 import pl.asystent.leki.core.addBp
 import pl.asystent.leki.core.Trend
+import pl.asystent.leki.core.BP_ALERT_HIGH
+import pl.asystent.leki.core.BP_ALERT_LOW
 import pl.asystent.leki.core.bpFlag
+import pl.asystent.leki.core.bpFlagText
+import pl.asystent.leki.core.bpVeryHigh
+import pl.asystent.leki.core.bpVeryLow
 import pl.asystent.leki.core.bpGroupSummary
 import pl.asystent.leki.core.bpOrder
 import pl.asystent.leki.core.bpStats
@@ -71,6 +76,11 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         item {
             Text("Nowy pomiar", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            // wskazówka bezpieczeństwa po ostatnim pomiarze z dziś lub wczoraj: stała, niezależna od progów w Ustawieniach
+            s.bp.maxWithOrNull(compareBy({ it.date }, { it.time }))?.takeIf { it.date >= today.minusDays(1) }?.let { last ->
+                if (bpVeryHigh(last)) Notice("Ostatni pomiar ${last.sys}/${last.dia}. $BP_ALERT_HIGH", Modifier.padding(top = 8.dp))
+                else if (bpVeryLow(last)) Notice("Ostatni pomiar ${last.sys}/${last.dia}. $BP_ALERT_LOW", Modifier.padding(top = 8.dp))
+            }
             BodyText("Mierz siedząc, po 5 minutach odpoczynku, na tym samym ramieniu.", Modifier.padding(top = 4.dp, bottom = 14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -92,14 +102,14 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                     val sy = sys.toIntOrNull(); val di = dia.toIntOrNull(); val pu = pulse.toIntOrNull()?.takeIf { it > 0 }
                     err = when {
                         sy == null || di == null || sy == 0 || di == 0 -> "Wpisz ciśnienie skurczowe i rozkurczowe."
-                        sy < 60 || sy > 260 || di < 30 || di > 160 -> "Wartości poza zakresem (skurczowe 60-260, rozkurczowe 30-160)."
+                        sy < 60 || sy > 260 || di < 30 || di > 160 -> "Wartości poza zakresem aplikacji (skurczowe 60-260, rozkurczowe 30-160). Sprawdź, czy dobrze odczytano wynik i zmierz ponownie; przy bardzo wysokim lub niskim ciśnieniu z objawami zadzwoń pod 112."
                         sy <= di -> "Skurczowe musi być większe od rozkurczowego."
-                        pu != null && (pu < 30 || pu > 220) -> "Tętno powinno mieścić się w zakresie 30-220."
+                        pu != null && (pu < 20 || pu > 250) -> "Tętno powinno mieścić się w zakresie 20-250."
                         else -> ""
                     }
                     if (err.isEmpty()) {
                         store.update { it.addBp(Bp(newId(), dateVal, timeVal, sy!!, di!!, pu, ctxNames[ctxIdx], bpNote.trim())) }
-                        toast("Zapisano pomiar $sy/$di")
+                        toast(if (bpVeryHigh(Bp("", dateVal, timeVal, sy!!, di!!, null, "", ""))) "Zapisano pomiar $sy/$di. Bardzo wysokie ciśnienie: zobacz wskazówkę u góry ekranu." else "Zapisano pomiar $sy/$di")
                         sys = ""; dia = ""; pulse = ""; bpNote = ""
                         dateStr = ""; timeStr = ""; ctxSel = -1
                     }
@@ -170,7 +180,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
 private fun BpRows(rows: List<Bp>, s: AppState, onDelete: (String) -> Unit) {
     rows.forEachIndexed { i, r ->
         if (i > 0) Divider()
-        val f = s.settings.bpFlag(r)
+        val f = s.settings.bpFlagText(r)
         val meta = listOfNotNull(r.pulse?.let { "tętno $it" }, r.ctx, r.note.ifEmpty { null }).joinToString(", ")
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(r.time.hhmm(), style = TextStyle(fontSize = 13.sp, fontFamily = Mono, color = pal.ink3), modifier = Modifier.padding(end = 2.dp))

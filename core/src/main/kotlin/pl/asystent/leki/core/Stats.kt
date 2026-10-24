@@ -11,6 +11,21 @@ fun Settings.bpFlag(r: Bp): String = when {
     else -> ""
 }
 
+/** Wartości, przy których aplikacja zawsze pokazuje wskazówkę bezpieczeństwa; stałe, niezależne od progów w Ustawieniach (próg ciężkiego nadciśnienia wg ESC/ESH: 180/110). */
+fun bpVeryHigh(r: Bp): Boolean = r.sys >= 180 || r.dia >= 110
+/** Bardzo niskie ciśnienie: wskazówka dotyczy objawów, bo wiele zdrowych osób ma ciśnienie niskie bez dolegliwości. */
+fun bpVeryLow(r: Bp): Boolean = r.sys < 90 || r.dia < 50
+
+const val BP_ALERT_HIGH = "Bardzo wysokie ciśnienie (od 180/110). Odpocznij kilka minut i zmierz ponownie. Jeśli wynik się utrzymuje albo pojawia się ból w klatce piersiowej, duszność, osłabienie, zaburzenia mowy lub widzenia albo silny ból głowy, zadzwoń pod 112. Bez objawów skontaktuj się z lekarzem jeszcze dziś."
+const val BP_ALERT_LOW = "Niskie ciśnienie (skurczowe poniżej 90 lub rozkurczowe poniżej 50). Jeśli towarzyszą mu zawroty głowy, osłabienie albo omdlenie, usiądź lub połóż się i skontaktuj się z lekarzem; przy utracie przytomności zadzwoń pod 112."
+
+/** Opis oznaczenia pomiaru z uwzględnieniem wartości bardzo wysokich i bardzo niskich (do list i raportów). */
+fun Settings.bpFlagText(r: Bp): String = when {
+    bpVeryHigh(r) -> "bardzo wysokie"
+    bpVeryLow(r) -> "bardzo niskie"
+    else -> bpFlag(r)
+}
+
 fun Settings.thresholdText() = "podwyższone od $hiSys/$hiDia, niskie poniżej $loSys/$loDia"
 
 data class CtxStats(val n: Int, val s: Int?, val d: Int?)

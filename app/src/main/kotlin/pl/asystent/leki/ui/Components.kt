@@ -67,6 +67,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -112,7 +113,7 @@ fun Divider() {
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composable RowScope.() -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 26.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f, fill = false))
+        Text(text, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f, fill = false).semantics { heading() })
         if (action != null) action()
     }
 }
@@ -324,17 +325,20 @@ private fun Modifier.width1() = this.then(Modifier.size(width = 1.dp, height = 4
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
-            .background(if (selected) pal.accent else pal.surface).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
+        Modifier.heightIn(min = 48.dp).toggleable(value = selected, role = Role.Checkbox, onValueChange = { onClick() }),
         contentAlignment = Alignment.Center,
-    ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) }
+    ) { Box(
+        Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
+            .background(if (selected) pal.accent else pal.surface).padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) } }
 }
 
 /** Wiersz z polem wyboru (lista opcji). */
 @Composable
 fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subtitle: String? = null, indent: Boolean = false) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Checkbox) { onChange(!checked) }.padding(start = if (indent) 42.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = checked, role = Role.Checkbox, onValueChange = { onChange(it) }).padding(start = if (indent) 42.dp else 14.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -486,7 +490,7 @@ fun ProgressBar(fraction: Float, modifier: Modifier = Modifier) {
 
 @Composable
 fun ErrorText(text: String) {
-    if (text.isNotEmpty()) Text(text, style = TextStyle(fontSize = 13.sp, color = pal.danger))
+    if (text.isNotEmpty()) Text(text, modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }, style = TextStyle(fontSize = 13.sp, color = pal.danger))
 }
 
 fun parseDecimal(s: String): Double? = parseNum(s)
@@ -534,7 +538,7 @@ fun ToggleChip(text: String, selected: Boolean, role: Role = Role.Checkbox, onCl
 /** Mały nagłówek grupy nad listą. */
 @Composable
 fun Overline(text: String, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), modifier = modifier.padding(bottom = 8.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp))
+    Text(text.uppercase(), modifier = modifier.padding(bottom = 8.dp).semantics { heading() }, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.ink3, letterSpacing = 0.8.sp))
 }
 
 /** Przycisk z samą ikoną (np. kalendarz, wstecz). */

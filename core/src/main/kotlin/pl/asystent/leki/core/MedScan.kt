@@ -28,7 +28,7 @@ object MedScan {
     private val notName = Regex(
         """(?i)tablet|kapsu|powlek|opakowan|substanc|dawkowan|zawiera|przechow|producent|odpowiedzial|wa[zż]n|serii|recept|ulotk|doust|stosowan|przed u[zż]yciem|przeczytaj|uwaga|www\.|\.pl|\.com|ean|gtin|\bkod\b|\bexp\b|\blot\b|\brp\b|wyr[oó]b|importer|data |miejsce|dzieci|zakres|podmiot|pozwolenie|nr |numer|jednostk|\bszt\b|\bml\b|\bmg\b|\bdla\b|\bna\b|\bi\b|\bz\b|\bw\b"""
     )
-    private val strengthRx = Regex("""(?i)(\d{1,4}(?:[.,]\d{1,3})?)\s*(mg|µg|μg|mcg|g|j\.m\.|iu)\b(?:\s*/\s*(?:ml|g|dawk\p{L}*|tabl\p{L}*))?""")
+    private val strengthRx = Regex("""(?i)(?<![\d.,])((?:\d{1,3}(?: \d{3})+|\d{1,5})(?:[.,]\d{1,4})?)\s*(mg|µg|μg|mcg|ug|g|j\.m\.|iu)\b(?:\s*/\s*(?:ml|g|dawk\p{L}*|tabl\p{L}*))?""")
     private val countRx = Regex("""(?i)\b(\d{1,4})\s*(tabletek|tabletki|tabl\.?|kapsułek|kapsułki|kaps\.?|saszetek|saszetki|sasz\.?|ampułek|ampułki|amp\.?|plastrów|plastry|czopków|czopki|dawek|szt\.?)(?=[\s,.;)]|$)""")
     private val volumeRx = Regex("""(?i)\b(\d{1,4})\s*ml\b""")
     private val substanceRx = Regex("""(?i)substanc\p{L}*\s+czynn\p{L}*(?:\s+leku)?\s*(?:jest|to|:)?\s*[:\-]?\s*(.*)$""")

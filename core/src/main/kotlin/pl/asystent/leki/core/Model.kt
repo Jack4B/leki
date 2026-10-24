@@ -124,7 +124,7 @@ data class Settings(
     val glassMl: Int = 250,
     val hiSys: Int = 135,
     val hiDia: Int = 85,
-    val loSys: Int = 100,
+    val loSys: Int = 90,
     val loDia: Int = 60,
     val theme: ThemeMode = ThemeMode.Auto,
     val reportNote: String = "",
@@ -197,11 +197,12 @@ object Defaults {
     )
 
     fun markers() = listOf(
-        Marker("potas", "Potas", "mmol/l", 3.5, 5.5, "Elektrolity"),
-        Marker("sod", "Sód", "mmol/l", 136.0, 146.0, "Elektrolity"),
+        Marker("potas", "Potas", "mmol/l", 3.5, 5.1, "Elektrolity"),
+        Marker("sod", "Sód", "mmol/l", 136.0, 145.0, "Elektrolity"),
         Marker("magnez", "Magnez", "mmol/l", 0.7, 1.1, "Elektrolity"),
-        Marker("kreatynina", "Kreatynina", "mg/dl", 0.67, 1.17, "Nerki i metabolizm"),
-        Marker("moczowy", "Kwas moczowy", "mg/dl", 3.5, 7.2, "Nerki i metabolizm"),
+        // zakresy kreatyniny i kwasu moczowego zależą od płci i laboratorium, więc nie ma domyślnych: wpisz je z wyniku
+        Marker("kreatynina", "Kreatynina", "mg/dl", null, null, "Nerki i metabolizm"),
+        Marker("moczowy", "Kwas moczowy", "mg/dl", null, null, "Nerki i metabolizm"),
     )
 
     /** Grupy znanych parametrów (także z plików wyników przygotowanych w innych narzędziach). */

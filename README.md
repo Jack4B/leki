@@ -330,6 +330,11 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ## Znane ograniczenia wersji preview
 
+- **Ciśnienie:** ostrzeżenie o bardzo wysokim (od 180/110) i bardzo niskim ciśnieniu jest stałe i nie zależy od progów w Ustawieniach, ale to tylko podpowiedź, nie ocena medyczna; progi „podwyższone/niskie” ustawia się według zaleceń lekarza (domyślnie 135/85 i 90/60).
+- **EKG:** zapis słabej jakości (zakłócenia, przerwy w sygnale) nie jest oceniany pod kątem rytmu; odczyt z PDF zakłada wydruk 25 mm/s i 10 mm/mV, a inny układ lub skala jest odrzucana. Bradykardia jest oznaczana poniżej 50/min (ostrożniej niż ogólna definicja <60/min, żeby nie alarmować sportowców i osób śpiących), tachykardia powyżej 100/min.
+- **Leki:** brak typu leku „w razie potrzeby” (doraźne trzeba wpisać jako stałe albo pominąć); edytor dawek ma krok 0,5 (ćwiartki tabletki wymagają wpisania z importu).
+- **Badania (OCR):** parser nie rozpoznaje poprawnie wszystkich wierszy (np. liczba w nazwie badania, kilka zakresów w jednym wierszu, jednostki spoza listy); zawsze sprawdź wynik z oryginałem przed zapisem. Domyślne zakresy dotyczą tylko potasu, sodu i magnezu (zakres z wyniku laboratorium ma pierwszeństwo).
+
 - APK jest podpisany kluczem debug i nie jest przeznaczony do Google Play.
 - Wersja bez minifikacji kodu (większy plik, mniejsze ryzyko błędów); optymalizacja później. Rozmiar APK to kilkadziesiąt MB, głównie przez model i biblioteki rozpoznawania tekstu; działa tylko na telefonach arm64 i armeabi-v7a.
 - Interfejs tylko po polsku.

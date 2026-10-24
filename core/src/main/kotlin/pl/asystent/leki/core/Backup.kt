@@ -152,7 +152,7 @@ object Backup {
                 val from = p["from"].date() ?: return@mapNotNull null
                 val dosesIn = p["doses"] as? JsonObject ?: return@mapNotNull null
                 val doses = LinkedHashMap<String, Double>()
-                dosesIn.forEach { (k, v) -> val n = jsFloat(v) ?: 0.0; if (n > 0 && n <= 50) doses[k] = n }
+                dosesIn.forEach { (k, v) -> val n = jsFloat(v) ?: 0.0; if (n > 0 && n <= 1000) doses[k] = n }
                 val dow = (p["dow"].arr()?.mapNotNull { it.number() } ?: Defaults.allDow.map { it.toDouble() })
                     .filter { it in 0.0..6.0 && it % 1.0 == 0.0 }.map { it.toInt() }
                 Phase(from, doses, dow.ifEmpty { Defaults.allDow })

@@ -184,7 +184,9 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
         val toast: (String) -> Unit = { msg -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(msg) } }
         val saveFailed by store.saveFailed.collectAsStateWithLifecycle()
         LaunchedEffect(saveFailed) {
-            if (saveFailed) toast("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.")
+            // ostrzeżenie o niezapisanych danych nie znika samo: zostaje do udanego zapisu albo zamknięcia
+            if (saveFailed) scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar("Nie udało się zapisać danych. Sprawdź wolne miejsce w telefonie i zrób kopię w Ustawieniach.", actionLabel = "Zamknij", duration = SnackbarDuration.Indefinite) }
+            else snackbar.currentSnackbarData?.dismiss()
         }
         // usunięcie pojedynczej pozycji: bez okna potwierdzenia, za to z komunikatem i przyciskiem „Cofnij” (długo widocznym)
         val undo: (String, () -> Unit) -> Unit = { msg, restore ->

@@ -215,7 +215,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             _state.value = states.getValue(active)
         }
         // pliki kasujemy pod blokadą zapisu (nie zagnieżdżoną w `lock`), żeby trwający zapis nie odtworzył pliku usuniętej osoby
-        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } } }
+        // zapasowa kopia sprzed wprowadzenia osób zawiera jawne dane pierwszej osoby: znika razem z nią
+        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } }; if (id == "p1") runCatching { File(dir, "state.przed-osobami.json").delete() } }
         publishProfiles()
         _activeId.value = active
         writeIndex()
@@ -243,7 +244,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             active = "p1"
             _state.value = states.getValue(active)
         }
-        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } } }
+        synchronized(this) { gone.forEach { runCatching { File(dir, it).delete() } }; runCatching { File(dir, "state.przed-osobami.json").delete() } }
         publishProfiles()
         _activeId.value = active
         writeIndex()

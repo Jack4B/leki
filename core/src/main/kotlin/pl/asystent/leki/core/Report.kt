@@ -125,7 +125,7 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                     bpChart(list)?.let { h.append(bpChartSvg(it)) }
                     h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>Data</th><th>Godz.</th><th>Ciśnienie</th><th>Tętno</th><th>Pora</th><th>Uwagi</th></tr></thead><tbody>")
                     list.forEach { r ->
-                        val f = c.bpFlag(r)
+                        val f = c.bpFlagText(r)
                         h.append("<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>")
                         if (f.isNotEmpty()) h.append("<b>$f</b>")
                         if (f.isNotEmpty() && r.note.isNotEmpty()) h.append(", ")
@@ -181,7 +181,7 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             h.append("<h3>Przyjmowanie leków</h3>")
             if (rows.isEmpty()) h.append("<p class=\"muted\">Brak danych o lekach w wybranym okresie.</p>")
             else {
-                h.append("<div class=\"rp-sum\"><div><b>$fullDays/$schedDays</b><span>dni z kompletem</span></div><div><b>$taken/$planned</b><span>przyjęte dawki</span></div><div><b>${if (planned > 0) Math.round(taken * 100.0 / planned) else 0}%</b><span>zgodność z planem</span></div></div>")
+                h.append("<div class=\"rp-sum\"><div><b>$fullDays/$schedDays</b><span>dni z kompletem</span></div><div><b>$taken/$planned</b><span>przyjęte dawki</span></div><div><b>${if (planned > 0) Math.round(taken * 100.0 / planned).let { if (taken < planned && it >= 100) 99L else it } else 0}%</b><span>zgodność z planem</span></div></div>")
                 h.append("<p class=\"muted\" style=\"margin:0 0 10px\">Pominięte dawki: ${skips.size}.")
                 if (c.lateMin > 0) h.append(" Przyjęte po czasie (ponad ${c.lateMin} min po porze): $lateTaken.")
                 h.append("</p><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Leki</th>")

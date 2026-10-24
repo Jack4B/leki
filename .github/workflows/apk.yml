@@ -90,6 +90,9 @@ jobs:
   release:
     needs: apk
     runs-on: ubuntu-latest
+    concurrency:
+      group: apk-release
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -127,12 +130,12 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Asystent leków ${VERSION} (kompilacja ${RUN})" \
             --prerelease --notes-file notes.md
           # Zostają 2 ostatnie kompilacje (aktualna i poprzednia, do cofnięcia); starsze wydania i tagi są usuwane, żeby lista nie rosła bez końca.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | test("-b[0-9]+$"))] | sort_by(.created_at) | reverse | .[2:] | .[].tag_name' \
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | test("-b[0-9]+$"))] | sort_by(.tag_name | capture("-b(?<n>[0-9]+)$").n | tonumber) | reverse | .[2:] | .[].tag_name' \
             | while read -r old; do gh release delete "$old" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true; done
           # Osierocone tagi kompilacji (tag bez wydania, np. po ręcznym usunięciu wydania) też są usuwane.
-          RELS=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name')
-          gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" --paginate --jq '.[].ref' | sed 's#^refs/tags/##' | grep -E -- '-b[0-9]+$' \
-            | while read -r t; do echo "$RELS" | grep -qxF -- "$t" || gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$t" || true; done
+          TAGS=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" --paginate --jq '.[].ref' | sed 's#^refs/tags/##' | grep -E -- '-b[0-9]+$' || true)
+          RELS=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --jq '.[].tag_name')
+          echo "$TAGS" | while read -r t; do [ -n "$t" ] && { echo "$RELS" | grep -qxF -- "$t" || gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$t" || true; }; done
 
   # Zrzuty ekranów do kontroli układu (nie blokują wydania). Wydanie "zrzuty-ekranow" jest nadpisywane przy każdym przebiegu.
   zrzuty:

@@ -163,7 +163,7 @@ object AiReport {
                 p("- Progi ustawione przez pacjenta: ${c.thresholdText()}.")
                 p()
                 p(table(listOf("Data", "Godz.", "Ciśnienie", "Tętno", "Pora pomiaru", "Uwagi"),
-                    list.takeLast(40).map { r -> listOf(plDate(r.date), r.time.hhmm(), "${r.sys}/${r.dia}", r.pulse ?: "", r.ctx, listOf(c.bpFlag(r), r.note).filter { it.isNotEmpty() }.joinToString("; ")) }))
+                    list.takeLast(40).map { r -> listOf(plDate(r.date), r.time.hhmm(), "${r.sys}/${r.dia}", r.pulse ?: "", r.ctx, listOf(c.bpFlagText(r), r.note).filter { it.isNotEmpty() }.joinToString("; ")) }))
                 if (list.size > 40) p("Pokazano 40 ostatnich z ${list.size} pomiarów.")
             } else p("Brak pomiarów w tym okresie.")
         }
