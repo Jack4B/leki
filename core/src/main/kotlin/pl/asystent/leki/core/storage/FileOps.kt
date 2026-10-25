@@ -19,4 +19,14 @@ object StorageNames {
     fun encFile(id: String): String = if (id == "p1") "state.enc" else "state-$id.enc"
     fun plainFile(id: String): String = if (id == "p1") "state.json" else "state-$id.json"
     fun isEncFile(name: String): Boolean = ENC.matches(name)
+
+    const val PENDING = StartOver.PENDING_FILE
+    private val AUX = Regex(".*\\.(uszkodzony|odrzucony)\\.(json|enc)|.*\\.nieczytelny\\.enc|.*\\.(bak|new)")
+
+    /** Nazwa pliku `.nieczytelny.enc` osoby (po „Zaczynam od nowa”). */
+    fun unreadableFile(id: String): String = if (id == "p1") "state.nieczytelny.enc" else "state-$id.nieczytelny.enc"
+
+    /** Wszystko, co szyfrowanie zostawia w katalogu danych i co „Usuń wszystkie dane” kasuje: `.enc`, klucze, znacznik, postęp, pliki pomocnicze i pozostałości `AtomicFile`. */
+    fun isEncryptionRelated(name: String): Boolean =
+        isEncFile(name) || name == KEYS || name == KEYS2 || name == MARKER || name == PENDING || name == pl.asystent.leki.core.Profiles.BEFORE_PEOPLE || AUX.matches(name)
 }

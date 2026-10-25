@@ -9,7 +9,8 @@ import pl.asystent.leki.core.storage.StorageNames.plainFile
  */
 object StorageReader {
     class PersonRead(val plain: ByteArray?, val problem: StorageProblem?, val fromPlainFallback: Boolean = false)
-    class Result(val marker: MarkerState, val persons: Map<String, PersonRead>, val problem: StorageProblem?, val readOnly: Boolean)
+    /** [cipher] i [dekId]: tylko w trybie `enc`, gdy klucz działa (do zapisu w aplikacji); w trybie plain null. */
+    class Result(val marker: MarkerState, val persons: Map<String, PersonRead>, val problem: StorageProblem?, val readOnly: Boolean, val cipher: DataCipher? = null, val dekId: Int? = null)
 
     private fun readLimited(ops: FileOps, name: String, max: Int): ByteArray? = ops.read(name)?.takeIf { it.size <= max }
 
@@ -61,6 +62,6 @@ object StorageReader {
             }
         }
         val all = persons.values.mapNotNull { it.problem } + listOfNotNull(if (readOnly) StorageProblem.MARKER_INVALID else null, kp)
-        return Result(state, persons, StorageProblem.first(all), readOnly)
+        return Result(state, persons, StorageProblem.first(all), readOnly, cipher, markerDek)
     }
 }

@@ -29,4 +29,51 @@ object StartOver {
 
     /** Pozostałe kroki do wykonania (dokończenie do przodu na pierwszym planie po restarcie). */
     fun remaining(done: Set<Step>): List<Step> = Step.values().filter { it !in done }
+
+    class Result(val dek: ByteArray, val dekId: Int)
+
+    /**
+     * Wykonuje albo **dokańcza** „Zaczynam od nowa” (plan, rozdział 1). Postęp w [PENDING_FILE] zapisywany atomowo po każdym kroku;
+     * plik powstaje przed krokiem 1 (pusty = nic jeszcze nie zrobiono, ale zapisy już są zablokowane). Nowy `dekId` = n+1 ([currentDekId] + 1),
+     * nowy alias z [KeyFile.nextAlias]; [createKey] tworzy klucz w Keystore o podanym aliasie. Przy wznowieniu kroki wykonane są pomijane,
+     * a `dekId` i DEK bierze się z już zapisanego `keys.bin`. Zwraca wynik albo null, gdy weryfikacja kluczy nie przeszła (plik postępu zostaje).
+     */
+    fun execute(ops: FileOps, wrap: KeyWrap, createKey: (String) -> Unit, keystoreAliases: Collection<String>, newDek: ByteArray, currentDekId: Int, ids: List<String>): Result? {
+        val pending = ops.read(PENDING_FILE)?.let { String(it, Charsets.UTF_8) }
+        var done = (pending?.let { decode(it) }) ?: emptySet()
+        if (pending == null) ops.write(PENDING_FILE, ByteArray(0))
+        fun mark(step: Step) { done = done + step; ops.write(PENDING_FILE, encode(done).toByteArray(Charsets.UTF_8)) }
+
+        if (Step.RENAME !in done) {
+            for (id in ids) {
+                val src = StorageNames.encFile(id); val dst = StorageNames.unreadableFile(id)
+                val blob = ops.read(src) ?: continue
+                if (ops.read(dst) == null) ops.write(dst, blob)
+                ops.delete(src); ops.delete("$src.bak")
+            }
+            mark(Step.RENAME)
+        }
+        if (Step.KEYS !in done) {
+            val alias = KeyFile.nextAlias(keystoreAliases, listOf(StorageNames.KEYS, StorageNames.KEYS2).mapNotNull { n -> ops.read(n)?.let { KeyFile.decode(it)?.alias } })
+            createKey(alias)
+            ops.write(StorageNames.KEYS, KeyFile.encode(wrap, alias, currentDekId + 1, newDek))
+            val h = ops.read(StorageNames.KEYS)?.let { KeyFile.decode(it) } ?: return null
+            if (!runCatching { KeyFile.unwrap(wrap, h).contentEquals(newDek) }.getOrDefault(false)) return null
+            mark(Step.KEYS)
+        }
+        val header = ops.read(StorageNames.KEYS)?.let { KeyFile.decode(it) } ?: return null
+        if (Step.MARKER !in done) {
+            if (!Migration.writeMarker(ops, StorageMarker(StorageMode.ENC, header.dekId, 0))) return null
+            mark(Step.MARKER)
+        }
+        if (Step.KEYS2 !in done) {
+            ops.write(StorageNames.KEYS2, ops.read(StorageNames.KEYS) ?: return null)
+            val h2 = ops.read(StorageNames.KEYS2)?.let { KeyFile.decode(it) } ?: return null
+            runCatching { KeyFile.unwrap(wrap, h2) }.getOrNull() ?: return null
+            mark(Step.KEYS2)
+        }
+        val dek = runCatching { KeyFile.unwrap(wrap, header) }.getOrNull() ?: return null
+        ops.delete(PENDING_FILE)
+        return Result(dek, header.dekId)
+    }
 }

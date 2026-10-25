@@ -55,7 +55,7 @@ class MigrationTest {
             // dokończenie
             if (marker?.mode != StorageMode.ENC) {
                 // jak w aplikacji: najpierw krok 0 (klucze sprzątane na starcie w trybie plain są tworzone na nowo), potem migracja
-                assertTrue(Migration.prepareKeys(m, wrap, "leki_kek_1", 1, TEST_DEK, marker?.attempts ?: 0))
+                assertEquals(Migration.Prepared.OK, Migration.prepareKeys(m, wrap, "leki_kek_1", 1, TEST_DEK, marker?.attempts ?: 0))
             }
             if (marker?.mode != StorageMode.ENC) assertEquals(Migration.Outcome.DONE, Migration.enable(m, cipher, 1, ids, marker ?: StorageMarker(StorageMode.PLAIN, 1)))
             assertEquals(StorageMode.ENC, Migration.readMarker(m)!!.mode)
@@ -128,7 +128,7 @@ class MigrationTest {
             m.files[StorageNames.KEYS2] = KeyFile.encode(wrap, "leki_kek_1", 1, TEST_DEK)
             m.files[StorageNames.MARKER] = StorageMarker(StorageMode.PLAIN, 1).toJson().toByteArray()
         }
-        val total = dirWithLeftoverKeys().let { m -> val k = KillingOps(m, Int.MAX_VALUE); assertTrue(Migration.prepareKeys(k, wrap, "leki_kek_1", 2, TEST_DEK, 0)); k.ops }
+        val total = dirWithLeftoverKeys().let { m -> val k = KillingOps(m, Int.MAX_VALUE); assertEquals(Migration.Prepared.OK, Migration.prepareKeys(k, wrap, "leki_kek_1", 2, TEST_DEK, 0)); k.ops }
         assertEquals(3, total, "znacznik, keys.bin, keys.bin.2")
         for (k in 1..total + 1) {
             val m = dirWithLeftoverKeys()
@@ -136,7 +136,7 @@ class MigrationTest {
             val r = read(m)
             assertNull(r.problem, "krok $k"); assertFalse(r.readOnly, "krok $k")
             assertContentEquals(data["p1"], r.persons["p1"]!!.plain)
-            assertTrue(Migration.prepareKeys(m, wrap, "leki_kek_1", 2, TEST_DEK, 0), "ponowienie po kroku $k")
+            assertEquals(Migration.Prepared.OK, Migration.prepareKeys(m, wrap, "leki_kek_1", 2, TEST_DEK, 0), "ponowienie po kroku $k")
             assertEquals(StorageMarker(StorageMode.PLAIN, 2, 0), Migration.readMarker(m))
         }
     }
@@ -149,7 +149,7 @@ class MigrationTest {
             val m = plainDir()
             try { Migration.enable(KillingOps(m, k), cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) } catch (e: Killed) {}
             if (Migration.readMarker(m)?.mode != StorageMode.ENC) continue     // przed zatwierdzeniem jawny plik jest wiążący
-            Migration.cleanupPlainLeftovers(m, cipher, 1, ids)
+            Migration.cleanupPlainLeftovers(m, cipher, ids)
             assertTrue(ids.none { StorageNames.plainFile(it) in m.files || StorageNames.plainFile(it) + ".bak" in m.files }, "krok $k: jawne pliki nie zostają")
             assertFalse(Profiles.BEFORE_PEOPLE in m.files)
             assertData(m, "po sprzątaniu (krok $k)")
@@ -161,14 +161,14 @@ class MigrationTest {
         m.files[StorageNames.plainFile("p1")] = data.getValue("p1")                       // resztka
         m.files[StorageNames.plainFile("p2")] = data.getValue("p2"); m.files.remove(StorageNames.encFile("p2"))   // osoba bez .enc
         val noKey = object : DataCipher by cipher { override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray): ByteArray = throw KeyUnavailableException("x") }
-        assertEquals(0, Migration.cleanupPlainLeftovers(m, noKey, 1, ids), "błąd klucza")
-        assertEquals(1, Migration.cleanupPlainLeftovers(m, cipher, 1, ids), "tylko p1")
+        assertEquals(0, Migration.cleanupPlainLeftovers(m, noKey, ids), "błąd klucza")
+        assertEquals(1, Migration.cleanupPlainLeftovers(m, cipher, ids), "tylko p1")
         assertTrue(StorageNames.plainFile("p2") in m.files && StorageNames.plainFile("p1") !in m.files)
     }
 
     @Test fun cleanupDoesNothingOutsideEncMode() {
         val m = plainDir()
-        assertEquals(0, Migration.cleanupPlainLeftovers(m, cipher, 1, ids))
+        assertEquals(0, Migration.cleanupPlainLeftovers(m, cipher, ids))
         assertTrue(StorageNames.plainFile("p1") in m.files)
     }
 
@@ -199,7 +199,7 @@ class MigrationTest {
         assertEquals(Migration.Outcome.ROLLED_BACK, Migration.disable(m, failsOnVerify, 1, ids, StorageMarker(StorageMode.ENC, 1)))
         assertEquals(StorageMode.ENC, Migration.readMarker(m)!!.mode); assertEquals(1, Migration.readMarker(m)!!.attempts)
         assertData(m, "po nieudanej weryfikacji wyłączania")
-        assertEquals(ids.size, Migration.cleanupPlainLeftovers(m, cipher, 1, ids), "resztki po nieudanym wyłączaniu sprzątane przy następnym starcie")
+        assertEquals(ids.size, Migration.cleanupPlainLeftovers(m, cipher, ids), "resztki po nieudanym wyłączaniu sprzątane przy następnym starcie")
     }
 
     /** Odrzuca zapis znacznika po [failAfter] udanych zapisach znacznika. */
@@ -264,5 +264,58 @@ class MigrationTest {
             assertData(m, "krok $k")
             assertTrue(Migration.readMarker(m)?.mode in listOf(null, StorageMode.PLAIN), "krok $k")
         }
+    }
+
+    // ---------- guard prepareKeys, powtórzenie kroku 0 po restarcie, dekId z świeżego znacznika ----------
+
+    @Test fun prepareKeysIsRefusedUnlessMarkerIsPlainOrMissingAndThereAreNoEncFiles() {
+        fun bare() = MemOps().also { m -> data.forEach { (id, b) -> m.files[StorageNames.plainFile(id)] = b } }
+        fun prep(m: MemOps) = Migration.prepareKeys(m, wrap, "leki_kek_1", 1, TEST_DEK, 0)
+        assertEquals(Migration.Prepared.OK, prep(bare()), "brak znacznika")
+        assertEquals(Migration.Prepared.OK, prep(bare().also { Migration.writeMarker(it, StorageMarker(StorageMode.PLAIN, 5)) }))
+        for (mode in listOf(StorageMode.ENC, StorageMode.TO_ENC, StorageMode.TO_PLAIN)) {
+            val m = bare().also { Migration.writeMarker(it, StorageMarker(mode, 1)) }
+            assertEquals(Migration.Prepared.NOT_ALLOWED, prep(m), mode.id)
+            assertTrue(StorageNames.KEYS !in m.files, "nic nie zapisano")
+        }
+        val broken = bare().also { it.files[StorageNames.MARKER] = "{".toByteArray() }
+        assertEquals(Migration.Prepared.NOT_ALLOWED, prep(broken)); assertEquals("{", String(broken.files[StorageNames.MARKER]!!))
+        val withEnc = bare().also { it.files["state.enc"] = ByteArray(40) }
+        assertEquals(Migration.Prepared.NOT_ALLOWED, prep(withEnc)); assertTrue(StorageNames.KEYS !in withEnc.files)
+    }
+
+    @Test fun restartBetweenPrepareKeysAndEnableNeverUsesTheDekFromMemory() {
+        val m = plainDir().also { it.files.remove(StorageNames.KEYS); it.files.remove(StorageNames.KEYS2); it.files.remove(StorageNames.MARKER) }
+        val dekA = ByteArray(32) { 1 }; val dekB = ByteArray(32) { 2 }
+        assertEquals(Migration.Prepared.OK, Migration.prepareKeys(m, wrap, "leki_kek_1", 1, dekA, 0))
+        // restart: start aplikacji sprząta klucze w trybie plain, bo nie ma jeszcze .enc
+        Migration.recoverAfterRestart(m, SoftCipher(dekA), ids)
+        assertTrue(StorageNames.KEYS !in m.files && StorageNames.KEYS2 !in m.files)
+        // Store powtarza krok 0 z NOWYM DEK i szyfruje nim
+        assertEquals(Migration.Outcome.DONE, Migration.enableWithKeys(m, wrap, { SoftCipher(it) }, "leki_kek_1", 1, dekB, ids))
+        val r = StorageReader.read(m, wrap, { SoftCipher(it) }, ids)
+        assertNull(r.problem)
+        data.forEach { (id, b) -> assertContentEquals(b, r.persons.getValue(id).plain) }
+        assertContentEquals(dekB, KeyFile.unwrap(wrap, KeyFile.decode(m.files[StorageNames.KEYS]!!)!!))
+        assertFailsWith<AuthFailedException> { DataFile.open(SoftCipher(dekA), m.files["state.enc"]!!, DataFile.Kind.STATE, "p1") }
+    }
+
+    @Test fun enableWithKeysReportsNotAllowedAndKeysFailed() {
+        val enc = plainDir().also { Migration.enable(it, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) }
+        assertEquals(Migration.Outcome.NOT_ALLOWED, Migration.enableWithKeys(enc, wrap, { SoftCipher(it) }, "leki_kek_1", 1, TEST_DEK, ids))
+        val noAlias = MemOps().also { m -> data.forEach { (id, b) -> m.files[StorageNames.plainFile(id)] = b } }
+        val broken = object : KeyWrap by wrap { override fun unwrap(alias: String, iv: ByteArray, body: ByteArray, aad: ByteArray): ByteArray = ByteArray(32) }
+        assertEquals(Migration.Outcome.KEYS_FAILED, Migration.enableWithKeys(noAlias, broken, { SoftCipher(it) }, "leki_kek_1", 1, TEST_DEK, ids))
+        assertTrue(StorageNames.encFile("p1") !in noAlias.files, "migracji nie zaczęto")
+    }
+
+    @Test fun cleanupUsesTheDekIdOfTheFreshlyReadMarker() {
+        val m = plainDir().also { Migration.enable(it, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) }
+        m.files[StorageNames.plainFile("p1")] = data.getValue("p1")
+        // znacznik wskazuje inny dekId niż nagłówki plików: sprzątanie niczego nie usuwa (DekMismatch), niezależnie od innych argumentów
+        Migration.writeMarker(m, StorageMarker(StorageMode.ENC, 2, 0))
+        assertEquals(0, Migration.cleanupPlainLeftovers(m, cipher, ids))
+        Migration.writeMarker(m, StorageMarker(StorageMode.ENC, 1, 0))
+        assertEquals(1, Migration.cleanupPlainLeftovers(m, cipher, ids))
     }
 }

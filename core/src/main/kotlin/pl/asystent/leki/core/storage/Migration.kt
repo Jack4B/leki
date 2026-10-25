@@ -15,7 +15,13 @@ object Migration {
         ROLLED_BACK,
         /** Nie udało się zapisać znacznika przy cofaniu: błąd do zgłoszenia, **zapisy zostają zablokowane**, nic nie skasowano. */
         ROLLBACK_FAILED,
+        /** Włączanie niedozwolone: znacznik inny niż `plain` (lub nieważny) albo istnieją pliki `.enc`. Nic nie zmieniono. */
+        NOT_ALLOWED,
+        /** Nie udało się utworzyć i sprawdzić kluczy (krok 0). Migracji nie zaczęto. */
+        KEYS_FAILED,
     }
+
+    enum class Prepared { OK, NOT_ALLOWED, VERIFY_FAILED }
 
     /** Wynik [recoverAfterRestart]: [writesMayResume] = false oznacza błąd zapisu znacznika (zapisy zostają zablokowane). */
     class Recovery(val marker: StorageMarker?, val writesMayResume: Boolean)
@@ -40,14 +46,34 @@ object Migration {
      * (`unwrap` po zapisie). W trybie `plain` klucze nie są wiążące, więc przerwanie w dowolnym miejscu (także przy pozostałości
      * po wcześniejszej próbie z innym `dekId`) nie unieważnia znacznika. False = weryfikacja nie przeszła, migracji nie zaczynamy.
      */
-    fun prepareKeys(ops: FileOps, wrap: KeyWrap, alias: String, dekId: Int, dek: ByteArray, attempts: Int): Boolean {
-        if (!writeMarker(ops, StorageMarker(StorageMode.PLAIN, dekId, attempts))) return false
+    fun prepareKeys(ops: FileOps, wrap: KeyWrap, alias: String, dekId: Int, dek: ByteArray, attempts: Int): Prepared {
+        // guard: tylko przy znaczniku plain albo jego braku i bez plików .enc (inaczej nadpisalibyśmy klucze istniejących danych)
+        val raw = ops.read(StorageNames.MARKER)
+        val marker = readMarker(ops)
+        if (raw != null && (marker == null || marker.mode != StorageMode.PLAIN)) return Prepared.NOT_ALLOWED
+        if (ops.list().any { StorageNames.isEncFile(it) }) return Prepared.NOT_ALLOWED
+        if (!writeMarker(ops, StorageMarker(StorageMode.PLAIN, dekId, attempts))) return Prepared.VERIFY_FAILED
         for (name in listOf(StorageNames.KEYS, StorageNames.KEYS2)) {
             ops.write(name, KeyFile.encode(wrap, alias, dekId, dek))
-            val h = ops.read(name)?.let { KeyFile.decode(it) } ?: return false
-            if (!runCatching { KeyFile.unwrap(wrap, h).contentEquals(dek) }.getOrDefault(false)) return false
+            val h = ops.read(name)?.let { KeyFile.decode(it) } ?: return Prepared.VERIFY_FAILED
+            if (!runCatching { KeyFile.unwrap(wrap, h).contentEquals(dek) }.getOrDefault(false)) return Prepared.VERIFY_FAILED
         }
-        return true
+        return Prepared.OK
+    }
+
+    /**
+     * Całe włączanie: krok 0 ([prepareKeys]) i migracja. **Zawsze od kroku 0 z nowo wygenerowanym DEK** ([dek]): po restarcie między
+     * [prepareKeys] a [enable] klucze zostały skasowane przy starcie ([recoverAfterRestart]), więc wywołujący nie może używać DEK
+     * z pamięci z poprzedniego przebiegu; każde wywołanie przygotowuje klucze od nowa i szyfruje tym, który właśnie zapisało.
+     */
+    fun enableWithKeys(ops: FileOps, wrap: KeyWrap, cipherOf: (ByteArray) -> DataCipher, alias: String, dekId: Int, dek: ByteArray, ids: List<String>): Outcome {
+        val attempts = readMarker(ops)?.takeIf { it.mode == StorageMode.PLAIN }?.attempts ?: 0
+        when (prepareKeys(ops, wrap, alias, dekId, dek, attempts)) {
+            Prepared.OK -> {}
+            Prepared.NOT_ALLOWED -> return Outcome.NOT_ALLOWED
+            Prepared.VERIFY_FAILED -> return Outcome.KEYS_FAILED
+        }
+        return enable(ops, cipherOf(dek), dekId, ids, StorageMarker(StorageMode.PLAIN, dekId, attempts))
     }
 
     /** `plain` → `enc`. [start]: znacznik początkowy (`plain`, z licznikiem prób). */
@@ -137,8 +163,9 @@ object Migration {
      * tylko wtedy, gdy jej `.enc` odszyfrowuje się i przechodzi uwierzytelnienie z oczekiwanym `dekId`; zapas sprzed osób znika razem z nimi.
      * Plik osoby bez czytelnego `.enc` (brak, błąd klucza) zostaje nietknięty. Zwraca liczbę usuniętych jawnych plików.
      */
-    fun cleanupPlainLeftovers(ops: FileOps, cipher: DataCipher, dekId: Int, ids: List<String>): Int {
-        if (readMarker(ops)?.mode != StorageMode.ENC) return 0
+    fun cleanupPlainLeftovers(ops: FileOps, cipher: DataCipher, ids: List<String>): Int {
+        val marker = readMarker(ops)?.takeIf { it.mode == StorageMode.ENC } ?: return 0
+        val dekId = marker.dekId          // świeżo odczytany znacznik, nie parametr wywołującego
         var n = 0
         for (id in ids) {
             if (ops.read(plainFile(id)) == null || openEnc(ops, cipher, dekId, id) == null) continue
