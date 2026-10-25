@@ -28,6 +28,27 @@ object Migration {
 
     fun readMarker(ops: FileOps): StorageMarker? = ops.read(StorageNames.MARKER)?.let { if (it.size > StorageMarker.MAX_CHARS * 4) null else StorageMarker.parse(String(it, Charsets.UTF_8)) }
 
+    private val PLAIN_STATE = Regex("state(-p\\d{1,2})?\\.json")
+
+    /**
+     * Czy przy starcie jest co dokańczać na pierwszym planie (dopiero wtedy zapisy czekają na `Store.bootstrap`): istnieje `startover.pending`,
+     * znacznik jest `to-*` albo nieważny, brakuje znacznika przy plikach `.enc` / `keys.bin`, w trybie `enc` leżą jawne `state*.json`
+     * albo w trybie `plain` leżą `.enc` / `keys.bin`. **Zdrowy tryb `enc` (znacznik ważny, brak jawnych resztek) zwraca false:** takie dane
+     * są zapisywalne od startu procesu, także z odbiornika (odhaczenie dawki z powiadomienia, widżet, autokopia).
+     */
+    fun hasPendingWork(ops: FileOps): Boolean {
+        val names = ops.list()
+        if (StartOver.PENDING_FILE in names) return true
+        val encRelated = names.any { StorageNames.isEncFile(it) } || StorageNames.KEYS in names || StorageNames.KEYS2 in names
+        if (ops.read(StorageNames.MARKER) == null) return encRelated
+        val m = readMarker(ops) ?: return true
+        return when (m.mode) {
+            StorageMode.TO_ENC, StorageMode.TO_PLAIN -> true
+            StorageMode.ENC -> names.any { PLAIN_STATE.matches(it) }
+            StorageMode.PLAIN -> encRelated
+        }
+    }
+
     /** Zapis znacznika z odczytem i ponowną walidacją; false przy błędzie dysku albo gdy odczyt nie potwierdził zapisu. */
     fun writeMarker(ops: FileOps, m: StorageMarker): Boolean = try {
         ops.write(StorageNames.MARKER, m.toJson().toByteArray(Charsets.UTF_8))

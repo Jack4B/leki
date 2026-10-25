@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.15.2-preview
+
+Poprawki z review poprawek etapu 2 szyfrowania.
+
+- **Zapisy od startu procesu w zdrowym trybie `enc`:** zapisy czekają na `bootstrap()` tylko wtedy, gdy jest co dokończyć (`Migration.hasPendingWork`: `startover.pending`, znacznik `to-*` lub nieważny, brak znacznika przy `.enc` / `keys.bin`, jawne resztki w trybie `enc`, `.enc` / `keys.bin` w trybie `plain`). Odhaczenie dawki z powiadomienia, widżet i autokopia działają od razu po starcie procesu z odbiornika. Zapis pliku osoby w trybie `enc` jest w `StorageWriter` (test na JVM: start w zdrowym `enc`, odhaczenie trafia do pliku).
+- **Po `bootstrap()`, który zmienił dane,** wywoływane jest `onSaved`: alarmy i widżet są odświeżane.
+- **Liczba testów `core`:** 296 (293 po 0.15.1 plus 3 nowe).
+- **Start procesu w trybie jawnym** (bez plików szyfrowania) zachowuje się jak przed szyfrowaniem: nadal zapisuje kopie uszkodzonych plików (`*.uszkodzony.json`), zapas `state.przed-osobami.json` i indeks `profiles.json`, także z odbiorników; zmiany dotyczą tylko trybu szyfrowanego.
+
 ## 0.15.1-preview
 
 Poprawki z review etapu 2 szyfrowania oraz **naprawa numeracji**.
@@ -17,7 +26,7 @@ Poprawki z review etapu 2 szyfrowania oraz **naprawa numeracji**.
 - **Odczyty w tle** (widżet ciśnienia, alarmy, odbiorniki) idą tą samą ścieżką tylko do odczytu: bez zapisów, bez tworzenia kluczy, bez trybu odzyskiwania.
 - **Komunikaty** dla klas problemów (klucz niedostępny, brak klucza po przeniesieniu plików, uszkodzony `keys.bin`, nowsza wersja, inny zestaw kluczy) i przycisk „Zaczynam od nowa” (nowy klucz, stare pliki jako `*.nieczytelny.enc`). Wczytanie kopii przy utraconym kluczu zaczyna od nowego klucza.
 - **„Usuń wszystkie dane”** kasuje też pliki `.enc`, `keys.bin*`, `storage.json`, `startover.pending`, pliki pomocnicze, pozostałości `AtomicFile` i aliasy Keystore.
-- **Poprawki `core`:** `prepareKeys` tylko przy znaczniku `plain` lub jego braku i bez `.enc`; `enableWithKeys` zawsze od kroku 0 z nowym DEK (po restarcie klucze są sprzątane); `cleanupPlainLeftovers` bierze `dekId` ze świeżo odczytanego znacznika; `StartOver.execute` z wznawianiem; `AesGcmCipher`; za duży plik osoby to uszkodzenie, nie pusta osoba. 291 testów w `core`.
+- **Poprawki `core`:** `prepareKeys` tylko przy znaczniku `plain` lub jego braku i bez `.enc`; `enableWithKeys` zawsze od kroku 0 z nowym DEK (po restarcie klucze są sprzątane); `cleanupPlainLeftovers` bierze `dekId` ze świeżo odczytanego znacznika; `StartOver.execute` z wznawianiem; `AesGcmCipher`; za duży plik osoby to uszkodzenie, nie pusta osoba. 296 testów w `core`.
 - **Start procesu tylko czyta:** `Store` przy starcie procesu (odbiornik, alarm, widżet, wątek główny) niczego nie zapisuje i nie dotyka kluczy poza odczytem; sprzątanie (dokończenie „Zaczynam od nowa”, cofanie migracji, resztki, osierocone aliasy, kopie uszkodzonych plików) robi `bootstrap()` przy starcie Activity w osobnym wątku, a do tego czasu zapisy są wyłączone, gdy są pliki szyfrowania. Odszyfrowywanie pokazuje modalny komunikat.
 - **Ograniczenia tej wersji:** brak automatycznej rotacji KEK przy słabszym wariancie klucza (np. TEE zamiast StrongBox po aktualizacji systemu; rotacja tylko ręczna, jeszcze bez przycisku); po wyjątku lub błędzie cofania migracji zapisy są wyłączone do restartu, a zmiany wprowadzone w tym czasie (np. z powiadomienia) mogą nie zostać zapisane; odtwarzanie znacznika z podglądem obu formatów (etap 3), szyfrowanie `*.uszkodzony.json` przy migracji (są usuwane przez „Usuń wszystkie dane”), brak testów `app` na JVM (Keystore sprawdzany ręcznie na telefonie).
 

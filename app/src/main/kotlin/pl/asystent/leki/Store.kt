@@ -29,6 +29,7 @@ import pl.asystent.leki.core.storage.StorageMode
 import pl.asystent.leki.core.storage.StorageNames
 import pl.asystent.leki.core.storage.StorageProblem
 import pl.asystent.leki.core.storage.StorageReader
+import pl.asystent.leki.core.storage.StorageWriter
 import java.io.File
 
 /** Osoba w aplikacji: identyfikator i nazwa do pokazania (imię wpisane w Ustawieniach albo „Osoba N”). */
@@ -86,7 +87,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     private var encMode = false
     /** Zapisy wyłączone: klucz niedostępny, znacznik nieważny, operacja w toku albo błąd cofania. Zmiany danych są wtedy ignorowane, a interfejs pokazuje komunikat. */
     @Volatile private var writesBlocked = false
-    /** Prawda od startu procesu do [bootstrap], gdy na dysku są pliki szyfrowania wymagające sprzątania na pierwszym planie. */
+    /** Prawda od startu procesu do [bootstrap], gdy jest co dokończyć na pierwszym planie (patrz [Migration.hasPendingWork]). */
     @Volatile private var bootPending = false
     private val _encrypted = MutableStateFlow(false)
     private val _problem = MutableStateFlow<StorageProblem?>(null)
@@ -111,8 +112,9 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     init {
         // Start PROCESU (także z odbiornika, alarmu, widżetu, na wątku głównym) to wyłącznie odczyt: bez zapisu do FileOps, bez tworzenia
         // i usuwania kluczy w Keystore (unwrap jest odczytem), bez sprzątania. Dokończenie „Zaczynam od nowa”, cofanie migracji i sprzątanie
-        // robi dopiero [bootstrap] wołane przy starcie Activity poza wątkiem głównym; do tego czasu zapisy są wyłączone, gdy są pliki szyfrowania.
-        bootPending = hasEncRelatedFiles()
+        // robi dopiero [bootstrap] wołane przy starcie Activity poza wątkiem głównym; do tego czasu zapisy są wyłączone tylko wtedy, gdy jest co
+        // dokończyć ([Migration.hasPendingWork]); zdrowy tryb enc zapisuje od razu (odhaczenie dawki z powiadomienia, widżet).
+        bootPending = Migration.hasPendingWork(AndroidFileOps(dir))   // zdrowy tryb enc (nic do dokończenia) jest zapisywalny od startu procesu
         val full = loadFull(dir, foreground = false)
         val loaded = full.loaded
         loaded.states.forEach { states[it.first] = it.second }
@@ -141,15 +143,22 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
      * resztek, osieroconych aliasów Keystore i kopii uszkodzonych plików, potem ponowny odczyt. Procesy w tle tego nie robią.
      */
     fun bootstrap() {
+        var changed = false
         synchronized(this) {
-            if (!bootPending) return
-            val keepBlocked = startupCleanup()
-            applyFull(loadFull(dir, foreground = true))
-            bootPending = false
-            if (keepBlocked) writesBlocked = true
+            val hadWork = bootPending
+            val keepBlocked = startupCleanup()               // także w zdrowym trybie enc: osierocone aliasy (nic więcej do zrobienia)
+            if (hadWork) {
+                applyFull(loadFull(dir, foreground = true))
+                bootPending = false
+                if (keepBlocked) writesBlocked = true
+            }
+            changed = hadWork
         }
-        publishProfiles()
-        _activeId.value = active
+        if (changed) {
+            publishProfiles()
+            _activeId.value = active
+            scheduleSave()      // onSaved: ponowne zaplanowanie alarmów i odświeżenie widżetu po zmianie danych przez bootstrap
+        }
     }
 
     private fun applyFull(full: Full) {
@@ -540,8 +549,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         if (encMode) {
             val c = cipher ?: return true
             return try {
-                val blob = DataFile.seal(c, encDekId, (System.currentTimeMillis() / 1000) and 0xFFFFFFFFL, DataFile.Kind.STATE, id, Backup.serialize(s).toByteArray(Charsets.UTF_8))
-                AndroidFileOps(dir).write(StorageNames.encFile(id), blob)
+                StorageWriter.writePerson(AndroidFileOps(dir), c, encDekId, id, Backup.serialize(s).toByteArray(Charsets.UTF_8))
                 true
             } catch (e: Exception) {
                 synchronized(lock) { dirty.add(id) }
