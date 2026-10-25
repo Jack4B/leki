@@ -177,6 +177,31 @@ jobs:
             echo
             echo "Suma SHA-256 pliku jest w pliku .sha256 obok APK."
           } > notes.md
+          # Strażnik numeracji: nie publikujemy wydania o numerze kompilacji (versionCode) niższym od najwyższego już opublikowanego.
+          # Obtainium proponuje najnowsze wydanie po dacie i odrzuca instalację na niższy versionCode ("Nie można zainstalować starszej wersji").
+          # versionCode jest tu liczony ze wzoru (numer wersji * 1000 + przebieg % 1000); zgodność wzoru z faktycznym APK pilnuje krok
+          # „Sprawdź numer kompilacji” (PR #6) w jobie apk, który poprzedza ten job.
+          IFS=. read -r MA MI PA _ <<< "${VERSION%%-*}"
+          OWN=$(( (10#$MA * 10000 + 10#$MI * 100 + 10#$PA) * 1000 + RUN % 1000 ))
+          # błąd pobrania listy wydań przerywa job (inaczej MAX=0 i strażnik przepuściłby każde wydanie); liczą się wszystkie niewersje robocze (także pełne wydania)
+          TAGS=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft | not) | .tag_name') || { echo "::error::Nie udało się pobrać listy wydań"; exit 1; }
+          TAGRE='^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[A-Za-z0-9.]+)?-b([0-9]+)$'
+          MAX=0; MAXTAG=""
+          while read -r t; do
+            [ -n "$t" ] || continue
+            if [[ "$t" =~ $TAGRE ]]; then
+              code=$(( (10#${BASH_REMATCH[1]} * 10000 + 10#${BASH_REMATCH[2]} * 100 + 10#${BASH_REMATCH[3]}) * 1000 + 10#${BASH_REMATCH[5]} % 1000 ))
+              if [ "$code" -gt "$MAX" ]; then MAX=$code; MAXTAG=$t; fi
+            elif [[ "$t" =~ -b[0-9]+$ ]]; then
+              echo "::warning::Pomijam tag wydania, którego nie da się rozpoznać jako v<wersja>-b<numer>: $t"
+            fi
+          done <<< "$TAGS"
+          echo "versionCode tego wydania: ${OWN}; najwyższy opublikowany: ${MAX} (${MAXTAG:-brak})"
+          # ponowne uruchomienie tego samego przebiegu: najwyższe jest wydanie o tym samym tagu (zostanie zastąpione poniżej), więc nie blokujemy
+          if [ "$OWN" -le "$MAX" ] && [ "$MAXTAG" != "$TAG" ]; then
+            echo "::error::Nie publikuję wydania ${TAG}: versionCode ${OWN} nie jest wyższy niż ${MAX} (${MAXTAG}). Telefon z nowszą wersją nie zainstaluje tego APK. Scal gałąź o wyższej wersji albo podbij wersję."
+            exit 1
+          fi
           gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
           gh release create "$TAG" asystent-lekow-*.apk asystent-lekow-*.apk.sha256 \
             --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Asystent leków ${VERSION} (kompilacja ${RUN})" \

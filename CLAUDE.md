@@ -15,6 +15,17 @@
 - **Wydania:** wydanie testowe (prerelease `v<wersja>-b<numer>`) powstaje tylko z gałęzi domyślnej, z tagu `v*` albo po ręcznym uruchomieniu workflow z zaznaczonym „Opublikuj wydanie testowe” (Actions → Zbuduj APK → Run workflow), np. do testów na telefonie z gałęzi roboczej. CI zostawia 5 ostatnich wydań `-b<numer>` i usuwa osierocone tagi `-b<numer>`. Z sesji Claude Code nie da się usuwać wydań ani tagów (proxy zwraca 403): nie próbuj obchodzić tego innymi poświadczeniami.
 - **Zgłoszenie do GitHub Support** o usunięcie osieroconych commitów z wcześniejszego wycieku danych (SHA: 203fbf5, 300c5b5, 7958c07, 1324bd5, c5836e4, 8392920, 55a7cf0, b450ad2) wysyła właściciel konta; do tego czasu commity są osiągalne po SHA. Historia gałęzi `cykl-modul` została przepisana (squash), więc nie cofaj się do tych commitów.
 
+## Numeracja i wydania: zasady stałe (błędy już się zdarzyły, nie powtarzać)
+
+Obtainium proponuje **najnowsze wydanie po dacie** i Android odrzuca instalację na niższy `versionCode` („Nie można zainstalować starszej wersji”). `versionCode` = `(major*10000 + minor*100 + patch)*1000 + (przebieg CI % 1000)`.
+
+1. **Nigdy nie uruchamiaj „Run workflow” (`workflow_dispatch`) na gałęzi domyślnej**, także tylko po to, by użyć `delete_tag`: job `release` publikuje tam wydanie zawsze. Akcje pomocnicze (`delete_tag`) uruchamiaj z gałęzi roboczej. (Tak powstało b125 po usunięciu b124.)
+2. **Każde scalenie do gałęzi domyślnej tworzy wydanie** z wersją gałęzi domyślnej. Zanim scalisz PR lub uruchomisz cokolwiek na domyślnej, porównaj jej wersję z najwyższą opublikowaną (`gh api repos/<o>/<r>/releases`). Wersja na gałęzi domyślnej nie może być niższa niż opublikowane wydania: najpierw scal domyślną do gałęzi z wyższą wersją albo podbij wersję.
+3. **Nową gałąź roboczą zakładaj z aktualnej domyślnej** (po scaleniu innych PR) i **od razu podnoś wersję** powyżej najwyższej opublikowanej; przed `workflow_dispatch` z gałęzi scal do niej gałąź domyślną (inaczej brakuje wzoru numeru i powstaje `versionCode` rzędu 100).
+4. **Po każdej akcji w Actions i każdym scaleniu sprawdź listę wydań** (nazwa, `versionCode`, data). Jeśli powstało wydanie z niższym `versionCode` niż to, które użytkownik ma zainstalowane, usuń je od razu (`delete_tag` z gałęzi roboczej) i napisz o tym.
+5. CI ma zabezpieczenia: kontrola `versionCode` i `versionName` w gotowym APK oraz **strażnik publikacji** (od 0.15.4: wydanie o `versionCode` niższym od najwyższego opublikowanego nie jest publikowane, a job `release` kończy się błędem). Strażnik nie zastępuje powyższych zasad.
+6. Przed ogłoszeniem wydania do testu podaj użytkownikowi tag i `versionCode` oraz sprawdź, że jest wyższy niż poprzednie.
+
 ## Co jest zrobione (nie wymaga ponownej pracy)
 
 - Leki, pory dnia, odhaczanie, zapas, przypomnienia (także dla wielu osób), raport dla lekarza i tekst dla AI, badania z odczytem OCR, EKG z zegarka (PDF wektorowy lub obraz), ciśnienie z wykresami, kopie zapasowe (JSON, szyfrowane hasłem, automatyczne do folderu), blokada aplikacji, widżet ciśnienia.
