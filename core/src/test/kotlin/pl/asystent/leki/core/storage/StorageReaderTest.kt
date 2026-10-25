@@ -102,4 +102,20 @@ class StorageReaderTest {
         assertEquals(1, r.dekId); assertTrue(r.cipher != null)
         assertNull(read(MemOps()).cipher)
     }
+
+    @Test fun markerDekId2WithKeysDekId1IsDekIdMismatchWritesBlockedAndWriterNotCalled() {
+        val m = encDir(marker = StorageMarker(StorageMode.ENC, 2))      // znacznik: dekId 2, keys.bin i keys.bin.2: dekId 1
+        val r = read(m)
+        assertEquals(StorageProblem.DEK_ID_MISMATCH, r.problem)
+        assertTrue(r.readOnly); assertFalse(r.writable)
+        assertTrue(r.persons.values.all { it.problem == StorageProblem.DEK_ID_MISMATCH || it.problem == null })
+        val before = m.files.mapValues { it.value.toList() }; val writes = m.writes
+        assertFalse(StorageWriter.writeIfAllowed(m, r, "p1", """{"x":1}""".toByteArray()), "writer nie jest wywoływany")
+        assertEquals(writes, m.writes); assertEquals(before, m.files.mapValues { it.value.toList() }, "żaden plik nie został zmieniony")
+        assertTrue(StorageWriter.writeIfAllowed(m, read(encDir()), "p1", """{"x":1}""".toByteArray()).not().not(), "zdrowy enc zapisuje")
+    }
+
+    @Test fun blockingClassesAreAllExceptCorruptFileAndContentAuth() {
+        assertEquals(setOf(StorageProblem.FILE_CORRUPT, StorageProblem.CONTENT_AUTH_FAILED), StorageProblem.values().filter { !it.blocksWrites }.toSet())
+    }
 }

@@ -92,5 +92,8 @@ enum class StorageProblem(val message: String) {
     FILE_CORRUPT("Plik danych był uszkodzony. Uszkodzony plik zachowano w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach."),
     CONTENT_AUTH_FAILED("Treść pliku z danymi nie przeszła sprawdzenia (plik zmieniono albo uszkodzono). Plik zachowano w pamięci aplikacji. Wczytaj ostatnią kopię w Ustawieniach.");
 
+    /** Klasy, po których zapisy danych są wyłączone, dopóki użytkownik nie zdecyduje (uszkodzone pliki osób C i E nie blokują reszty). */
+    val blocksWrites: Boolean get() = this != FILE_CORRUPT && this != CONTENT_AUTH_FAILED
+
     companion object { fun first(found: Collection<StorageProblem>): StorageProblem? = found.minByOrNull { it.ordinal } }
 }

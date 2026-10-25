@@ -608,8 +608,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         fun readAll(dir: File): Profiles.Loaded = loadFull(dir, foreground = false).loaded
 
         /** Problemy, które wyłączają zapisy (aplikacja tylko do odczytu), dopóki użytkownik nie zdecyduje. */
-        private val BLOCKING = setOf(StorageProblem.KEYS_FILE_BROKEN, StorageProblem.MARKER_INVALID, StorageProblem.KEY_ALIAS_MISSING,
-            StorageProblem.KEY_UNAVAILABLE, StorageProblem.NEWER_VERSION, StorageProblem.DEK_ID_MISMATCH)
+        private val BLOCKING = StorageProblem.values().filter { it.blocksWrites }.toSet()
 
         /** Problemy, po których można zacząć od nowa z nowym kluczem. */
         private val START_OVER_OK = setOf(StorageProblem.KEYS_FILE_BROKEN, StorageProblem.KEY_ALIAS_MISSING, StorageProblem.KEY_UNAVAILABLE, StorageProblem.DEK_ID_MISMATCH)

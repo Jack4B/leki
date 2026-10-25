@@ -10,7 +10,10 @@ import pl.asystent.leki.core.storage.StorageNames.plainFile
 object StorageReader {
     class PersonRead(val plain: ByteArray?, val problem: StorageProblem?, val fromPlainFallback: Boolean = false)
     /** [cipher] i [dekId]: tylko w trybie `enc`, gdy klucz działa (do zapisu w aplikacji); w trybie plain null. */
-    class Result(val marker: MarkerState, val persons: Map<String, PersonRead>, val problem: StorageProblem?, val readOnly: Boolean, val cipher: DataCipher? = null, val dekId: Int? = null)
+    class Result(val marker: MarkerState, val persons: Map<String, PersonRead>, val problem: StorageProblem?, val readOnly: Boolean, val cipher: DataCipher? = null, val dekId: Int? = null) {
+        /** Czy wolno zapisywać pliki `enc`: jest działający szyfr, znacznik jest ważny i nie ma problemu blokującego zapisy. */
+        val writable: Boolean get() = cipher != null && !readOnly && problem?.blocksWrites != true
+    }
 
     /** Plik za duży jest uszkodzony ([tooBig]), a nie "nieobecny": nieobecność oznacza pustą osobę, uszkodzenie tryb odzyskiwania. */
     private class Got(val bytes: ByteArray?, val tooBig: Boolean)
@@ -43,6 +46,7 @@ object StorageReader {
         var keyProblem: StorageProblem? = null
         var cipher: DataCipher? = null
         if (markerDek == null || headers.all { it == null }) keyProblem = StorageProblem.KEYS_FILE_BROKEN
+        else if (KeyFile.bindingCandidates(headers, markerDek).isEmpty()) keyProblem = StorageProblem.DEK_ID_MISMATCH   // klucze czytelne, ale z innego zestawu niż znacznik
         else try { cipher = cipherOf(KeyFile.unwrapBinding(wrap, headers, markerDek).dek) }
         catch (e: KeyUnavailableException) { keyProblem = if (e.aliasMissing) StorageProblem.KEY_ALIAS_MISSING else StorageProblem.KEY_UNAVAILABLE }
         catch (e: KeyFile.KeysBrokenException) { keyProblem = StorageProblem.KEYS_FILE_BROKEN }
@@ -64,7 +68,7 @@ object StorageReader {
                 catch (e: KeyUnavailableException) { PersonRead(null, if (e.aliasMissing) StorageProblem.KEY_ALIAS_MISSING else StorageProblem.KEY_UNAVAILABLE) }
             }
         }
-        val all = persons.values.mapNotNull { it.problem } + listOfNotNull(if (readOnly) StorageProblem.MARKER_INVALID else null, kp)
+        val all = persons.values.mapNotNull { it.problem } + listOfNotNull(if (readOnly && markerText?.let { StorageMarker.parse(it) } == null) StorageProblem.MARKER_INVALID else null, kp)
         return Result(state, persons, StorageProblem.first(all), readOnly, cipher, markerDek)
     }
 }

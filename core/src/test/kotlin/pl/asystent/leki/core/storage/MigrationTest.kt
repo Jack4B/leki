@@ -318,4 +318,27 @@ class MigrationTest {
         Migration.writeMarker(m, StorageMarker(StorageMode.ENC, 1, 0))
         assertEquals(1, Migration.cleanupPlainLeftovers(m, cipher, ids))
     }
+
+    @Test fun beforePeopleBackupIsRemovedOnlyAfterASuccessfulMigration() {
+        // udane włączanie: zapas sprzed osób znika
+        val ok = plainDir(); assertTrue(Profiles.BEFORE_PEOPLE in ok.files)
+        assertEquals(Migration.Outcome.DONE, Migration.enable(ok, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)))
+        assertFalse(Profiles.BEFORE_PEOPLE in ok.files)
+        // nieudana weryfikacja i cofnięcie: zapas zostaje
+        val bad = plainDir()
+        val lying = object : DataCipher by cipher {
+            override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray) = cipher.decrypt(iv, body, aad).also { it[0] = 'X'.code.toByte() }
+        }
+        assertEquals(Migration.Outcome.ROLLED_BACK, Migration.enable(bad, lying, 1, ids, StorageMarker(StorageMode.PLAIN, 1)))
+        assertTrue(Profiles.BEFORE_PEOPLE in bad.files, "po cofnięciu zapas zostaje")
+        // przerwanie przed zatwierdzeniem: zapas zostaje, po zatwierdzeniu i sprzątaniu znika
+        val total = plainDir().let { m -> val k = KillingOps(m, Int.MAX_VALUE); Migration.enable(k, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)); k.ops }
+        for (k in 1..total + 1) {
+            val m = plainDir()
+            try { Migration.enable(KillingOps(m, k), cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) } catch (e: Killed) {}
+            val mode = Migration.readMarker(m)?.mode
+            if (mode != StorageMode.ENC) assertTrue(Profiles.BEFORE_PEOPLE in m.files, "krok $k: przed zatwierdzeniem zapas zostaje")
+            else { Migration.cleanupPlainLeftovers(m, cipher, ids); assertFalse(Profiles.BEFORE_PEOPLE in m.files, "krok $k: po zatwierdzeniu znika") }
+        }
+    }
 }

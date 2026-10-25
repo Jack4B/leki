@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.15.3-preview
+
+Drobne poprawki P2 z review etapu 2 oraz scalenie kontroli wersji w CI (PR #6, wpis 0.14.6 poniżej w historii).
+
+- **Niezgodny `dekId`:** gdy klucze są czytelne, ale żaden nie ma `dekId` ze znacznika (np. znacznik 2, `keys.bin` 1), czytnik zgłasza `DEK_ID_MISMATCH` (a nie uszkodzony `keys.bin`) i tryb tylko do odczytu; `StorageWriter.writeIfAllowed` w takim stanie niczego nie zapisuje. Klasy blokujące zapisy to właściwość `StorageProblem.blocksWrites` (wszystkie poza uszkodzonym plikiem osoby i błędem uwierzytelnienia treści). Test: znacznik 2, `keys.bin` 1.
+- **`state.przed-osobami.json`** jest usuwany przy włączaniu szyfrowania **dopiero po udanej migracji** (zostaje przy cofnięciu i przerwaniu przed zatwierdzeniem; po zatwierdzeniu znika w sprzątaniu). Test z przerwaniem po każdej operacji.
+- Liczba testów `core`: 299.
+
 ## 0.15.2-preview
 
 Poprawki z review poprawek etapu 2 szyfrowania.
