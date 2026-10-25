@@ -112,7 +112,8 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
     }
 
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
-        if (recovered.isNotEmpty()) item {
+        item { StorageProblemBanner(store, Modifier.padding(top = 8.dp)) }
+        if (recovered.isNotEmpty() && !store.readOnly) item {
             AlertBox(
                 "Plik danych był uszkodzony",
                 body = "Uszkodzone pliki zachowano w pamięci aplikacji jako ${recovered.values.joinToString(", ")}; dotknięte osoby startują puste. " +

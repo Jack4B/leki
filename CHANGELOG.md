@@ -1,5 +1,80 @@
 # Zmiany
 
+## 0.15.3-preview
+
+Drobne poprawki P2 z review etapu 2 oraz scalenie kontroli wersji w CI (PR #6, wpis 0.14.6 poniżej w historii).
+
+- **Niezgodny `dekId`:** gdy klucze są czytelne, ale żaden nie ma `dekId` ze znacznika (np. znacznik 2, `keys.bin` 1), czytnik zgłasza `DEK_ID_MISMATCH` (a nie uszkodzony `keys.bin`) i tryb tylko do odczytu; `StorageWriter.writeIfAllowed` w takim stanie niczego nie zapisuje. Klasy blokujące zapisy to właściwość `StorageProblem.blocksWrites` (wszystkie poza uszkodzonym plikiem osoby i błędem uwierzytelnienia treści). Test: znacznik 2, `keys.bin` 1.
+- **`state.przed-osobami.json`** jest usuwany przy włączaniu szyfrowania **dopiero po udanej migracji** (zostaje przy cofnięciu i przerwaniu przed zatwierdzeniem; po zatwierdzeniu znika w sprzątaniu). Test z przerwaniem po każdej operacji.
+- Liczba testów `core`: 299.
+
+## 0.15.2-preview
+
+Poprawki z review poprawek etapu 2 szyfrowania.
+
+- **Zapisy od startu procesu w zdrowym trybie `enc`:** zapisy czekają na `bootstrap()` tylko wtedy, gdy jest co dokończyć (`Migration.hasPendingWork`: `startover.pending`, znacznik `to-*` lub nieważny, brak znacznika przy `.enc` / `keys.bin`, jawne resztki w trybie `enc`, `.enc` / `keys.bin` w trybie `plain`). Odhaczenie dawki z powiadomienia, widżet i autokopia działają od razu po starcie procesu z odbiornika. Zapis pliku osoby w trybie `enc` jest w `StorageWriter` (test na JVM: start w zdrowym `enc`, odhaczenie trafia do pliku).
+- **Po `bootstrap()`, który zmienił dane,** wywoływane jest `onSaved`: alarmy i widżet są odświeżane.
+- **Liczba testów `core`:** 296 (293 po 0.15.1 plus 3 nowe).
+- **Start procesu w trybie jawnym** (bez plików szyfrowania) zachowuje się jak przed szyfrowaniem: nadal zapisuje kopie uszkodzonych plików (`*.uszkodzony.json`), zapas `state.przed-osobami.json` i indeks `profiles.json`, także z odbiorników; zmiany dotyczą tylko trybu szyfrowanego.
+
+## 0.15.1-preview
+
+Poprawki z review etapu 2 szyfrowania oraz **naprawa numeracji**.
+
+- **Numeracja:** wydanie `v0.14.4-preview-b115` (z gałęzi `feat/szyfrowanie-danych`) miało stary numer wersji i `versionCode` 115, więc Obtainium odmawiało instalacji na wierzch `0.14.5-preview-b107` (numer 1405107). Przyczyna: gałąź nie miała jeszcze zmian z gałęzi domyślnej (wzór `versionCode`) ani podbitej wersji. Wydania `v0.15.0-preview-b117` i nowsze mają wersję 0.15.x i `versionCode` 1500xxx, więc instalują się na wierzch. **Nie instaluj b115** (nie da się go usunąć z sesji, zniknie przy sprzątaniu starych wydań).
+- **Start procesu tylko czyta** (patrz niżej wpis o `bootstrap()`), modalny komunikat przy odszyfrowywaniu, ograniczenia w CHANGELOG i reguła logowania w `CLAUDE.md`.
+
+## 0.15.0-preview
+
+**Szyfrowanie danych na telefonie, etap 2 (opcjonalne, domyślnie wyłączone, eksperymentalne).** Plan: `docs/plan-szyfrowanie.md`. Bez włączenia funkcji aplikacja działa jak dotąd (jawne pliki).
+
+- **Ustawienia → Kopie zapasowe i dane → „Szyfrowanie danych na tym telefonie”:** włączenie wymaga kopii z hasłem zapisanej poza aplikacją (wybór pliku), odczytanej z powrotem, odszyfrowanej hasłem i porównanej ze stanem; dopiero potem następuje migracja (znacznik `to-enc`, pliki `.enc`, weryfikacja, znacznik `enc`, usunięcie jawnych plików). Wyłączenie działa odwrotnie i usuwa klucze.
+- **Klucz:** KEK AES-256-GCM w Android Keystore (StrongBox, a gdy go brak zwykłe TEE), bez wymagania uwierzytelnienia, żeby alarmy i widżet czytały dane w tle; DEK w `keys.bin` i `keys.bin.2`, szyfrowanie plików programowe.
+- **`Store`:** czyta oba formaty według znacznika, zapisuje w trybie wiążącym; przy problemie z kluczem lub znacznikiem **zapisy są wyłączone** (zmiany ignorowane, komunikat na ekranie Leki, kopia z hasłem nadal możliwa, autokopia wstrzymana). Przy starcie: dokończenie „Zaczynam od nowa”, cofnięcie przerwanej migracji, sprzątanie jawnych resztek, kandydatów i osieroconych aliasów.
+- **Odczyty w tle** (widżet ciśnienia, alarmy, odbiorniki) idą tą samą ścieżką tylko do odczytu: bez zapisów, bez tworzenia kluczy, bez trybu odzyskiwania.
+- **Komunikaty** dla klas problemów (klucz niedostępny, brak klucza po przeniesieniu plików, uszkodzony `keys.bin`, nowsza wersja, inny zestaw kluczy) i przycisk „Zaczynam od nowa” (nowy klucz, stare pliki jako `*.nieczytelny.enc`). Wczytanie kopii przy utraconym kluczu zaczyna od nowego klucza.
+- **„Usuń wszystkie dane”** kasuje też pliki `.enc`, `keys.bin*`, `storage.json`, `startover.pending`, pliki pomocnicze, pozostałości `AtomicFile` i aliasy Keystore.
+- **Poprawki `core`:** `prepareKeys` tylko przy znaczniku `plain` lub jego braku i bez `.enc`; `enableWithKeys` zawsze od kroku 0 z nowym DEK (po restarcie klucze są sprzątane); `cleanupPlainLeftovers` bierze `dekId` ze świeżo odczytanego znacznika; `StartOver.execute` z wznawianiem; `AesGcmCipher`; za duży plik osoby to uszkodzenie, nie pusta osoba. 296 testów w `core`.
+- **Start procesu tylko czyta:** `Store` przy starcie procesu (odbiornik, alarm, widżet, wątek główny) niczego nie zapisuje i nie dotyka kluczy poza odczytem; sprzątanie (dokończenie „Zaczynam od nowa”, cofanie migracji, resztki, osierocone aliasy, kopie uszkodzonych plików) robi `bootstrap()` przy starcie Activity w osobnym wątku, a do tego czasu zapisy są wyłączone, gdy są pliki szyfrowania. Odszyfrowywanie pokazuje modalny komunikat.
+- **Ograniczenia tej wersji:** brak automatycznej rotacji KEK przy słabszym wariancie klucza (np. TEE zamiast StrongBox po aktualizacji systemu; rotacja tylko ręczna, jeszcze bez przycisku); po wyjątku lub błędzie cofania migracji zapisy są wyłączone do restartu, a zmiany wprowadzone w tym czasie (np. z powiadomienia) mogą nie zostać zapisane; odtwarzanie znacznika z podglądem obu formatów (etap 3), szyfrowanie `*.uszkodzony.json` przy migracji (są usuwane przez „Usuń wszystkie dane”), brak testów `app` na JVM (Keystore sprawdzany ręcznie na telefonie).
+
+## 0.14.8-preview
+
+Poprawki z review części b etapu 1 szyfrowania (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).
+
+- **`dekId` w trybie plain:** niezgodny `dekId` nie unieważnia znacznika `plain` ani `to-enc` (klucze nie są tam wiążące); w `enc` i `to-plain` nadal tak. `Migration.prepareKeys` (krok 0) zapisuje najpierw znacznik, potem `keys.bin` i `keys.bin.2`, każdy sprawdzony przez `unwrap`; test przerwań kroku 0 także przy pozostałych kluczach.
+- **`Migration.disable`** kasuje na końcu `.enc`, `keys.bin` i `keys.bin.2`; w trybie `plain` start dokańcza to sprzątanie (kandydaci `.enc` poza błędem klucza, klucze, gdy nie ma `.enc`).
+- **`Migration.cleanupPlainLeftovers`:** w trybie `enc` na pierwszym planie usuwa jawne `state*.json` (i zapas sprzed osób) tylko osób, których `.enc` odszyfrowuje się i przechodzi uwierzytelnienie z oczekiwanym `dekId`. Test: po przerwaniu między znacznikiem `enc` a sprzątaniem jawne pliki nie zostają.
+- **Cofnięcie wyłączania** kasuje jawny plik tylko osoby z czytelnym `.enc` (fallback osoby bez `.enc` zostaje); weryfikacja w `disable` jest chroniona jak w `enable`.
+- **Błąd zapisu znacznika przy cofaniu:** `ROLLBACK_FAILED` / `Recovery.writesMayResume = false`, zapisy zostają zablokowane i nic nie jest kasowane.
+- Testy: przerwania w `disable` (znacznik nie zostaje w `to-*`, dokończenie), w cofaniu i w `recoverAfterRestart` (idempotentne), błąd zapisu znacznika, dwa tryby `dekId`. Razem 285 testów w `core`.
+
+## 0.14.7-preview
+
+Szyfrowanie danych, etap 1 część b oraz poprawki z review części a (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).
+
+- **`StartOver`:** zapisy są zablokowane, gdy istnieje plik `startover.pending` (także pusty i nieczytelny), do jego usunięcia po ukończeniu operacji.
+- **`KeyFile`:** `bindingCandidates` (obie kopie o zgodnym `dekId`, w kolejności `keys.bin`, `keys.bin.2`) i `unwrapBinding` z przejściem na drugą kopię przy błędzie GCM lub klucza; klasa F tylko gdy żadna kopia nie działa. Limit rozmiaru `keys.bin` ok. 1 KB.
+- **`DataFile.open(…, expectedDekId)`:** inny `dekId` w nagłówku to osobny wyjątek (`DekMismatchException`), nowa wersja to `NewerVersionException`; limit rozmiaru pliku danych 32 MB; limit `storage.json` ok. 4 KB.
+- **Klasy problemów** z osobnymi komunikatami: uszkodzony plik (C) i błąd uwierzytelnienia treści (E) są rozróżniane przy odczycie; dodano `DEK_ID_MISMATCH`.
+- **Część b:** `FileOps`, `StorageReader` (reguła odczytu wg znacznika bez żadnego zapisu, także dla procesów w tle; brakujący lub nieważny znacznik przy `.enc` lub `keys.bin` = tryb tylko do odczytu), `Migration` (włączanie i wyłączanie, cofanie przerwanej migracji z licznikiem prób, usuwanie kandydatów poza błędem klucza). Kolejność przygotowania: najpierw znacznik `plain` z nowym `dekId`, potem `keys.bin`.
+- Testy: przerwanie po każdej operacji zapisu lub usunięcia w obie strony, zmiana każdego bajtu pliku, śmieci i zły UTF-8 w `keys.bin`, znacznik z dodatkowymi polami i `"v":1.0`, klasy błędów, brak zapisów przy odczycie. Razem 274 testy w `core`.
+
+## 0.14.6-preview (szyfrowanie, etap 1a)
+
+Szyfrowanie danych, etap 1 część a (plan: `docs/plan-szyfrowanie.md`). **Brak zmiany zachowania aplikacji:** nowy kod w `core` nie jest jeszcze używany, poza jedną zmianą w „Usuń wszystkie dane”.
+
+- **Format pliku danych** (`core/.../storage/DataFile.kt`): koperta `LEKI` z wersją, flagami (bit „surowe”), `dekId`, generacją i IV, AAD z identyfikatorem logicznym (rodzaj i osoba, bez nazwy pliku), rozpoznawanie pliku jawnego, zaszyfrowanego, z nowszej wersji i uszkodzonego; błędy klucza, uwierzytelnienia i struktury jako osobne wyjątki.
+- **`keys.bin`** (`KeyFile.kt`): format z aliasem KEK i `dekId`, owijanie DEK przez interfejs `KeyWrap`, numeracja aliasów `leki_kek_<n>`, wybór wiążącej kopii po `dekId`.
+- **Znacznik trybu** (`StorageMarker.kt`): walidacja (`v`, `mode`, `dekId`, `attempts` 0 do 3), ocena brakującego i nieważnego znacznika (`dekId` zgodny z **którąkolwiek** kopią `keys.bin`), cofanie przerwanej migracji, wspólny licznik prób, pierwszeństwo klas problemów.
+- **„Zaczynam od nowa”** (`StartOver.kt`): kroki i plik `startover.pending`; po zabiciu procesu po kroku (1) zapisy są zablokowane do ukończenia kroków (2) i (3).
+- **„Usuń wszystkie dane”** kasuje też `*.odrzucony.json` / `.enc`, `*.uszkodzony.enc` i `*.nieczytelny.enc` (`Profiles.isLeftover`).
+- Testy w `core`: 5 nowych klas (format, klucze, znacznik, StartOver, pliki pomocnicze). Reguła odczytu, automat migracji i integracja ze `Store` są w części b etapu 1 i w etapie 2.
+
+## Bez zmiany wersji (dokumentacja)
+
+- **Plan szyfrowania danych** (`docs/plan-szyfrowanie.md`, szkic do zatwierdzenia, bez kodu): klucz AES-GCM w Android Keystore, format pliku, migracja odporna na zabicie procesu, utrata klucza, kopie zapasowe, testy, wycofanie.
+
 ## 0.14.6-preview
 
 Zabezpieczenia CI po wydaniu z gałęzi z błędną numeracją (`v0.14.4-preview-b115`, `versionCode` 115, Obtainium: „Nie można zainstalować starszej wersji”).

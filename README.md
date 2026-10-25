@@ -303,6 +303,7 @@ core/          logika bez zależności od Androida (Kotlin/JVM): model danych, h
                odczyt wyników z tekstu OCR (LabScan)
 przyklady/     zmyślone dane przykładowe do wczytania w aplikacji (generuje je test SampleDataTest)
 docs/zrzuty/   zrzuty modułu Cykl (pusty ekran) do README
+docs/          plany (np. plan-szyfrowanie.md)
 core/src/test  testy jednostkowe (w tym rozpoznawanie wyników badań) i dane wzorcowe z poprzedniej wersji (fixtures)
 app/           aplikacja na Androida (Jetpack Compose): ekrany, magazyn danych, alarmy, druk, udostępnianie,
                ocr/ (ML Kit, wczytywanie zdjęć i PDF), Lock.kt (blokada biometryczna), BpWidget.kt (widżet)
@@ -334,8 +335,13 @@ Zasady dla osób i narzędzi rozwijających repozytorium są w `CLAUDE.md`. Najw
 
 ## Plany
 
+### Szyfrowanie danych na telefonie (opcjonalne, eksperymentalne)
+
+Ustawienia → Kopie zapasowe i dane → „Szyfrowanie danych na tym telefonie”. Domyślnie wyłączone: dane leżą w pamięci aplikacji jako zwykłe pliki (chroni je piaskownica Androida i szyfrowanie urządzenia). Po włączeniu pliki osób są szyfrowane AES-GCM kluczem zapisanym w układzie zabezpieczeń telefonu (Android Keystore, bez wysyłania gdziekolwiek). Włączenie wymaga **kopii z hasłem zapisanej poza aplikacją** i sprawdzonej odczytem zwrotnym. Zaszyfrowane dane da się odczytać tylko na tym telefonie; przy utracie klucza (reset, przeniesienie plików narzędziem producenta, błąd systemu) jedyną drogą jest kopia z hasłem. W razie problemu aplikacja działa tylko do odczytu i pokazuje komunikat; przycisk „Zaczynam od nowa” tworzy nowy klucz. Szczegóły, format pliku, migracja i ryzyka: [docs/plan-szyfrowanie.md](docs/plan-szyfrowanie.md). Telefon bez blokady ekranu daje słabszą ochronę.
+
 ### Do sprawdzenia na telefonie (testy)
 
+- [ ] **Szyfrowanie danych (0.15):** włączenie z kopią z hasłem (wybór pliku, odczyt zwrotny), wszystko na miejscu po restarcie; alarm o dawce i widżet ciśnienia przy zablokowanym ekranie i po restarcie telefonu; wyłączenie szyfrowania; zabicie aplikacji w trakcie włączania (`adb shell am force-stop`) i ponowne uruchomienie; zmiana i usunięcie blokady ekranu, dodanie odcisku palca (dane muszą się czytać); „Usuń wszystkie dane” (znikają pliki `.enc`, `keys.bin*`, aliasy); telefon bez StrongBox i z nim; komunikat i „Zaczynam od nowa” po symulowanej utracie klucza (podmiana `keys.bin` na telefonie testowym); aktualizacja z wersji z jawnymi plikami i kilkoma osobami.
 - [ ] **Moduły aplikacji (0.14):** Ustawienia → Moduły aplikacji: ukrycie Ciśnienia u jednej osoby (zakładka znika tylko u niej, po zmianie osoby wraca), raport i „Przygotuj na wizytę” bez ciśnienia, widżet „Moduł ukryty”, skrót ciśnienia z komunikatem, kopia i wczytanie zachowują wybór; kalendarz Cyklu w obu motywach (okno płodne bardzo prawdopodobne/możliwe, legenda, widok dnia z procentem).
 - [ ] **Powiększony podgląd EKG:** czy dotknięcie karty nieprawidłowości zawsze ustawia wykres na zdarzeniu (przyczyny wcześniejszego przesuwania nie ustalono; wprowadzono zabezpieczenia i przycisk „Wróć do zdarzenia”).
 - [ ] **Blokada aplikacji:** włączenie, odblokowanie odciskiem i PIN-em, opóźnienia (zaraz, 30 s, 5 min), zachowanie po wyborze pliku lub zdjęcia, opcja blokady zrzutów ekranu.
