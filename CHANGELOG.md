@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.14.7-preview
+
+Kolejne zabezpieczenie numeracji wydań (Obtainium znów proponowało `v0.14.6-preview-b125`, nowsze po dacie, ale z niższym `versionCode` niż zainstalowane `v0.15.2-preview-b123`).
+
+- **Przyczyna:** ręczne uruchomienie workflow (`delete_tag`) na gałęzi domyślnej opublikowało wydanie (job `release` publikuje zawsze na gałęzi domyślnej), a samo scalenie PR do domyślnej też publikuje wydanie z wersją tej gałęzi (0.14.x), niższą niż wydania z gałęzi roboczej (0.15.x).
+- **Strażnik publikacji w CI:** przed publikacją job `release` liczy `versionCode` nowego wydania i najwyższy `versionCode` wśród istniejących automatycznych wydań (tagi `v<wersja>-b<numer>`); gdy nowy nie jest wyższy, wydanie **nie jest publikowane** (ostrzeżenie w logu, job kończy się sukcesem).
+- **Zasady stałe** w `CLAUDE.md` („Numeracja i wydania”): nie uruchamiać workflow na gałęzi domyślnej, sprawdzać wersję przed scaleniem, po każdej akcji sprawdzać listę wydań.
+
 ## 0.14.6-preview
 
 Zabezpieczenia CI po wydaniu z gałęzi z błędną numeracją (`v0.14.4-preview-b115`, `versionCode` 115, Obtainium: „Nie można zainstalować starszej wersji”).
