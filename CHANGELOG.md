@@ -50,6 +50,14 @@ Szyfrowanie danych, etap 1 część a (plan: `docs/plan-szyfrowanie.md`). **Brak
 
 - **Plan szyfrowania danych** (`docs/plan-szyfrowanie.md`, szkic do zatwierdzenia, bez kodu): klucz AES-GCM w Android Keystore, format pliku, migracja odporna na zabicie procesu, utrata klucza, kopie zapasowe, testy, wycofanie.
 
+## 0.14.5-preview
+
+Punkt z listy „Otwarte uwagi z review”: numer wersji przy lokalnej kompilacji.
+
+- **`versionCode` z wersji i przebiegu CI:** numer kompilacji to `numer wersji * 1000 + (numer przebiegu CI % 1000)`, gdzie numer wersji to `major*10000 + minor*100 + patch` (0.14.5-preview i przebieg 101 dają 1405101). Dotąd lokalna kompilacja miała stałe 1, a CI podawało sam numer przebiegu. Lokalnie (bez `-PbuildNumber`) przebieg to 0, więc numer jest zawsze niższy niż w CI dla tej samej wersji i APK z Releases instaluje się na wierzch lokalnej kompilacji. Numery rosną z wersją i przebiegiem, więc aktualizacje z 0.14.4 (numer 100) przechodzą. CI podaje `-PbuildNumber=<przebieg>` zamiast `-PversionCode`; `-PversionCode=N` nadal nadpisuje całość.
+- Ograniczenie: przebieg jest brany modulo 1000, więc w obrębie jednej wersji aplikacji numer maleje dopiero po 1000 przebiegach (wtedy podbij wersję).
+- Zmiana dotyczy skryptu budowania `app` i workflow; sprawdza ją CI (wynik w nazwie pliku/wydaniu nie zmienia się, a numer widać w `aapt2 dump badging`).
+
 ## 0.14.4-preview
 
 Poprawki z review PR #1 (Nexus): dwa P1 dotyczące ochrony danych w `Store`, trzy P2 (limit dawki, CSP, testy magazynu osób).

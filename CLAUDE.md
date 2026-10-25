@@ -56,7 +56,7 @@ Leki doraźne („w razie potrzeby”), kontrast obramowań kontrolek i nazwy p�
 - Review robi Nexus komentarzami w PR, każdy zaczyna się od `[Nexus]`, z priorytetem P0/P1/P2.
 - Przed kolejną pracą nad PR przeczytaj uwagi: `gh pr view <nr> --comments` (w sesjach w chmurze REST, patrz niżej).
 - Popraw wszystkie P0 i P1, na każdą uwagę odpowiedz w PR (`gh pr comment`): "Poprawione w <commit>" albo uzasadnienie, czemu nie.
-- Nie merguj sam. Merge dopiero po komentarzu `[Nexus] APPROVE` i decyzji Kareša.
+- Nie merguj sam. Merge dopiero po komentarzu `[Nexus] APPROVE` i decyzji Jack4B.
 - Jeśli Nexus zrobi commit na gałęzi PR, zrób `git pull` przed dalszą pracą.
 
 Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w chmurze `gh pr ...` używa GraphQL, które jest tam zablokowane. Odpowiednik przez REST: `gh api repos/<właściciel>/<repo>/pulls/<nr>/comments` (uwagi do linii), `.../issues/<nr>/comments` (komentarze ogólne i odpowiedzi: `gh api -X POST .../issues/<nr>/comments -f body=...`) albo narzędzia GitHub MCP. Domyślna gałąź tego repozytorium to na razie `ccr-f03160aa-sp7qz7` (0.10.2); aktualna praca jest na `cykl-modul`, więc PR z niej jest pierwszym wdrożeniem tej zasady. Nowe zmiany po scaleniu: nowe gałęzie `feat/...` i `fix/...`. Każde wypchnięcie nadal buduje APK w CI, więc łącz poprawki z uwag w jeden push.
@@ -66,7 +66,6 @@ Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w 
 - `state.json` z danymi zdrowotnymi jest jawnym JSON w `filesDir` (`Store.kt`). Blokada biometryczna zasłania tylko UI. Rozważyć szyfrowanie kluczem z Android Keystore z migracją.
 - `Store` (po PR #1, wiele osób, `AtomicFile`): uszkodzony plik trafia do `*.uszkodzony.json` i nie jest nadpisywany pustym stanem. Zostaje do sprawdzenia kopiowanie `.bak` i blokada zapisu do decyzji użytkownika.
 - Ręczne `Thread {}` w `Reminders.kt` (receivery z `goAsync`, limit ok. 10 s) i w `AutoBackup.maybeRun` (PBKDF2 600 tys. iteracji). Przenieść AutoBackup do WorkManager.
-- `versionCode` domyślnie 1 przy buildzie lokalnym (`app/build.gradle.kts`). Wyliczać go z `appVersionName`.
 - Brak R8/minifikacji w release (potrzebne przed Google Play, z regułami dla ML Kit i serialization). Brak AAB (`bundleRelease`).
 - Job `zrzuty` w CI ma `contents: write` i nadpisuje wydanie `zrzuty-ekranow` przy każdym pushu. Lepiej publikować artefakt z `contents: read`.
 - Mieszane JDK: `core` używa toolchain 21, `app` ma `jvmTarget 17`. Ujednolicić albo opisać.
