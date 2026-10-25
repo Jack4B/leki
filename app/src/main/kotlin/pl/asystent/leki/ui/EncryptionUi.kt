@@ -46,7 +46,8 @@ fun EncryptionSection(store: Store) {
     var enableDialog by remember { mutableStateOf(false) }
     var confirmOff by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    val secure = remember { (ctx.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isDeviceSecure ?: false }
+    // w podglądzie (Paparazzi) usługa blokady ekranu bywa niedostępna: wtedy nie pokazujemy ostrzeżenia
+    val secure = remember { runCatching { (ctx.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isDeviceSecure ?: true }.getOrDefault(true) }
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Szyfrowanie danych na tym telefonie (opcjonalne)", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))

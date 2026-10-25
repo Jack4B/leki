@@ -405,9 +405,9 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val newId = (Migration.readMarker(ops)?.dekId ?: 0) + 1
         val alias = KeyFile.nextAlias(KeystoreKeyWrap.aliases(), emptyList())
         try { KeystoreKeyWrap.createKey(alias) } catch (e: Exception) { android.util.Log.e("Store", "Nie udało się utworzyć klucza", e); return CryptoResult.FAILED }
-        writesBlocked = true        // zapisy wstrzymane na czas migracji (zmiany zostają w pamięci jako dirty)
+        // zapisy na czas migracji czekają na tej samej blokadzie (writeDirty jest synchronizowane), a zmiany z interfejsu zostają w pamięci jako dirty
         val out = try { Migration.enableWithKeys(ops, KeystoreKeyWrap, { AesGcmCipher(it) }, alias, newId, dek, ids) }
-        catch (e: Exception) { android.util.Log.e("Store", "Włączanie szyfrowania przerwane", e); return CryptoResult.FAILED }
+        catch (e: Exception) { android.util.Log.e("Store", "Włączanie szyfrowania przerwane", e); writesBlocked = true; _problem.value = StorageProblem.MARKER_INVALID; return CryptoResult.FAILED }
         when (out) {
             Migration.Outcome.DONE -> {
                 cipher = AesGcmCipher(dek); encDekId = newId; encMode = true; _encrypted.value = true; writesBlocked = false
@@ -416,7 +416,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             Migration.Outcome.ROLLED_BACK -> { writesBlocked = false; KeystoreKeyWrap.deleteAlias(alias); CryptoResult.ROLLED_BACK }
             Migration.Outcome.NOT_ALLOWED -> { writesBlocked = false; KeystoreKeyWrap.deleteAlias(alias); CryptoResult.NOT_ALLOWED }
             Migration.Outcome.KEYS_FAILED -> { writesBlocked = false; KeystoreKeyWrap.deleteAlias(alias); CryptoResult.FAILED }
-            Migration.Outcome.ROLLBACK_FAILED -> { _problem.value = StorageProblem.MARKER_INVALID; CryptoResult.FAILED }   // zapisy zostają zablokowane
+            Migration.Outcome.ROLLBACK_FAILED -> { writesBlocked = true; _problem.value = StorageProblem.MARKER_INVALID; CryptoResult.FAILED }   // zapisy zablokowane do restartu
         }
     }
 
@@ -429,9 +429,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
         val ops = AndroidFileOps(dir)
         val ids = synchronized(lock) { states.keys.toList() }
         val marker = Migration.readMarker(ops) ?: return CryptoResult.FAILED
-        writesBlocked = true
         val out = try { Migration.disable(ops, c, marker.dekId, ids, marker) }
-        catch (e: Exception) { android.util.Log.e("Store", "Wyłączanie szyfrowania przerwane", e); return CryptoResult.FAILED }
+        catch (e: Exception) { android.util.Log.e("Store", "Wyłączanie szyfrowania przerwane", e); writesBlocked = true; _problem.value = StorageProblem.MARKER_INVALID; return CryptoResult.FAILED }
         when (out) {
             Migration.Outcome.DONE -> {
                 KeystoreKeyWrap.deleteAllAliases()
@@ -439,7 +438,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
                 scheduleSave(); CryptoResult.OK
             }
             Migration.Outcome.ROLLED_BACK -> { writesBlocked = false; CryptoResult.ROLLED_BACK }
-            else -> { _problem.value = StorageProblem.MARKER_INVALID; CryptoResult.FAILED }                      // zapisy zostają zablokowane
+            else -> { writesBlocked = true; _problem.value = StorageProblem.MARKER_INVALID; CryptoResult.FAILED }   // zapisy zablokowane do restartu
         }
     }
 
