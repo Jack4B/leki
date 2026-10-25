@@ -60,7 +60,7 @@ Szyfrowanie danych, etap 1 część b oraz poprawki z review części a (plan: `
 - **Część b:** `FileOps`, `StorageReader` (reguła odczytu wg znacznika bez żadnego zapisu, także dla procesów w tle; brakujący lub nieważny znacznik przy `.enc` lub `keys.bin` = tryb tylko do odczytu), `Migration` (włączanie i wyłączanie, cofanie przerwanej migracji z licznikiem prób, usuwanie kandydatów poza błędem klucza). Kolejność przygotowania: najpierw znacznik `plain` z nowym `dekId`, potem `keys.bin`.
 - Testy: przerwanie po każdej operacji zapisu lub usunięcia w obie strony, zmiana każdego bajtu pliku, śmieci i zły UTF-8 w `keys.bin`, znacznik z dodatkowymi polami i `"v":1.0`, klasy błędów, brak zapisów przy odczycie. Razem 274 testy w `core`.
 
-## 0.14.6-preview
+## 0.14.6-preview (szyfrowanie, etap 1a)
 
 Szyfrowanie danych, etap 1 część a (plan: `docs/plan-szyfrowanie.md`). **Brak zmiany zachowania aplikacji:** nowy kod w `core` nie jest jeszcze używany, poza jedną zmianą w „Usuń wszystkie dane”.
 
