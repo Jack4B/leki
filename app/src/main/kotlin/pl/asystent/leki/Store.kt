@@ -86,6 +86,8 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     private var encMode = false
     /** Zapisy wyłączone: klucz niedostępny, znacznik nieważny, operacja w toku albo błąd cofania. Zmiany danych są wtedy ignorowane, a interfejs pokazuje komunikat. */
     @Volatile private var writesBlocked = false
+    /** Prawda od startu procesu do [bootstrap], gdy na dysku są pliki szyfrowania wymagające sprzątania na pierwszym planie. */
+    @Volatile private var bootPending = false
     private val _encrypted = MutableStateFlow(false)
     private val _problem = MutableStateFlow<StorageProblem?>(null)
     /** Prawda, gdy dane na dysku są zaszyfrowane (tryb `enc`). */
@@ -101,8 +103,17 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     /** Prawda, gdy ostatni zapis na dysk się nie udał (np. brak miejsca). Interfejs pokazuje wtedy ostrzeżenie. */
     val saveFailed: StateFlow<Boolean> get() = _saveFailed.asStateFlow()
 
+    private fun hasEncRelatedFiles(): Boolean {
+        val names = AndroidFileOps(dir).list()
+        return names.any { StorageNames.isEncFile(it) } || StorageNames.KEYS in names || StorageNames.KEYS2 in names || StorageNames.MARKER in names || StartOver.PENDING_FILE in names
+    }
+
     init {
-        val full = bootstrap()
+        // Start PROCESU (także z odbiornika, alarmu, widżetu, na wątku głównym) to wyłącznie odczyt: bez zapisu do FileOps, bez tworzenia
+        // i usuwania kluczy w Keystore (unwrap jest odczytem), bez sprzątania. Dokończenie „Zaczynam od nowa”, cofanie migracji i sprzątanie
+        // robi dopiero [bootstrap] wołane przy starcie Activity poza wątkiem głównym; do tego czasu zapisy są wyłączone, gdy są pliki szyfrowania.
+        bootPending = hasEncRelatedFiles()
+        val full = loadFull(dir, foreground = false)
         val loaded = full.loaded
         loaded.states.forEach { states[it.first] = it.second }
         active = loaded.active
@@ -114,6 +125,7 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
             _problem.value = r.problem
             if (r.readOnly || r.problem in BLOCKING) writesBlocked = true
         }
+        if (bootPending) writesBlocked = true
         _state = MutableStateFlow(states.getValue(active))
         _profiles = MutableStateFlow(infos())
         _activeId = MutableStateFlow(active)
@@ -125,35 +137,65 @@ class Store(private val dir: File, private val onSaved: (Store) -> Unit = {}) {
     }
 
     /**
-     * Start na pierwszym planie: dokończenie „Zaczynam od nowa”, cofnięcie przerwanej migracji, sprzątanie resztek i osieroconych
-     * aliasów Keystore (tylko gdy klucze są czytelne), potem odczyt. Procesy w tle tego nie robią (odczyt tylko do odczytu, [readAll]).
+     * Start Activity, **poza wątkiem głównym** (jednorazowo): dokończenie „Zaczynam od nowa”, cofnięcie przerwanej migracji, sprzątanie
+     * resztek, osieroconych aliasów Keystore i kopii uszkodzonych plików, potem ponowny odczyt. Procesy w tle tego nie robią.
      */
-    private fun bootstrap(): Full {
+    fun bootstrap() {
+        synchronized(this) {
+            if (!bootPending) return
+            val keepBlocked = startupCleanup()
+            applyFull(loadFull(dir, foreground = true))
+            bootPending = false
+            if (keepBlocked) writesBlocked = true
+        }
+        publishProfiles()
+        _activeId.value = active
+    }
+
+    private fun applyFull(full: Full) {
+        val loaded = full.loaded
+        synchronized(lock) {
+            states.clear()
+            loaded.states.forEach { states[it.first] = it.second }
+            active = loaded.active
+            _state.value = states.getValue(active)
+        }
+        _recovered.value = loaded.recovered.toMap()
+        val r = full.result
+        cipher = r?.cipher; encDekId = r?.dekId ?: 0
+        encMode = r?.cipher != null && !r.readOnly
+        _encrypted.value = encMode
+        _problem.value = r?.problem
+        writesBlocked = r != null && (r.readOnly || r.problem in BLOCKING)
+    }
+
+    /** Sprzątanie na starcie Activity. Zwraca prawdę, gdy zapisy mają zostać wyłączone (np. nie udało się dokończyć operacji). */
+    private fun startupCleanup(): Boolean {
+        var blocked = false
         val ops = AndroidFileOps(dir)
         val names = ops.list()
-        val encRelated = names.any { StorageNames.isEncFile(it) } || StorageNames.KEYS in names || StorageNames.KEYS2 in names || StorageNames.MARKER in names || StartOver.PENDING_FILE in names
-        if (!encRelated) return loadFull(dir, foreground = true)
+        if (!hasEncRelatedFiles()) return false
         runCatching {
             val ids = Profiles.load(read = { n -> if (n == Profiles.INDEX) ops.read(n)?.let { String(it, Charsets.UTF_8) } else null }, listNames = { names }, quarantine = { _, _ -> }).states.map { it.first }
             if (StartOver.PENDING_FILE in names) {
                 val cur = Migration.readMarker(ops)?.dekId ?: StorageReader.readKeyHeaders(ops).filterNotNull().maxOfOrNull { it.dekId } ?: 1
                 val r = StartOver.execute(ops, KeystoreKeyWrap, { KeystoreKeyWrap.createKey(it) }, KeystoreKeyWrap.aliases(), newDek(), cur, ids)
-                if (r == null) writesBlocked = true
+                if (r == null) blocked = true
             }
             // szyfr do klasyfikacji kandydatów: z kluczy, jeśli się da; inaczej taki, który zgłasza błąd klucza (kandydatów wtedy nie kasujemy)
             val headers = StorageReader.readKeyHeaders(ops)
             val dekId = Migration.readMarker(ops)?.dekId
             val tryCipher: DataCipher? = dekId?.let { d -> runCatching { AesGcmCipher(KeyFile.unwrapBinding(KeystoreKeyWrap, headers, d).dek) }.getOrNull() }
-            if (!writesBlocked) {
+            if (!blocked) {
                 val rec = Migration.recoverAfterRestart(ops, tryCipher ?: NoKeyCipher, ids)
-                if (!rec.writesMayResume) writesBlocked = true
+                if (!rec.writesMayResume) blocked = true
                 else if (tryCipher != null) Migration.cleanupPlainLeftovers(ops, tryCipher, ids)
             }
             // osierocone aliasy (np. po przerwanej rotacji lub próbie włączenia): tylko gdy co najmniej jedna kopia keys.bin jest czytelna
             val h = StorageReader.readKeyHeaders(ops).filterNotNull()
             if (h.isNotEmpty() && StartOver.PENDING_FILE !in ops.list()) KeystoreKeyWrap.aliases().filter { a -> h.none { it.alias == a } }.forEach { KeystoreKeyWrap.deleteAlias(it) }
-        }.onFailure { android.util.Log.e("Store", "Sprzątanie przy starcie nie powiodło się", it) }
-        return loadFull(dir, foreground = true)
+        }.onFailure { android.util.Log.e("Store", "Sprzątanie przy starcie nie powiodło się: ${it.javaClass.simpleName}") }
+        return blocked
     }
 
     /** Szyfr zgłaszający zawsze błąd klucza: do klasyfikacji kandydatów, gdy klucza nie ma (kandydaci zostają nietknięci). */

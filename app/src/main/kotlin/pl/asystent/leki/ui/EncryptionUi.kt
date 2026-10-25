@@ -58,6 +58,14 @@ fun EncryptionSection(store: Store) {
             else LinkButton("Włącz szyfrowanie…", { enableDialog = true })
         }
     }
+    // modalny komunikat na czas odszyfrowywania: zmiany w interfejsie w trakcie migracji nie są możliwe
+    if (busy) AlertDialog(
+        onDismissRequest = {},
+        title = { Text("Odszyfrowuję dane…", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink)) },
+        text = { BodyText("Nie zamykaj aplikacji. To potrwa chwilę.") },
+        confirmButton = {},
+        containerColor = pal.surface,
+    )
     if (enableDialog) EnableEncryptionDialog(store) { enableDialog = false }
     if (confirmOff) ConfirmDialog(
         "Wyłączyć szyfrowanie?", "Dane zostaną odszyfrowane i zapisane jako zwykłe pliki w pamięci aplikacji, a klucz zostanie usunięty z telefonu.",
@@ -69,7 +77,7 @@ fun EncryptionSection(store: Store) {
                 toast(when (r) {
                     Store.CryptoResult.OK -> "Szyfrowanie wyłączone"
                     Store.CryptoResult.ROLLED_BACK -> "Nie udało się odszyfrować danych. Dane zostały bez zmian (zaszyfrowane)."
-                    else -> "Nie udało się wyłączyć szyfrowania. Uruchom aplikację ponownie; dane są bezpieczne."
+                    else -> "Nie udało się wyłączyć szyfrowania. Uruchom aplikację ponownie; dane są bezpieczne, ale zmiany wprowadzone w trakcie mogły nie zostać zapisane."
                 })
             }
         }, onDismiss = { confirmOff = false },

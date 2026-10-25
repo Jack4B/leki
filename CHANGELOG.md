@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.15.1-preview
+
+Poprawki z review etapu 2 szyfrowania oraz **naprawa numeracji**.
+
+- **Numeracja:** wydanie `v0.14.4-preview-b115` (z gałęzi `feat/szyfrowanie-danych`) miało stary numer wersji i `versionCode` 115, więc Obtainium odmawiało instalacji na wierzch `0.14.5-preview-b107` (numer 1405107). Przyczyna: gałąź nie miała jeszcze zmian z gałęzi domyślnej (wzór `versionCode`) ani podbitej wersji. Wydania `v0.15.0-preview-b117` i nowsze mają wersję 0.15.x i `versionCode` 1500xxx, więc instalują się na wierzch. **Nie instaluj b115** (nie da się go usunąć z sesji, zniknie przy sprzątaniu starych wydań).
+- **Start procesu tylko czyta** (patrz niżej wpis o `bootstrap()`), modalny komunikat przy odszyfrowywaniu, ograniczenia w CHANGELOG i reguła logowania w `CLAUDE.md`.
+
 ## 0.15.0-preview
 
 **Szyfrowanie danych na telefonie, etap 2 (opcjonalne, domyślnie wyłączone, eksperymentalne).** Plan: `docs/plan-szyfrowanie.md`. Bez włączenia funkcji aplikacja działa jak dotąd (jawne pliki).
@@ -11,7 +18,8 @@
 - **Komunikaty** dla klas problemów (klucz niedostępny, brak klucza po przeniesieniu plików, uszkodzony `keys.bin`, nowsza wersja, inny zestaw kluczy) i przycisk „Zaczynam od nowa” (nowy klucz, stare pliki jako `*.nieczytelny.enc`). Wczytanie kopii przy utraconym kluczu zaczyna od nowego klucza.
 - **„Usuń wszystkie dane”** kasuje też pliki `.enc`, `keys.bin*`, `storage.json`, `startover.pending`, pliki pomocnicze, pozostałości `AtomicFile` i aliasy Keystore.
 - **Poprawki `core`:** `prepareKeys` tylko przy znaczniku `plain` lub jego braku i bez `.enc`; `enableWithKeys` zawsze od kroku 0 z nowym DEK (po restarcie klucze są sprzątane); `cleanupPlainLeftovers` bierze `dekId` ze świeżo odczytanego znacznika; `StartOver.execute` z wznawianiem; `AesGcmCipher`; za duży plik osoby to uszkodzenie, nie pusta osoba. 291 testów w `core`.
-- **Ograniczenia tej wersji:** odtwarzanie znacznika z podglądem obu formatów (etap 3), szyfrowanie `*.uszkodzony.json` przy migracji (są usuwane przez „Usuń wszystkie dane”), brak testów `app` na JVM (Keystore sprawdzany ręcznie na telefonie).
+- **Start procesu tylko czyta:** `Store` przy starcie procesu (odbiornik, alarm, widżet, wątek główny) niczego nie zapisuje i nie dotyka kluczy poza odczytem; sprzątanie (dokończenie „Zaczynam od nowa”, cofanie migracji, resztki, osierocone aliasy, kopie uszkodzonych plików) robi `bootstrap()` przy starcie Activity w osobnym wątku, a do tego czasu zapisy są wyłączone, gdy są pliki szyfrowania. Odszyfrowywanie pokazuje modalny komunikat.
+- **Ograniczenia tej wersji:** brak automatycznej rotacji KEK przy słabszym wariancie klucza (np. TEE zamiast StrongBox po aktualizacji systemu; rotacja tylko ręczna, jeszcze bez przycisku); po wyjątku lub błędzie cofania migracji zapisy są wyłączone do restartu, a zmiany wprowadzone w tym czasie (np. z powiadomienia) mogą nie zostać zapisane; odtwarzanie znacznika z podglądem obu formatów (etap 3), szyfrowanie `*.uszkodzony.json` przy migracji (są usuwane przez „Usuń wszystkie dane”), brak testów `app` na JVM (Keystore sprawdzany ręcznie na telefonie).
 
 ## 0.14.8-preview
 
