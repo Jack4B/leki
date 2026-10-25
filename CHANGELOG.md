@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.14.8-preview
+
+Poprawki z review części b etapu 1 szyfrowania (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).
+
+- **`dekId` w trybie plain:** niezgodny `dekId` nie unieważnia znacznika `plain` ani `to-enc` (klucze nie są tam wiążące); w `enc` i `to-plain` nadal tak. `Migration.prepareKeys` (krok 0) zapisuje najpierw znacznik, potem `keys.bin` i `keys.bin.2`, każdy sprawdzony przez `unwrap`; test przerwań kroku 0 także przy pozostałych kluczach.
+- **`Migration.disable`** kasuje na końcu `.enc`, `keys.bin` i `keys.bin.2`; w trybie `plain` start dokańcza to sprzątanie (kandydaci `.enc` poza błędem klucza, klucze, gdy nie ma `.enc`).
+- **`Migration.cleanupPlainLeftovers`:** w trybie `enc` na pierwszym planie usuwa jawne `state*.json` (i zapas sprzed osób) tylko osób, których `.enc` odszyfrowuje się i przechodzi uwierzytelnienie z oczekiwanym `dekId`. Test: po przerwaniu między znacznikiem `enc` a sprzątaniem jawne pliki nie zostają.
+- **Cofnięcie wyłączania** kasuje jawny plik tylko osoby z czytelnym `.enc` (fallback osoby bez `.enc` zostaje); weryfikacja w `disable` jest chroniona jak w `enable`.
+- **Błąd zapisu znacznika przy cofaniu:** `ROLLBACK_FAILED` / `Recovery.writesMayResume = false`, zapisy zostają zablokowane i nic nie jest kasowane.
+- Testy: przerwania w `disable` (znacznik nie zostaje w `to-*`, dokończenie), w cofaniu i w `recoverAfterRestart` (idempotentne), błąd zapisu znacznika, dwa tryby `dekId`. Razem 285 testów w `core`.
+
 ## 0.14.7-preview
 
 Szyfrowanie danych, etap 1 część b oraz poprawki z review części a (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).

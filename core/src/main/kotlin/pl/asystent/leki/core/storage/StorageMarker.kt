@@ -63,14 +63,16 @@ data class StorageMarker(val mode: StorageMode, val dekId: Int, val attempts: In
         }.getOrNull()
 
         /**
-         * Ocena znacznika. [keyDekIds]: `dekId` odczytanych kopii `keys.bin` i `keys.bin.2`. `dekId` ze znacznika musi zgadzać się z
+         * Ocena znacznika. [keyDekIds]: `dekId` odczytanych kopii `keys.bin` i `keys.bin.2`. `dekId` ze znacznika (w trybach `enc` i `to-plain`) musi zgadzać się z
          * **którąkolwiek** kopią (niezgodna ze znacznikiem jest tylko diagnostyką, ale nie unieważnia znacznika, gdy druga się zgadza);
          * gdy nie ma żadnej odczytanej kopii, a istnieją pliki szyfrowane, znacznika nie da się zweryfikować (to sprawa klasy F, patrz [StorageProblem]).
          */
         fun evaluate(text: String?, hasEncOrKeys: Boolean, keyDekIds: Collection<Int>): MarkerState {
             val m = text?.let { parse(it) }
             if (m == null) return if (hasEncOrKeys) MarkerState.ReadOnlyEnc else MarkerState.FreshPlain
-            if (keyDekIds.isNotEmpty() && m.dekId !in keyDekIds) return MarkerState.ReadOnlyEnc
+            // w trybie plain (i podczas włączania) klucze nie są wiążące: pozostałość po wcześniejszej próbie nie unieważnia znacznika
+            val keysBinding = m.mode == StorageMode.ENC || m.mode == StorageMode.TO_PLAIN
+            if (keysBinding && keyDekIds.isNotEmpty() && m.dekId !in keyDekIds) return MarkerState.ReadOnlyEnc
             return MarkerState.Valid(m)
         }
     }

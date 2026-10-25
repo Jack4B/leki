@@ -46,12 +46,17 @@ class MigrationTest {
             val m = plainDir()
             try { Migration.enable(KillingOps(m, k), cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) } catch (e: Killed) {}
             // restart: wiążący format wraca; po cofnięciu zapisy są odblokowane, a dane równe oryginałowi
-            val back = Migration.recoverAfterRestart(m, cipher, ids)
+            val rec = Migration.recoverAfterRestart(m, cipher, ids); assertTrue(rec.writesMayResume)
+            val back = rec.marker
             if (back != null) assertEquals(StorageMode.PLAIN, back.mode, "przerwane włączanie wraca do plain (krok $k)")
             assertData(m, "po przerwaniu w kroku $k")
             val marker = Migration.readMarker(m)
             assertTrue(marker == null || marker.mode == StorageMode.PLAIN || marker.mode == StorageMode.ENC, "krok $k: znacznik nie zostaje w to-*")
             // dokończenie
+            if (marker?.mode != StorageMode.ENC) {
+                // jak w aplikacji: najpierw krok 0 (klucze sprzątane na starcie w trybie plain są tworzone na nowo), potem migracja
+                assertTrue(Migration.prepareKeys(m, wrap, "leki_kek_1", 1, TEST_DEK, marker?.attempts ?: 0))
+            }
             if (marker?.mode != StorageMode.ENC) assertEquals(Migration.Outcome.DONE, Migration.enable(m, cipher, 1, ids, marker ?: StorageMarker(StorageMode.PLAIN, 1)))
             assertEquals(StorageMode.ENC, Migration.readMarker(m)!!.mode)
             assertData(m, "po dokończeniu (krok $k)")
@@ -64,9 +69,18 @@ class MigrationTest {
         for (k in 1..total + 1) {
             val m = encDir()
             try { Migration.disable(KillingOps(m, k), cipher, 1, ids, StorageMarker(StorageMode.ENC, 1)) } catch (e: Killed) {}
-            val back = Migration.recoverAfterRestart(m, cipher, ids)
-            if (back != null) assertEquals(StorageMode.ENC, back.mode, "przerwane wyłączanie wraca do enc (krok $k)")
+            val rec = Migration.recoverAfterRestart(m, cipher, ids); assertTrue(rec.writesMayResume)
+            val back = rec.marker
+            if (back != null) assertTrue(back.mode == StorageMode.ENC || back.mode == StorageMode.PLAIN, "wyłączanie: tryb wiążący (krok $k)")
             assertData(m, "po przerwaniu wyłączania w kroku $k")
+            val marker = Migration.readMarker(m)
+            assertTrue(marker == null || marker.mode == StorageMode.PLAIN || marker.mode == StorageMode.ENC, "krok $k: znacznik nie zostaje w to-*")
+            if (marker?.mode == StorageMode.ENC) {   // dokończenie wyłączania
+                assertEquals(Migration.Outcome.DONE, Migration.disable(m, cipher, 1, ids, marker))
+            } else Migration.recoverAfterRestart(m, cipher, ids)   // znacznik plain: sprzątanie na starcie dokańcza kasowanie .enc i kluczy
+            assertEquals(StorageMode.PLAIN, Migration.readMarker(m)!!.mode)
+            assertData(m, "po dokończeniu wyłączania (krok $k)")
+            assertTrue(ids.none { StorageNames.encFile(it) in m.files } && StorageNames.KEYS !in m.files && StorageNames.KEYS2 !in m.files, "krok $k: .enc i klucze usunięte po dokończeniu")
         }
     }
 
@@ -100,8 +114,155 @@ class MigrationTest {
         val noKey = object : DataCipher by cipher {
             override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray): ByteArray = throw KeyUnavailableException("niedostępny")
         }
-        Migration.recoverAfterRestart(m, noKey, ids)
+        assertTrue(Migration.recoverAfterRestart(m, noKey, ids).writesMayResume)
         assertTrue(StorageNames.encFile("p1") in m.files, "błąd klucza nie jest powodem do skasowania")
         assertEquals(StorageMode.PLAIN, Migration.readMarker(m)!!.mode)
+    }
+
+    // ---------- krok 0: przygotowanie kluczy ----------
+
+    @Test fun killAtEveryStepOfKeyPreparationLeavesAValidPlainMarkerEvenWithLeftoverKeys() {
+        fun dirWithLeftoverKeys() = MemOps().also { m ->
+            data.forEach { (id, b) -> m.files[StorageNames.plainFile(id)] = b }
+            m.files[StorageNames.KEYS] = KeyFile.encode(wrap, "leki_kek_1", 1, TEST_DEK)   // pozostałość po wcześniejszej próbie z innym dekId
+            m.files[StorageNames.KEYS2] = KeyFile.encode(wrap, "leki_kek_1", 1, TEST_DEK)
+            m.files[StorageNames.MARKER] = StorageMarker(StorageMode.PLAIN, 1).toJson().toByteArray()
+        }
+        val total = dirWithLeftoverKeys().let { m -> val k = KillingOps(m, Int.MAX_VALUE); assertTrue(Migration.prepareKeys(k, wrap, "leki_kek_1", 2, TEST_DEK, 0)); k.ops }
+        assertEquals(3, total, "znacznik, keys.bin, keys.bin.2")
+        for (k in 1..total + 1) {
+            val m = dirWithLeftoverKeys()
+            try { Migration.prepareKeys(KillingOps(m, k), wrap, "leki_kek_1", 2, TEST_DEK, 0) } catch (e: Killed) {}
+            val r = read(m)
+            assertNull(r.problem, "krok $k"); assertFalse(r.readOnly, "krok $k")
+            assertContentEquals(data["p1"], r.persons["p1"]!!.plain)
+            assertTrue(Migration.prepareKeys(m, wrap, "leki_kek_1", 2, TEST_DEK, 0), "ponowienie po kroku $k")
+            assertEquals(StorageMarker(StorageMode.PLAIN, 2, 0), Migration.readMarker(m))
+        }
+    }
+
+    // ---------- sprzątanie jawnych resztek w trybie enc ----------
+
+    @Test fun plainLeftoversAreRemovedOnlyWhenTheMatchingEncAuthenticates() {
+        val total = plainDir().let { m -> val k = KillingOps(m, Int.MAX_VALUE); Migration.enable(k, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)); k.ops }
+        for (k in 1..total + 1) {
+            val m = plainDir()
+            try { Migration.enable(KillingOps(m, k), cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) } catch (e: Killed) {}
+            if (Migration.readMarker(m)?.mode != StorageMode.ENC) continue     // przed zatwierdzeniem jawny plik jest wiążący
+            Migration.cleanupPlainLeftovers(m, cipher, 1, ids)
+            assertTrue(ids.none { StorageNames.plainFile(it) in m.files || StorageNames.plainFile(it) + ".bak" in m.files }, "krok $k: jawne pliki nie zostają")
+            assertFalse(Profiles.BEFORE_PEOPLE in m.files)
+            assertData(m, "po sprzątaniu (krok $k)")
+        }
+    }
+
+    @Test fun plainFileIsKeptWhenItsEncCannotBeAuthenticatedOrIsMissing() {
+        val m = plainDir(); Migration.enable(m, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1))
+        m.files[StorageNames.plainFile("p1")] = data.getValue("p1")                       // resztka
+        m.files[StorageNames.plainFile("p2")] = data.getValue("p2"); m.files.remove(StorageNames.encFile("p2"))   // osoba bez .enc
+        val noKey = object : DataCipher by cipher { override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray): ByteArray = throw KeyUnavailableException("x") }
+        assertEquals(0, Migration.cleanupPlainLeftovers(m, noKey, 1, ids), "błąd klucza")
+        assertEquals(1, Migration.cleanupPlainLeftovers(m, cipher, 1, ids), "tylko p1")
+        assertTrue(StorageNames.plainFile("p2") in m.files && StorageNames.plainFile("p1") !in m.files)
+    }
+
+    @Test fun cleanupDoesNothingOutsideEncMode() {
+        val m = plainDir()
+        assertEquals(0, Migration.cleanupPlainLeftovers(m, cipher, 1, ids))
+        assertTrue(StorageNames.plainFile("p1") in m.files)
+    }
+
+    // ---------- cofanie wyłączania, weryfikacja, błąd znacznika ----------
+
+    @Test fun rollbackOfDisablingKeepsPlainFileOfAPersonWithoutEnc() {
+        val m = plainDir(); Migration.enable(m, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1))
+        m.files.remove(StorageNames.encFile("p2"))
+        m.files[StorageNames.plainFile("p2")] = data.getValue("p2")                       // fallback StorageReader: osoba bez .enc
+        m.files[StorageNames.plainFile("p1")] = data.getValue("p1")                       // kandydat po przerwanym wyłączaniu
+        Migration.writeMarker(m, StorageMarker(StorageMode.TO_PLAIN, 1, 0))
+        assertTrue(Migration.recoverAfterRestart(m, cipher, ids).writesMayResume)
+        assertTrue(StorageNames.plainFile("p2") in m.files, "plik osoby bez .enc zostaje")
+        assertFalse(StorageNames.plainFile("p1") in m.files, "kandydat osoby z czytelnym .enc jest usunięty")
+        assertEquals(StorageMode.ENC, Migration.readMarker(m)!!.mode)
+    }
+
+    @Test fun disableVerificationFailureIsHandledLikeInEnable() {
+        val m = plainDir(); Migration.enable(m, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1))
+        var calls = 0
+        val failsOnVerify = object : DataCipher by cipher {
+            override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray): ByteArray {
+                calls++
+                if (calls > ids.size) throw AuthFailedException()   // czytanie przeszło, weryfikacja pada
+                return cipher.decrypt(iv, body, aad)
+            }
+        }
+        assertEquals(Migration.Outcome.ROLLED_BACK, Migration.disable(m, failsOnVerify, 1, ids, StorageMarker(StorageMode.ENC, 1)))
+        assertEquals(StorageMode.ENC, Migration.readMarker(m)!!.mode); assertEquals(1, Migration.readMarker(m)!!.attempts)
+        assertData(m, "po nieudanej weryfikacji wyłączania")
+        assertEquals(ids.size, Migration.cleanupPlainLeftovers(m, cipher, 1, ids), "resztki po nieudanym wyłączaniu sprzątane przy następnym starcie")
+    }
+
+    /** Odrzuca zapis znacznika po [failAfter] udanych zapisach znacznika. */
+    private class FailingMarkerOps(private val inner: MemOps, var failMarkerWrites: Boolean = false) : FileOps {
+        override fun read(name: String) = inner.read(name)
+        override fun write(name: String, bytes: ByteArray) { if (failMarkerWrites && name == StorageNames.MARKER) throw java.io.IOException("brak miejsca"); inner.write(name, bytes) }
+        override fun delete(name: String) = inner.delete(name)
+        override fun list() = inner.list()
+    }
+
+    @Test fun markerWriteFailureOnRollbackKeepsWritesBlockedAndDeletesNothing() {
+        val m = plainDir()
+        Migration.writeMarker(m, StorageMarker(StorageMode.TO_ENC, 1, 0))
+        m.files[StorageNames.encFile("p1")] = DataFile.seal(cipher, 1, 1, DataFile.Kind.STATE, "p1", data.getValue("p1"))
+        val f = FailingMarkerOps(m, failMarkerWrites = true)
+        val rec = Migration.recoverAfterRestart(f, cipher, ids)
+        assertFalse(rec.writesMayResume, "zapisy zostają zablokowane")
+        assertTrue(StorageNames.encFile("p1") in m.files, "kandydat nietknięty")
+        assertEquals(StorageMode.TO_ENC, Migration.readMarker(m)!!.mode)
+        // po usunięciu przyczyny kolejna próba kończy cofanie
+        f.failMarkerWrites = false
+        assertTrue(Migration.recoverAfterRestart(f, cipher, ids).writesMayResume)
+        assertEquals(StorageMode.PLAIN, Migration.readMarker(m)!!.mode)
+    }
+
+    @Test fun enableReportsRollbackFailedWhenTheMarkerCannotBeWritten() {
+        val m = plainDir(); val f = FailingMarkerOps(m, failMarkerWrites = true)
+        assertEquals(Migration.Outcome.ROLLBACK_FAILED, Migration.enable(f, cipher, 1, ids, StorageMarker(StorageMode.PLAIN, 1)))
+        assertEquals(StorageMode.PLAIN, Migration.readMarker(m)!!.mode)
+        assertData(m, "nic nie zmieniono")
+    }
+
+    @Test fun killDuringRollbackAndDuringRecoveryIsIdempotent() {
+        fun stuck() = plainDir().also { m ->
+            Migration.writeMarker(m, StorageMarker(StorageMode.TO_ENC, 1, 0))
+            ids.forEach { m.files[StorageNames.encFile(it)] = DataFile.seal(cipher, 1, 1, DataFile.Kind.STATE, it, data.getValue(it)) }
+        }
+        val total = stuck().let { m -> val k = KillingOps(m, Int.MAX_VALUE); Migration.recoverAfterRestart(k, cipher, ids); k.ops }
+        for (k in 1..total + 1) {
+            val m = stuck()
+            try { Migration.recoverAfterRestart(KillingOps(m, k), cipher, ids) } catch (e: Killed) {}
+            assertData(m, "po przerwaniu odzyskiwania w kroku $k")
+            val rec = Migration.recoverAfterRestart(m, cipher, ids)        // kolejny start dokańcza
+            assertTrue(rec.writesMayResume)
+            val marker = Migration.readMarker(m)!!
+            assertEquals(StorageMode.PLAIN, marker.mode, "krok $k")
+            assertTrue(marker.attempts in 1..3)
+            assertTrue(ids.none { StorageNames.encFile(it) in m.files }, "krok $k: kandydaci usunięci")
+            assertData(m, "po dokończeniu odzyskiwania $k")
+        }
+    }
+
+    @Test fun killDuringRollbackInsideEnableKeepsDataAndRecovers() {
+        val lying = object : DataCipher by cipher {
+            override fun decrypt(iv: ByteArray, body: ByteArray, aad: ByteArray) = cipher.decrypt(iv, body, aad).also { it[0] = 'X'.code.toByte() }
+        }
+        val total = plainDir().let { m -> val k = KillingOps(m, Int.MAX_VALUE); Migration.enable(k, lying, 1, ids, StorageMarker(StorageMode.PLAIN, 1)); k.ops }
+        for (k in 1..total + 1) {
+            val m = plainDir()
+            try { Migration.enable(KillingOps(m, k), lying, 1, ids, StorageMarker(StorageMode.PLAIN, 1)) } catch (e: Killed) {}
+            assertTrue(Migration.recoverAfterRestart(m, cipher, ids).writesMayResume)
+            assertData(m, "krok $k")
+            assertTrue(Migration.readMarker(m)?.mode in listOf(null, StorageMode.PLAIN), "krok $k")
+        }
     }
 }

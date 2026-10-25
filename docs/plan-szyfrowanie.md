@@ -119,6 +119,8 @@ Zamiast porównywania `lastModified` (niewiarygodny przy zmianie zegara) o tym, 
 5. Sprzątanie (każdy krok powtarzalny): usuń jawne `state*.json` i ich `.bak` (z nadpisaniem zerami przed usunięciem, jako najlepsza próba: pamięć flash i systemy plików z kopiowaniem przy zapisie nie gwarantują fizycznego wymazania); usuń `state.przed-osobami.json` (decyzja Nexus: po udanej migracji go nie trzeba); zaszyfruj istniejące `*.uszkodzony.json` do `*.uszkodzony.enc` (z logicznym identyfikatorem oryginału) i usuń jawne.
 6. Odblokuj zapisy.
 
+**Sprzątanie na starcie (pierwszy plan):** w trybie `enc` jawne `state*.json` osoby są usuwane tylko wtedy, gdy jej `.enc` odszyfrowuje się i przechodzi uwierzytelnienie z oczekiwanym `dekId` (zabicie procesu po znaczniku `enc`, a przed usunięciem jawnych plików, nie zostawia ich na stałe); w trybie `plain` kandydaci `.enc` (poza błędem klucza) i `keys.bin*` bez `.enc` są usuwane. W trybie `plain` i `to-enc` `dekId` znacznika nie musi zgadzać się z kluczami (nie są tam wiążące). Błąd zapisu znacznika przy cofaniu: zapisy zostają zablokowane, nic nie jest kasowane, błąd jest zgłaszany.
+
 **Wyłączenie (`enc` → `plain`):** lustrzanie: `to-plain` → zapis `state*.json` → odczyt i porównanie → `plain` → usunięcie `.enc`, `keys.bin`, `keys.bin.2` i zerowanie. Klucze Keystore usuwane na samym końcu.
 
 **Reguła odczytu przy starcie** (dotyczy też procesów w tle, patrz rozdział 4), niezależnie od miejsca przerwania:

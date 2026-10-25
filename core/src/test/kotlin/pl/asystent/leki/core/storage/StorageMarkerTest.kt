@@ -67,4 +67,9 @@ class StorageMarkerTest {
         assertNull(StorageMarker.parse("""{"v":1,"mode":"enc","dekId":1.5,"attempts":0}"""))
         assertNull(StorageMarker.parse("""{"v":1,"mode":"enc","dekId":1,"attempts":0}""" + " ".repeat(StorageMarker.MAX_CHARS)), "ponad ok. 4 KB")
     }
+
+    @Test fun inPlainModeDekIdMismatchDoesNotInvalidateTheMarker() {
+        for (mode in listOf(StorageMode.PLAIN, StorageMode.TO_ENC)) assertIs<MarkerState.Valid>(StorageMarker.evaluate(StorageMarker(mode, 2).toJson(), true, listOf(1, 1)), mode.id)
+        for (mode in listOf(StorageMode.ENC, StorageMode.TO_PLAIN)) assertIs<MarkerState.ReadOnlyEnc>(StorageMarker.evaluate(StorageMarker(mode, 2).toJson(), true, listOf(1, 1)), mode.id)
+    }
 }
