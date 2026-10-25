@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.14.6-preview
+
+Zabezpieczenia CI po wydaniu z gałęzi z błędną numeracją (`v0.14.4-preview-b115`, `versionCode` 115, Obtainium: „Nie można zainstalować starszej wersji”).
+
+- **Kontrola APK:** krok „Sprawdź numer kompilacji” odczytuje z gotowego APK (`aapt2 dump badging`) `versionCode` i `versionName` i przerywa build, gdy `versionCode` jest niższy niż 1000000 (brak wzoru numeru na gałęzi), nie zgadza się ze wzorem `(wersja)*1000 + przebieg % 1000` albo `versionName` różni się od `appVersionName` w kodzie.
+- **Wersja i numer przebiegu przy ręcznym uruchomieniu z gałęzi:** workflow (`workflow_dispatch`) wywołuje Gradle z `-PbuildNumber=<przebieg>` zawsze, a `checkout` pobiera wskazaną gałąź (nie domyślną); wersja jest czytana z `gradle.properties` tej gałęzi. Błąd wynikał z gałęzi sprzed scalenia wzoru numeru, nie z workflow.
+- **Ręczne usunięcie błędnego wydania:** nowe pole `delete_tag` w „Run workflow” (job `usun-wydanie`): usuwa wyłącznie prerelease o tagu `v<wersja>-b<numer>`, tokenem workflow (z sesji Claude Code usuwanie wydań jest blokowane).
+
 ## 0.14.5-preview
 
 Punkt z listy „Otwarte uwagi z review”: numer wersji przy lokalnej kompilacji.
