@@ -1,5 +1,18 @@
 # Zmiany
 
+## 0.15.0-preview
+
+**Szyfrowanie danych na telefonie, etap 2 (opcjonalne, domyślnie wyłączone, eksperymentalne).** Plan: `docs/plan-szyfrowanie.md`. Bez włączenia funkcji aplikacja działa jak dotąd (jawne pliki).
+
+- **Ustawienia → Kopie zapasowe i dane → „Szyfrowanie danych na tym telefonie”:** włączenie wymaga kopii z hasłem zapisanej poza aplikacją (wybór pliku), odczytanej z powrotem, odszyfrowanej hasłem i porównanej ze stanem; dopiero potem następuje migracja (znacznik `to-enc`, pliki `.enc`, weryfikacja, znacznik `enc`, usunięcie jawnych plików). Wyłączenie działa odwrotnie i usuwa klucze.
+- **Klucz:** KEK AES-256-GCM w Android Keystore (StrongBox, a gdy go brak zwykłe TEE), bez wymagania uwierzytelnienia, żeby alarmy i widżet czytały dane w tle; DEK w `keys.bin` i `keys.bin.2`, szyfrowanie plików programowe.
+- **`Store`:** czyta oba formaty według znacznika, zapisuje w trybie wiążącym; przy problemie z kluczem lub znacznikiem **zapisy są wyłączone** (zmiany ignorowane, komunikat na ekranie Leki, kopia z hasłem nadal możliwa, autokopia wstrzymana). Przy starcie: dokończenie „Zaczynam od nowa”, cofnięcie przerwanej migracji, sprzątanie jawnych resztek, kandydatów i osieroconych aliasów.
+- **Odczyty w tle** (widżet ciśnienia, alarmy, odbiorniki) idą tą samą ścieżką tylko do odczytu: bez zapisów, bez tworzenia kluczy, bez trybu odzyskiwania.
+- **Komunikaty** dla klas problemów (klucz niedostępny, brak klucza po przeniesieniu plików, uszkodzony `keys.bin`, nowsza wersja, inny zestaw kluczy) i przycisk „Zaczynam od nowa” (nowy klucz, stare pliki jako `*.nieczytelny.enc`). Wczytanie kopii przy utraconym kluczu zaczyna od nowego klucza.
+- **„Usuń wszystkie dane”** kasuje też pliki `.enc`, `keys.bin*`, `storage.json`, `startover.pending`, pliki pomocnicze, pozostałości `AtomicFile` i aliasy Keystore.
+- **Poprawki `core`:** `prepareKeys` tylko przy znaczniku `plain` lub jego braku i bez `.enc`; `enableWithKeys` zawsze od kroku 0 z nowym DEK (po restarcie klucze są sprzątane); `cleanupPlainLeftovers` bierze `dekId` ze świeżo odczytanego znacznika; `StartOver.execute` z wznawianiem; `AesGcmCipher`; za duży plik osoby to uszkodzenie, nie pusta osoba. 291 testów w `core`.
+- **Ograniczenia tej wersji:** odtwarzanie znacznika z podglądem obu formatów (etap 3), szyfrowanie `*.uszkodzony.json` przy migracji (są usuwane przez „Usuń wszystkie dane”), brak testów `app` na JVM (Keystore sprawdzany ręcznie na telefonie).
+
 ## 0.14.8-preview
 
 Poprawki z review części b etapu 1 szyfrowania (plan: `docs/plan-szyfrowanie.md`). Nadal **bez zmiany zachowania aplikacji** (kod w `core` nie jest jeszcze używany przez `Store`).

@@ -17,7 +17,7 @@ object Profiles {
     const val BEFORE_PEOPLE = "state.przed-osobami.json"
 
     private val ID = Regex("p\\d{1,2}")
-    private val FILE_ID = Regex("state-(p\\d{1,2})\\.json")
+    private val FILE_ID = Regex("state-(p\\d{1,2})\\.(json|enc)")
 
     private val LEFTOVER = Regex(".*\\.(uszkodzony|odrzucony)\\.(json|enc)|.*\\.nieczytelny\\.enc")
 

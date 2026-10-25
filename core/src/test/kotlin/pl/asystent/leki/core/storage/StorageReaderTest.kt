@@ -89,4 +89,17 @@ class StorageReaderTest {
         val m = encDir().also { it.files[StorageNames.MARKER] = ByteArray(StorageMarker.MAX_CHARS * 4 + 1) { ' '.code.toByte() } }
         assertTrue(read(m).readOnly)
     }
+
+    @Test fun oversizedPersonFileIsCorruptNotAnEmptyPerson() {
+        val m = encDir().also { it.files["state.enc"] = ByteArray(DataFile.MAX_FILE_BYTES + 1) }
+        assertEquals(StorageProblem.FILE_CORRUPT, read(m).persons["p1"]!!.problem)
+        val plain = MemOps(linkedMapOf("state.json" to ByteArray(DataFile.MAX_FILE_BYTES + 1) { '{'.code.toByte() }))
+        assertEquals(StorageProblem.FILE_CORRUPT, read(plain).persons["p1"]!!.problem)
+    }
+
+    @Test fun resultExposesCipherAndDekIdForWritingInEncMode() {
+        val r = read(encDir())
+        assertEquals(1, r.dekId); assertTrue(r.cipher != null)
+        assertNull(read(MemOps()).cipher)
+    }
 }

@@ -12,7 +12,9 @@ object StorageReader {
     /** [cipher] i [dekId]: tylko w trybie `enc`, gdy klucz działa (do zapisu w aplikacji); w trybie plain null. */
     class Result(val marker: MarkerState, val persons: Map<String, PersonRead>, val problem: StorageProblem?, val readOnly: Boolean, val cipher: DataCipher? = null, val dekId: Int? = null)
 
-    private fun readLimited(ops: FileOps, name: String, max: Int): ByteArray? = ops.read(name)?.takeIf { it.size <= max }
+    /** Plik za duży jest uszkodzony ([tooBig]), a nie "nieobecny": nieobecność oznacza pustą osobę, uszkodzenie tryb odzyskiwania. */
+    private class Got(val bytes: ByteArray?, val tooBig: Boolean)
+    private fun got(ops: FileOps, name: String): Got { val b = ops.read(name); return if (b != null && b.size > DataFile.MAX_FILE_BYTES) Got(null, true) else Got(b, false) }
 
     fun readKeyHeaders(ops: FileOps): List<KeyHeader?> =
         listOf(StorageNames.KEYS, StorageNames.KEYS2).map { n -> ops.read(n)?.let { KeyFile.decode(it) } }
@@ -29,8 +31,8 @@ object StorageReader {
             (state is MarkerState.Valid && (state.marker.mode == StorageMode.PLAIN || state.marker.mode == StorageMode.TO_ENC))
         if (plainMode) {
             val persons = ids.associateWith { id ->
-                val b = readLimited(ops, plainFile(id), DataFile.MAX_FILE_BYTES)
-                if (b == null) PersonRead(null, null) else if (DataFile.classify(b) == DataFile.Format.PLAIN_JSON) PersonRead(b, null) else PersonRead(null, StorageProblem.FILE_CORRUPT)
+                val g = got(ops, plainFile(id)); val b = g.bytes
+                if (g.tooBig) PersonRead(null, StorageProblem.FILE_CORRUPT) else if (b == null) PersonRead(null, null) else if (DataFile.classify(b) == DataFile.Format.PLAIN_JSON) PersonRead(b, null) else PersonRead(null, StorageProblem.FILE_CORRUPT)
             }
             return Result(state, persons, StorageProblem.first(persons.values.mapNotNull { it.problem }), false)
         }
@@ -47,9 +49,10 @@ object StorageReader {
         val kp = keyProblem
 
         val persons = ids.associateWith { id ->
-            val blob = readLimited(ops, encFile(id), DataFile.MAX_FILE_BYTES)
-            val plain = readLimited(ops, plainFile(id), DataFile.MAX_FILE_BYTES)
+            val gb = got(ops, encFile(id)); val blob = gb.bytes
+            val plain = got(ops, plainFile(id)).bytes
             when {
+                gb.tooBig -> PersonRead(null, StorageProblem.FILE_CORRUPT)
                 blob == null && plain != null -> PersonRead(plain, null, fromPlainFallback = true)   // stan wyjątkowy: czytaj jawny, nic nie kasuj
                 blob == null -> PersonRead(null, null)
                 kp != null -> PersonRead(null, kp)

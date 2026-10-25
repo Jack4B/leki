@@ -61,6 +61,7 @@ class ProfilesTest {
     @Test fun idsFromFilesAreOrderedNumerically() {
         val ids = Profiles.idsFromFiles(listOf("state-p10.json", "state-p2.json", "state.json", "state-p3.uszkodzony.json", "profiles.json", "state-p3.json.bak", "state-p2.json"))
         assertEquals(listOf("p1", "p2", "p10"), ids)
+        assertEquals(listOf("p1", "p3"), Profiles.idsFromFiles(listOf("state.enc", "state-p3.enc", "state-p3.nieczytelny.enc", "keys.bin")), "tryb enc: osoby z plików .enc")
     }
 
     // ---------- odczyt ----------
