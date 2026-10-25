@@ -104,6 +104,8 @@ class MainActivity : FragmentActivity() {
         Platform.clearShareCache(this)
         enableEdgeToEdge()
         val store = (application as LekiApp).store
+        // sprzątanie danych szyfrowanych (dokończenie operacji, resztki) tylko na pierwszym planie i poza wątkiem głównym
+        Thread { runCatching { store.bootstrap() } }.start()
         lock = LockController(this)
         if (savedInstanceState == null) handleIntent(intent)
         setContent { App(store, lock, requestedTab, { requestedTab = null }, incoming) { incoming = null } }

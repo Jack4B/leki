@@ -248,6 +248,8 @@ fun SettingsScreen(
                     Spacer(Modifier.height(18.dp))
                     CsvSection(s)
                     Spacer(Modifier.height(18.dp))
+                    EncryptionSection(store)
+                    Spacer(Modifier.height(18.dp))
                     LekiCard {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Usuwanie danych", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))

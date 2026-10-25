@@ -23,7 +23,7 @@ Obtainium proponuje **najnowsze wydanie po dacie** i Android odrzuca instalację
 2. **Każde scalenie do gałęzi domyślnej tworzy wydanie** z wersją gałęzi domyślnej. Zanim scalisz PR lub uruchomisz cokolwiek na domyślnej, porównaj jej wersję z najwyższą opublikowaną (`gh api repos/<o>/<r>/releases`). Wersja na gałęzi domyślnej nie może być niższa niż opublikowane wydania: najpierw scal domyślną do gałęzi z wyższą wersją albo podbij wersję.
 3. **Nową gałąź roboczą zakładaj z aktualnej domyślnej** (po scaleniu innych PR) i **od razu podnoś wersję** powyżej najwyższej opublikowanej; przed `workflow_dispatch` z gałęzi scal do niej gałąź domyślną (inaczej brakuje wzoru numeru i powstaje `versionCode` rzędu 100).
 4. **Po każdej akcji w Actions i każdym scaleniu sprawdź listę wydań** (nazwa, `versionCode`, data). Jeśli powstało wydanie z niższym `versionCode` niż to, które użytkownik ma zainstalowane, usuń je od razu (`delete_tag` z gałęzi roboczej) i napisz o tym.
-5. CI ma zabezpieczenia: kontrola `versionCode` i `versionName` w gotowym APK oraz **strażnik publikacji** (od 0.14.7: wydanie o `versionCode` niższym od najwyższego opublikowanego nie jest publikowane). Strażnik nie zastępuje powyższych zasad.
+5. CI ma zabezpieczenia: kontrola `versionCode` i `versionName` w gotowym APK oraz **strażnik publikacji** (od 0.15.4: wydanie o `versionCode` niższym od najwyższego opublikowanego nie jest publikowane, a job `release` kończy się błędem). Strażnik nie zastępuje powyższych zasad.
 6. Przed ogłoszeniem wydania do testu podaj użytkownikowi tag i `versionCode` oraz sprawdź, że jest wyższy niż poprzednie.
 
 ## Co jest zrobione (nie wymaga ponownej pracy)
@@ -83,6 +83,7 @@ Uwagi praktyczne (dopisane przy wdrożeniu tej zasady): w sesjach Claude Code w 
 - `abiFilters` bez x86_64: OCR (ML Kit) nie zadziała na emulatorze x86_64. Do testów dodać x86_64 w debug.
 - Testy: `app` ma tylko zrzuty Paparazzi (`continue-on-error`). Brak testów `Store` (zapis atomowy, uszkodzony plik), `AutoBackup` (seal/open, rotacja), `Reminders.reschedule`, intencji SEND/VIEW. CI nie uruchamia `lint`.
 - Gałąź domyślna ma nazwę wygenerowaną (`ccr-…`). Rozważyć zmianę na `main`. PR #1 (`cykl-modul`, 0.14.x) czeka na scalenie.
+- Szyfrowanie danych (opcjonalne, eksperymentalne, 0.15): logika w `core/.../storage` (format, klucze, znacznik, migracja, `StorageReader`), integracja w `Store`, `StorageAndroid.kt` (Keystore, `AndroidFileOps`) i `ui/EncryptionUi.kt`; plan i zasady w `docs/plan-szyfrowanie.md`. Nie zmieniaj kolejności zapisu ani reguł kasowania bez testów przerwań w `core`; w logach nie wolno zapisywać treści danych. Nie loguj wyjątków z `Backup.parseState` ani innych parserów danych (komunikat może zawierać fragment danych): tylko nazwa klasy wyjątku.
 - Logika magazynu osób jest w `core` (`Profiles`, `ProfilesTest`). Sam zapis na dysk (`AtomicFile`) zostaje w `Store` (`app`) bez testów na JVM; zadanie `fix/store-tests` może to uzupełnić (Robolectric albo atrapa `FileIo`).
 
 ## Tryb pracy (wydajność, tokeny, testy)
