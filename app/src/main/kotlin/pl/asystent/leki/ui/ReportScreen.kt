@@ -40,7 +40,7 @@ import pl.asystent.leki.core.AiReport
 import pl.asystent.leki.core.AppState
 import pl.asystent.leki.core.DoctorReport
 import pl.asystent.leki.core.EcgReport
-import pl.asystent.leki.core.Ecg
+import pl.asystent.leki.core.EcgSelection
 import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.Period
 import pl.asystent.leki.core.ReportParts
@@ -134,27 +134,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
-                    if (rp.ecg) {
-                        val ecgs = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
-                        if (ecgs.isNotEmpty()) {
-                            Overline("EKG z wybranego okresu", Modifier.padding(top = 18.dp))
-                            LekiCard {
-                                ecgs.take(6).forEachIndexed { i, e ->
-                                    if (i > 0) Divider()
-                                    Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(plDate(e.date) + ", " + e.time.hhmm(), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                                            Text(listOf(if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "", e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" }, style = TextStyle(fontSize = 13.sp, color = pal.ink3))
-                                        }
-                                        LekiButton("PDF", {
-                                            ctx.findActivity()?.let { a -> Platform.printHtml(a, "EKG ${plDate(e.date)} ${e.time.hhmm()}", EcgReport.document(s, e, today, now), landscape = true) }
-                                        }, small = true, tonal = true, icon = Ph.Printer)
-                                    }
-                                }
-                            }
-                            Hint("Do raportu dla lekarza trafia do 6 ostatnich zapisów z okresu, a do raportu dla AI do 5. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).", Modifier.padding(top = 6.dp))
-                        }
-                    }
+                    if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx, EcgSelection.AUTO_DOCTOR) { f -> setRp(f) }
                     if (rp.analysis) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
                         val picked = s.reportAnalysis()
@@ -209,6 +189,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
+                    if (ai.ecg && s.settings.labsOn) EcgPicker(s, s.settings.rp, per, today, now, ctx, EcgSelection.AUTO_AI) { f -> setRp(f) }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
                     SegRow(listOf("Krótko (ok. 1 strony)", "Szczegółowo"), ai.detail, { setAi { a -> a.copy(detail = it) } })
                     Hint("Polecenie prosi model o odpowiedź w stałym formacie (nagłówki, tabele, ramki Pilne i Do omówienia, plakietki ważności), który aplikacja ostyluje w raporcie dla lekarza.", Modifier.padding(top = 6.dp))
@@ -260,5 +241,43 @@ fun ReportWebView(html: String, modifier: Modifier = Modifier) {
         },
         update = { it.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null) },
         onRelease = { it.destroy() },
+    )
+}
+
+/**
+ * Wybór zapisów EKG do raportów (dla lekarza i dla AI): domyślnie najnowsze z okresu, po dotknięciu zapisu przechodzi się do wyboru ręcznego,
+ * np. tylko najgorszych zapisów. Przycisk PDF zapisuje pojedynczy zapis osobno.
+ */
+@Composable
+private fun EcgPicker(s: AppState, rp: ReportParts, per: Period, today: LocalDate, now: java.time.LocalDateTime, ctx: Context, autoCount: Int, setRp: ((ReportParts) -> ReportParts) -> Unit) {
+    val inPeriod = EcgSelection.inPeriod(s, per)
+    if (inPeriod.isEmpty()) return
+    val picked = EcgSelection.forReport(s, per, rp.ecgIds, autoCount).chosen.map { it.id }.toSet()
+    Overline("EKG do raportu z wybranego okresu", Modifier.padding(top = 18.dp))
+    LekiCard {
+        inPeriod.forEachIndexed { i, e ->
+            if (i > 0) Divider()
+            Row(Modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.weight(1f)) {
+                    CheckRow(
+                        plDate(e.date) + ", " + e.time.hhmm(), e.id in picked,
+                        { setRp { r -> r.copy(ecgIds = EcgSelection.toggled(s, per, r.ecgIds, e.id, autoCount)) } },
+                        subtitle = listOf(if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "", e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" },
+                    )
+                }
+                LekiButton("PDF", {
+                    ctx.findActivity()?.let { a -> Platform.printHtml(a, "EKG ${plDate(e.date)} ${e.time.hhmm()}", EcgReport.document(s, e, today, now), landscape = true) }
+                }, small = true, tonal = true, icon = Ph.Printer)
+            }
+        }
+    }
+    Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        LinkButton("Zaznacz wszystkie", { setRp { it.copy(ecgIds = inPeriod.map { e -> e.id }) } })
+        if (rp.ecgIds != null) LinkButton("Automatycznie (najnowsze)", { setRp { it.copy(ecgIds = null) } })
+    }
+    Hint(
+        if (rp.ecgIds == null) "Bez wyboru do raportu dla lekarza trafia do ${EcgSelection.AUTO_DOCTOR} najnowszych zapisów z okresu, a do raportu dla AI do ${EcgSelection.AUTO_AI}. Zaznacz zapisy, które mają wejść do obu raportów, np. tylko te najgorsze."
+        else "Do obu raportów (dla lekarza i dla AI) trafiają tylko zaznaczone zapisy z okresu: ${picked.size} z ${inPeriod.size}. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).",
+        Modifier.padding(top = 6.dp),
     )
 }

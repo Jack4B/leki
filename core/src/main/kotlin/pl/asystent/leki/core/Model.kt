@@ -86,6 +86,8 @@ data class ReportParts(
     val cykl: Boolean = false,
     /** Id wybranej analizy; puste = najnowsza. */
     val analysisId: String = "",
+    /** Wybrane zapisy EKG do raportów (dla lekarza i dla AI); null = automatycznie najnowsze z okresu (patrz [EcgSelection]). */
+    val ecgIds: List<String>? = null,
 ) {
     val any get() = bp || labs || meds || plan || events || analysis || ecg || cykl
 }

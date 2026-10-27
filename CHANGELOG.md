@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.15.5-preview
+
+Dwie zmiany zgłoszone po użyciu aplikacji: wybór zapisów EKG do raportów i kontrola badania, która przestaje czekać na wynik, gdy wynik już jest.
+
+- **Wybór EKG do raportów:** w Raporcie (karta „Dla lekarza”, a po włączeniu EKG także „Dla AI”) jest lista zapisów EKG z wybranego okresu z polami wyboru. Bez wyboru działa jak dotąd (do raportu dla lekarza 6 najnowszych, dla AI 5). Zaznaczenie zapisu przechodzi do wyboru ręcznego: do **obu raportów** trafiają tylko zaznaczone zapisy z okresu (np. tylko te najgorsze). „Zaznacz wszystkie” i „Automatycznie (najnowsze)” wracają do prostszych ustawień. Pusty wybór ręczny daje w raporcie komunikat „Nie wybrano zapisów EKG do raportu”. Wybór jest ustawieniem osoby (`ReportParts.ecgIds`), zapisywanym w kopii tylko wtedy, gdy jest ręczny; stare kopie otwierają się w trybie automatycznym. Usunięcie zapisu EKG usuwa go też z wyboru. Logika w `core/.../EcgSelection.kt`.
+- **Kontrola badania przestaje czekać na wynik:** gdy w dzienniku badań jest już wynik tego parametru z dnia kontroli (wczytany z pliku PDF lub JSON, ze zdjęcia albo wpisany w Badaniach), kontrola na ekranie Leki zamienia się z ramki z polem do wpisania w spokojną linię „Wynik zapisany: …”. Wynik trafia też do kontroli (raport „Kontrole i wyniki” pokazuje go zamiast „brak wyniku”). Dotyczy kontroli z wybranym parametrem badania i wyniku z **tego samego dnia**.
+- **Bez dubli, wynik z Badań jest źródłem:** gdy parametr z dnia kontroli jest już w dzienniku badań, pole kontroli nie przyjmuje innego wpisu (zmianę robisz w Badaniach, a kontrola ją pokazuje). Wynik dodany w Badaniach po wpisie ręcznym w kontroli **zastępuje** wynik `ev:<id>` utworzony przez kontrolę (w dzienniku zostaje jeden wynik z tego dnia) i nadpisuje wpis w kontroli. Poprawka wyniku w Badaniach aktualizuje kontrolę, usunięcie wyniku znów otwiera kontrolę (wpis ręczny, który wcześniej zastąpił wynik z Badań, nie wraca). Wynik wpisany tylko w kontroli (nie ma go w Badaniach) można nadal zmienić przyciskiem „Zmień”.
+- **Wybór EKG w „Dla AI”:** lista pokazuje i przełącza od 5 najnowszych zapisów (tyle idzie do AI bez wyboru), a w raporcie dla lekarza od 6.
+- Liczba testów `core`: 319 (nowe: `EcgSelectionTest`, `EventResultTest`).
+
 ## 0.15.4-preview
 
 Kolejne zabezpieczenie numeracji wydań (Obtainium znów proponowało `v0.14.6-preview-b125`, nowsze po dacie, ale z niższym `versionCode` niż zainstalowane `v0.15.2-preview-b123`).
