@@ -61,9 +61,35 @@ class EventResultTest {
     @Test fun deletingTheLabReopensTheEvent() {
         val s = base.applyLabsMerge(fileWith(4.4)).deleteLab("f1")
         assertNull(s.eventResult(event))
-        // ręcznie wpisany wynik kontroli zostaje, gdy usunięto inny wynik
-        val kept = base.setEventResult("k1", "4,2").saveLab(Lab("m2", day, "potas", 4.2, "")).deleteLab("m2")
-        assertEquals("4,2", kept.eventResult(event))
+        assertTrue(s.labs.isEmpty())
+    }
+
+    @Test fun labAddedAfterManualEntryReplacesTheEventLabInsteadOfDuplicating() {
+        // najpierw wpis ręczny w kontroli (powstaje wynik ev:k1), potem ten sam parametr z tego dnia dodany w Badaniach
+        val manual = base.setEventResult("k1", "4,2")
+        assertEquals(listOf("ev:k1"), manual.labs.map { it.id })
+        val s = manual.saveLab(Lab("m2", day, "potas", 4.8, ""))
+        assertEquals(listOf("m2"), s.labs.map { it.id }, "w dzienniku jeden wynik z tego dnia")
+        assertEquals(1, s.labs.count { it.marker == "potas" && it.date == day })
+        assertEquals("4,8", s.eventResult(event), "wynik z Badań jest źródłem")
+        // po usunięciu wyniku z Badań kontrola znów czeka na wpis (wpis ręczny został zastąpiony)
+        val gone = s.deleteLab("m2")
+        assertNull(gone.eventResult(event)); assertTrue(gone.labs.isEmpty())
+    }
+
+    @Test fun eventFieldCannotDriftFromAnExistingLabResult() {
+        val s = base.applyLabsMerge(fileWith(4.4)).setEventResult("k1", "9,9")
+        assertEquals("4,4", s.eventResult(event))
+        assertEquals(listOf(4.4), s.labs.map { it.value })
+        // zmiana wyniku w Badaniach zmienia też kontrolę
+        assertEquals("4,1", s.saveLab(Lab("f1", day, "potas", 4.1, "")).eventResult(event))
+    }
+
+    @Test fun savingTheEventAfterManualEntryAndLabKeepsOneResult() {
+        val legacy = base.copy(labs = listOf(Lab("ev:k1", day, "potas", 4.2, "Kontrola potasu"), Lab("m3", day, "potas", 4.6, "")))
+        val s = legacy.saveEvent(event)
+        assertEquals(listOf("m3"), s.labs.map { it.id })
+        assertEquals("4,6", s.eventResult(event))
     }
 
     @Test fun eventWithoutMarkerIsNotLinked() {

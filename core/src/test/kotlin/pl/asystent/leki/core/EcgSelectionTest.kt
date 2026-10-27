@@ -35,6 +35,7 @@ class EcgSelectionTest {
         assertEquals(listOf("e2", "e3", "e4", "e5", "e6"), EcgSelection.toggled(state, per, null, "e1"))
         assertEquals(listOf("e3"), EcgSelection.toggled(state, per, listOf("e3", "e5"), "e5"))
         assertEquals(emptyList(), EcgSelection.toggled(state, per, listOf("e3"), "e3"))
+        assertEquals(listOf("e1", "e2", "e3", "e4", "e5", "e7"), EcgSelection.toggled(state, per, null, "e7", EcgSelection.AUTO_AI), "w raporcie dla AI start od 5 najnowszych")
     }
 
     @Test fun doctorReportShowsOnlyPickedRecords() {

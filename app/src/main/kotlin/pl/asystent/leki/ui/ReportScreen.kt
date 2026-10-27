@@ -134,7 +134,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
-                    if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx) { f -> setRp(f) }
+                    if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx, EcgSelection.AUTO_DOCTOR) { f -> setRp(f) }
                     if (rp.analysis) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
                         val picked = s.reportAnalysis()
@@ -189,7 +189,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
-                    if (ai.ecg && s.settings.labsOn) EcgPicker(s, s.settings.rp, per, today, now, ctx) { f -> setRp(f) }
+                    if (ai.ecg && s.settings.labsOn) EcgPicker(s, s.settings.rp, per, today, now, ctx, EcgSelection.AUTO_AI) { f -> setRp(f) }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
                     SegRow(listOf("Krótko (ok. 1 strony)", "Szczegółowo"), ai.detail, { setAi { a -> a.copy(detail = it) } })
                     Hint("Polecenie prosi model o odpowiedź w stałym formacie (nagłówki, tabele, ramki Pilne i Do omówienia, plakietki ważności), który aplikacja ostyluje w raporcie dla lekarza.", Modifier.padding(top = 6.dp))
@@ -249,10 +249,10 @@ fun ReportWebView(html: String, modifier: Modifier = Modifier) {
  * np. tylko najgorszych zapisów. Przycisk PDF zapisuje pojedynczy zapis osobno.
  */
 @Composable
-private fun EcgPicker(s: AppState, rp: ReportParts, per: Period, today: LocalDate, now: java.time.LocalDateTime, ctx: Context, setRp: ((ReportParts) -> ReportParts) -> Unit) {
+private fun EcgPicker(s: AppState, rp: ReportParts, per: Period, today: LocalDate, now: java.time.LocalDateTime, ctx: Context, autoCount: Int, setRp: ((ReportParts) -> ReportParts) -> Unit) {
     val inPeriod = EcgSelection.inPeriod(s, per)
     if (inPeriod.isEmpty()) return
-    val picked = EcgSelection.forReport(s, per, rp.ecgIds, EcgSelection.AUTO_DOCTOR).chosen.map { it.id }.toSet()
+    val picked = EcgSelection.forReport(s, per, rp.ecgIds, autoCount).chosen.map { it.id }.toSet()
     Overline("EKG do raportu z wybranego okresu", Modifier.padding(top = 18.dp))
     LekiCard {
         inPeriod.forEachIndexed { i, e ->
@@ -261,7 +261,7 @@ private fun EcgPicker(s: AppState, rp: ReportParts, per: Period, today: LocalDat
                 Column(Modifier.weight(1f)) {
                     CheckRow(
                         plDate(e.date) + ", " + e.time.hhmm(), e.id in picked,
-                        { setRp { r -> r.copy(ecgIds = EcgSelection.toggled(s, per, r.ecgIds, e.id)) } },
+                        { setRp { r -> r.copy(ecgIds = EcgSelection.toggled(s, per, r.ecgIds, e.id, autoCount)) } },
                         subtitle = listOf(if (e.watchHr > 0) "tętno ${e.watchHr}/min" else "", e.watchNote).filter { it.isNotEmpty() }.joinToString(", ").ifEmpty { "zapis EKG" },
                     )
                 }

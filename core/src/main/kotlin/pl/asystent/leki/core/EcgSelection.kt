@@ -20,9 +20,9 @@ object EcgSelection {
         return Pick(if (ids == null) all.take(autoCount) else all.filter { it.id in ids }, all.size)
     }
 
-    /** Lista wyborów po dotknięciu zapisu [id]: z trybu automatycznego przechodzi się do ręcznego, zaczynając od zapisów, które trafiłyby do raportu dla lekarza. */
-    fun toggled(s: AppState, per: Period, ids: List<String>?, id: String): List<String> {
-        val base = ids ?: forReport(s, per, null, AUTO_DOCTOR).chosen.map { it.id }
+    /** Lista wyborów po dotknięciu zapisu [id]: z trybu automatycznego przechodzi się do ręcznego, zaczynając od zapisów, które trafiłyby do raportu ([autoCount] zależy od raportu). */
+    fun toggled(s: AppState, per: Period, ids: List<String>?, id: String, autoCount: Int = AUTO_DOCTOR): List<String> {
+        val base = ids ?: forReport(s, per, null, autoCount).chosen.map { it.id }
         return if (id in base) base - id else base + id
     }
 }
