@@ -76,7 +76,25 @@ fun AppState.setEventResult(eventId: String, text: String): AppState {
     val t = text.trim()
     var s = updateDay(e.date) { it.copy(results = if (t.isEmpty()) it.results - eventId else it.results + (eventId to t)) }
     s = s.copy(labs = s.labs.filter { it.id != "ev:$eventId" })
-    if (e.marker.isNotEmpty()) parseNum(t)?.let { n -> s = s.copy(labs = s.labs + Lab("ev:$eventId", e.date, e.marker, n, e.title)) }
+    if (e.marker.isNotEmpty() && !s.hasOtherLab(e)) parseNum(t)?.let { n -> s = s.copy(labs = s.labs + Lab("ev:$eventId", e.date, e.marker, n, e.title)) }
+    return s
+}
+
+/** Wynik tego parametru z dnia kontroli, który nie pochodzi z samej kontroli (z pliku, zdjęcia albo wpisany w Badaniach). */
+fun AppState.eventLab(e: Event): Lab? =
+    if (e.marker.isEmpty()) null else labs.firstOrNull { it.marker == e.marker && it.date == e.date && it.id != "ev:${e.id}" }
+
+private fun AppState.hasOtherLab(e: Event): Boolean = eventLab(e) != null
+
+/** Wynik kontroli: wpisany w polu kontroli albo, gdy parametr jest już w dzienniku badań z dnia kontroli, jego wartość. Null = kontrola czeka na wynik. */
+fun AppState.eventResult(e: Event): String? =
+    day(e.date).results[e.id]?.takeIf { it.isNotBlank() } ?: (eventLab(e) ?: labs.firstOrNull { it.id == "ev:${e.id}" })?.let { lnum(it.value) }
+
+/** Wynik z dziennika badań trafia do kontroli tego samego parametru i dnia, która nie ma jeszcze wyniku (kontrola przestaje czekać na wpis i nie ma dubla przy ręcznym wpisie). */
+private fun AppState.linkLabToEvents(l: Lab, old: Lab? = null): AppState {
+    var s = this
+    for (e in events) if (e.marker == l.marker && e.date == l.date && s.day(e.date).results[e.id].let { it.isNullOrBlank() || (old != null && it == lnum(old.value)) })
+        s = s.updateDay(e.date) { it.copy(results = it.results + (e.id to lnum(l.value))) }
     return s
 }
 
@@ -88,20 +106,26 @@ fun AppState.deleteBp(id: String): AppState = copy(bp = bp.filter { it.id != id 
 // ---------- Badania ----------
 
 fun AppState.saveLab(l: Lab): AppState {
-    val exists = labs.any { it.id == l.id }
+    val old = labs.firstOrNull { it.id == l.id }
+    val exists = old != null
     var s = copy(labs = if (exists) labs.map { if (it.id == l.id) l else it } else labs + l)
     if (l.id.startsWith("ev:")) {
         val eid = l.id.removePrefix("ev:")
         s.event(eid)?.let { e -> s = s.updateDay(e.date) { it.copy(results = it.results + (eid to lnum(l.value))) } }
-    }
+    } else s = s.linkLabToEvents(l, old)
     return s
 }
 
 fun AppState.deleteLab(id: String): AppState {
+    val gone = labs.firstOrNull { it.id == id }
     var s = copy(labs = labs.filter { it.id != id })
     if (id.startsWith("ev:")) {
         val eid = id.removePrefix("ev:")
         s.event(eid)?.let { e -> s = s.updateDay(e.date) { it.copy(results = it.results - eid) } }
+    } else if (gone != null) {
+        // kontrola, której wynik przyszedł z usuniętego wyniku, znów czeka na wpis
+        for (e in s.events) if (e.marker == gone.marker && e.date == gone.date && s.day(e.date).results[e.id] == lnum(gone.value) && s.labs.none { it.id == "ev:${e.id}" })
+            s = s.updateDay(e.date) { it.copy(results = it.results - e.id) }
     }
     return s
 }
@@ -130,7 +154,7 @@ fun AppState.applyLabsMerge(f: Backup.LabsFile): AppState {
         else s.saveMarker(m)
     }
     val add = f.labs.filter { l -> s.marker(l.marker) != null && s.labs.none { it.marker == l.marker && it.date == l.date } }
-    return s.copy(labs = s.labs + add)
+    return add.fold(s.copy(labs = s.labs + add)) { acc, l -> acc.linkLabToEvents(l) }
 }
 
 // ---------- Kontrole ----------
@@ -146,8 +170,11 @@ fun AppState.saveEvent(e: Event): AppState {
     // wynik wpisany wcześniej w dniu kontroli ma trafić do dziennika badań
     val res = s.day(e.date).results[e.id].orEmpty()
     var labs2 = s.labs.filter { it.id != "ev:${e.id}" }
-    if (e.marker.isNotEmpty()) parseNum(res)?.let { n -> labs2 = labs2 + Lab("ev:${e.id}", e.date, e.marker, n, e.title) }
-    return s.copy(labs = labs2)
+    s = s.copy(labs = labs2)
+    if (e.marker.isNotEmpty() && !s.hasOtherLab(e)) parseNum(res)?.let { n -> labs2 = labs2 + Lab("ev:${e.id}", e.date, e.marker, n, e.title) }
+    s = s.copy(labs = labs2)
+    // wynik tego parametru z dnia kontroli już jest w dzienniku badań: kontrola od razu go pokazuje
+    return s.labs.firstOrNull { it.marker == e.marker && it.date == e.date && e.marker.isNotEmpty() }?.let { s.linkLabToEvents(it) } ?: s
 }
 
 fun AppState.deleteEvent(id: String): AppState = copy(events = events.filter { it.id != id })
@@ -256,4 +283,5 @@ fun AppState.deleteAnalysis(id: String): AppState =
 fun AppState.saveEcg(e: Ecg): AppState =
     if (ecgs.any { it.id == e.id }) copy(ecgs = ecgs.map { if (it.id == e.id) e else it }) else copy(ecgs = ecgs + e)
 
-fun AppState.deleteEcg(id: String): AppState = copy(ecgs = ecgs.filter { it.id != id })
+fun AppState.deleteEcg(id: String): AppState =
+    copy(ecgs = ecgs.filter { it.id != id }, settings = settings.rp.ecgIds?.let { ids -> settings.copy(rp = settings.rp.copy(ecgIds = ids - id)) } ?: settings)

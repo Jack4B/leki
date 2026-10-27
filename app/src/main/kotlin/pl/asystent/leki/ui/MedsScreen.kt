@@ -58,6 +58,8 @@ import pl.asystent.leki.core.Pl
 import pl.asystent.leki.core.Skipped
 import pl.asystent.leki.core.clearSkip
 import pl.asystent.leki.core.dayStats
+import pl.asystent.leki.core.eventLab
+import pl.asystent.leki.core.eventResult
 import pl.asystent.leki.core.daysBetween
 import pl.asystent.leki.core.firstDate
 import pl.asystent.leki.core.hhmm
@@ -192,10 +194,27 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
         }
         // kontrole w tym dniu i nadchodzące
         items(s.events.filter { it.date == sel }, key = { "ev" + it.id }) { e ->
-            var text by remember(e.id, selStr) { mutableStateOf(rec.results[e.id].orEmpty()) }
-            AlertBox(e.title, body = e.note.ifEmpty { null }, modifier = Modifier.padding(top = 16.dp)) {
+            val done = s.eventResult(e)
+            var text by remember(e.id, selStr) { mutableStateOf(done.orEmpty()) }
+            // wpisywanie zaczęte w tym oknie nie zamienia go w trakcie pisania na podsumowanie
+            var editing by remember(e.id, selStr) { mutableStateOf(false) }
+            // wynik z pliku, zdjęcia albo z Badań zamyka kontrolę; ręcznie wpisany wynik zmieniasz tutaj tylko wtedy, gdy nie ma drugiego wyniku w dzienniku badań
+            val fromLabs = s.eventLab(e) != null
+            if (done != null && (e.field.isNotEmpty() || fromLabs) && !editing) {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 16.dp).clip(CardShape).border(1.dp, pal.line, CardShape).background(pal.surface).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PhIcon(Ph.Check, size = 22.dp, tint = pal.accent)
+                    Column(Modifier.weight(1f)) {
+                        Text(e.title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        Text("Wynik zapisany: $done" + if (fromLabs) " (w Badaniach)" else "", style = TextStyle(fontSize = 13.5.sp, color = pal.ink2))
+                    }
+                    if (!fromLabs) LinkButton("Zmień", { text = done; editing = true })
+                }
+            } else AlertBox(e.title, body = e.note.ifEmpty { null }, modifier = Modifier.padding(top = 16.dp)) {
                 if (e.field.isNotEmpty()) LekiField(
-                    e.field, text, { text = it; store.update { st2 -> st2.setEventResult(e.id, it) } },
+                    e.field, text, { text = it; editing = true; store.update { st2 -> st2.setEventResult(e.id, it) } },
                     modifier = Modifier.padding(top = 10.dp), keyboard = KeyboardType.Decimal, mono = true,
                 )
             }

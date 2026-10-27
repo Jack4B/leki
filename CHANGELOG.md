@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.15.5-preview
+
+Dwie zmiany zgłoszone po użyciu aplikacji: wybór zapisów EKG do raportów i kontrola badania, która przestaje czekać na wynik, gdy wynik już jest.
+
+- **Wybór EKG do raportów:** w Raporcie (karta „Dla lekarza”, a po włączeniu EKG także „Dla AI”) jest lista zapisów EKG z wybranego okresu z polami wyboru. Bez wyboru działa jak dotąd (do raportu dla lekarza 6 najnowszych, dla AI 5). Zaznaczenie zapisu przechodzi do wyboru ręcznego: do **obu raportów** trafiają tylko zaznaczone zapisy z okresu (np. tylko te najgorsze). „Zaznacz wszystkie” i „Automatycznie (najnowsze)” wracają do prostszych ustawień. Pusty wybór ręczny daje w raporcie komunikat „Nie wybrano zapisów EKG do raportu”. Wybór jest ustawieniem osoby (`ReportParts.ecgIds`), zapisywanym w kopii tylko wtedy, gdy jest ręczny; stare kopie otwierają się w trybie automatycznym. Usunięcie zapisu EKG usuwa go też z wyboru. Logika w `core/.../EcgSelection.kt`.
+- **Kontrola badania przestaje czekać na wynik:** gdy w dzienniku badań jest już wynik tego parametru z dnia kontroli (wczytany z pliku PDF lub JSON, ze zdjęcia albo wpisany w Badaniach), kontrola na ekranie Leki zamienia się z ramki z polem do wpisania w spokojną linię „Wynik zapisany: …”. Wynik trafia też do kontroli (raport „Kontrole i wyniki” pokazuje go zamiast „brak wyniku”). Dotyczy kontroli z wybranym parametrem badania i wyniku z **tego samego dnia**.
+- **Bez dubli:** ręczny wpis w polu kontroli nie tworzy drugiego wyniku w dzienniku badań, jeśli parametr z tego dnia już tam jest. Poprawka wyniku w Badaniach aktualizuje wynik kontroli; usunięcie wyniku znów otwiera kontrolę. Wynik wpisany ręcznie w polu kontroli można nadal zmienić przyciskiem „Zmień”.
+- Liczba testów `core`: 316 (nowe: `EcgSelectionTest`, `EventResultTest`).
+
 ## 0.15.4-preview
 
 Kolejne zabezpieczenie numeracji wydań (Obtainium znów proponowało `v0.14.6-preview-b125`, nowsze po dacie, ale z niższym `versionCode` niż zainstalowane `v0.15.2-preview-b123`).

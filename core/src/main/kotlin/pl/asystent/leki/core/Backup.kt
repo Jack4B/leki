@@ -124,6 +124,7 @@ object Backup {
             bp = rpIn["bp"].bool(rpD.bp), labs = rpIn["labs"].bool(rpD.labs), labsPeriod = rpIn["labsPeriod"].bool(rpD.labsPeriod),
             meds = rpIn["meds"].bool(rpD.meds), plan = rpIn["plan"].bool(rpD.plan), events = rpIn["events"].bool(rpD.events),
             analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "", ecg = rpIn["ecg"].bool(rpD.ecg), cykl = rpIn["cykl"].bool(rpD.cykl),
+            ecgIds = rpIn["ecgIds"].arr()?.mapNotNull { it.str() },
         )
         val aD = AiParts()
         val ai = AiParts(
@@ -309,6 +310,7 @@ object Backup {
                 put("bp", c.rp.bp); put("labs", c.rp.labs); put("labsPeriod", c.rp.labsPeriod)
                 put("meds", c.rp.meds); put("plan", c.rp.plan); put("events", c.rp.events)
                 put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId); put("ecg", c.rp.ecg); if (c.rp.cykl) put("cykl", true)
+                c.rp.ecgIds?.let { ids -> putJsonArray("ecgIds") { ids.forEach { add(JsonPrimitive(it)) } } }
             }
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)

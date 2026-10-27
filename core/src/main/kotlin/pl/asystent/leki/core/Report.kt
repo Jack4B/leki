@@ -221,7 +221,7 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
         if (P.events && evs.isNotEmpty()) {
             h.append("<h3>Kontrole i wyniki</h3><ul>")
             evs.forEach { e ->
-                val res = s.day(e.date).results[e.id]
+                val res = s.eventResult(e)
                 h.append("<li>${plDate(e.date)}: ${esc(e.title)}")
                 if (e.field.isNotEmpty()) h.append(". ${esc(e.field)}: ").append(if (!res.isNullOrEmpty()) "<b>${esc(res)}</b>" else "brak wyniku")
                 h.append("</li>")
@@ -236,12 +236,11 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             h.append("</ul>")
         }
         if (P.ecg) {
-            val inPeriod = s.ecgs.filter { it.date >= per.from && it.date <= per.to }.sortedWith(compareByDescending<Ecg> { it.date }.thenByDescending { it.time })
-            val ecgs = inPeriod.take(6)
-            if (ecgs.isNotEmpty()) {
-                h.append(EcgReport.html(ecgs.reversed()))
-                if (inPeriod.size > ecgs.size) h.append("<p class=\"muted\">Pokazano ${ecgs.size} najnowszych z ${inPeriod.size} zapisów EKG z tego okresu.</p>")
-            } else if (s.ecgs.isNotEmpty()) h.append("<h3>EKG z zegarka</h3><p class=\"muted\">Brak zapisów EKG w wybranym okresie.</p>")
+            val pick = EcgSelection.forReport(s, per, P.ecgIds, EcgSelection.AUTO_DOCTOR)
+            if (pick.chosen.isNotEmpty()) {
+                h.append(EcgReport.html(pick.chosen.reversed()))
+                if (pick.inPeriod > pick.chosen.size) h.append("<p class=\"muted\">Pokazano ${pick.chosen.size} ${if (P.ecgIds == null) "najnowszych" else "wybranych"} z ${pick.inPeriod} zapisów EKG z tego okresu.</p>")
+            } else if (s.ecgs.isNotEmpty()) h.append("<h3>EKG z zegarka</h3><p class=\"muted\">" + (if (pick.inPeriod > 0) "Nie wybrano zapisów EKG do raportu." else "Brak zapisów EKG w wybranym okresie.") + "</p>")
         }
         if (P.analysis) s.reportAnalysis()?.let { a ->
             val body = Markdown.selected(a.text, a.excluded)
