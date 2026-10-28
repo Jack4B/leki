@@ -284,6 +284,10 @@ fun AppState.saveAnalysis(a: Analysis): AppState =
 fun AppState.deleteAnalysis(id: String): AppState =
     copy(analyses = analyses.filter { it.id != id }, settings = if (settings.rp.analysisId == id) settings.copy(rp = settings.rp.copy(analysisId = "")) else settings)
 
+/** Cofnięcie usunięcia analizy: wraca analiza, a jeśli była wybrana do raportu, także ten wybór. */
+fun AppState.restoreAnalysis(a: Analysis, wasPicked: Boolean): AppState =
+    saveAnalysis(a).let { if (wasPicked) it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(analysisId = a.id))) else it }
+
 // ---------- EKG z zegarka ----------
 
 fun AppState.saveEcg(e: Ecg): AppState =
