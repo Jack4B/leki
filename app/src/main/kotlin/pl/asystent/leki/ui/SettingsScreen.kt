@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -56,7 +57,9 @@ import pl.asystent.leki.core.Event
 import pl.asystent.leki.core.Marker
 import pl.asystent.leki.core.Med
 import pl.asystent.leki.core.MedDraft
+import pl.asystent.leki.core.BodyInfo
 import pl.asystent.leki.core.Settings as AppSettings
+import pl.asystent.leki.core.fmtNum
 import pl.asystent.leki.core.Slot
 import pl.asystent.leki.core.Cykl
 import pl.asystent.leki.core.CyklData
@@ -364,6 +367,7 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
     LekiCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             LekiField("Imię i nazwisko (do raportu)", patient, { patient = it; store.update { st -> st.copy(patient = it.trim()) } })
+            BodyFields(c, setCfg)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IntField("Cel wody, szklanek", c.waterGoal, { v -> setCfg { it.copy(waterGoal = v) } }, 0..20, Modifier.weight(1f))
                 IntField("Szklanka, ml", c.glassMl, { v -> setCfg { it.copy(glassMl = v) } }, 50..1000, Modifier.weight(1f))
@@ -394,6 +398,28 @@ private fun GeneralSection(s: AppState, store: Store, setCfg: ((AppSettings) -> 
             LekiField("Dopisek na raporcie", reportNote, { reportNote = it; setCfg { c2 -> c2.copy(reportNote = it) } }, singleLine = false, minLines = 3, placeholder = "np. rozpoznanie, cel kuracji")
             LekiField("Zasady i notatki (przycisk Zasady u góry)", rules, { rules = it; store.update { st -> st.copy(rules = it) } }, singleLine = false, minLines = 5)
         }
+    }
+}
+
+/** Wiek (z roku urodzenia), masa ciała i wzrost: opcjonalne, zapisują się tylko poprawne wartości (puste pole = brak), patrz [BodyInfo]. */
+@Composable
+private fun BodyFields(c: AppSettings, setCfg: ((AppSettings) -> AppSettings) -> Unit) {
+    val today = LocalDate.now()
+    var year by remember { mutableStateOf(if (c.birthYear != 0) c.birthYear.toString() else "") }
+    var kg by remember { mutableStateOf(if (c.weightKg != 0.0) fmtNum(c.weightKg, 1) else "") }
+    var cm by remember { mutableStateOf(if (c.heightCm != 0) c.heightCm.toString() else "") }
+    Column {
+        Text("Wiek, masa ciała i wzrost (opcjonalnie)", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LekiField("Rok urodzenia", year, { t -> year = t.filter { it.isDigit() }.take(4); BodyInfo.parseYear(year, today)?.let { v -> setCfg { it.copy(birthYear = v) } } },
+                Modifier.weight(1f), placeholder = "np. 1970", keyboard = KeyboardType.Number, mono = true, error = BodyInfo.parseYear(year, today) == null)
+            LekiField("Masa, kg", kg, { t -> kg = t.take(6); BodyInfo.parseWeight(kg)?.let { v -> setCfg { it.copy(weightKg = v) } } },
+                Modifier.weight(1f), placeholder = "np. 70,5", keyboard = KeyboardType.Decimal, mono = true, error = BodyInfo.parseWeight(kg) == null)
+            LekiField("Wzrost, cm", cm, { t -> cm = t.filter { it.isDigit() }.take(3); BodyInfo.parseHeight(cm)?.let { v -> setCfg { it.copy(heightCm = v) } } },
+                Modifier.weight(1f), placeholder = "np. 170", keyboard = KeyboardType.Number, mono = true, error = BodyInfo.parseHeight(cm) == null)
+        }
+        BodyInfo.describe(c, today)?.let { Hint(it.replaceFirstChar { ch -> ch.uppercase() } + ". BMI to tylko liczba, bez oceny.", Modifier.padding(top = 6.dp)) }
+        Hint("Dane zostają na telefonie i w kopii zapasowej. Trafiają do tekstu dla AI (można je wyłączyć w Raport → Dla AI, pigułka „Wiek, masa, wzrost”), nie do raportu dla lekarza. Rok urodzenia od ${BodyInfo.MIN_YEAR}, masa ${BodyInfo.WEIGHT_KG.start.toInt()}–${BodyInfo.WEIGHT_KG.endInclusive.toInt()} kg, wzrost ${BodyInfo.HEIGHT_CM.first}–${BodyInfo.HEIGHT_CM.last} cm.", Modifier.padding(top = 6.dp))
     }
 }
 

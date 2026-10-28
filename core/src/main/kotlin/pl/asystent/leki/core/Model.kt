@@ -111,6 +111,8 @@ data class AiParts(
     /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (domyślnie wyłączone). */
     val cykl: Boolean = false,
     val name: Boolean = false,
+    /** Czy dołączyć wiek, masę ciała i wzrost z Ustawień (gdy podane); patrz [BodyInfo]. */
+    val profile: Boolean = true,
     val context: String = "",
     /** Szczegółowość odpowiedzi, o którą prosi polecenie: 0 = krótko (ok. 350 słów), 1 = szczegółowo (ok. 1000 słów). */
     val detail: Int = 1,
@@ -144,6 +146,12 @@ data class Settings(
     val bpOn: Boolean = true,
     /** Zakładka „Badania” (wyniki i EKG) jest widoczna. */
     val labsOn: Boolean = true,
+    /** Rok urodzenia osoby (0 = nie podano); wiek liczy się na dzień raportu, więc nie wymaga aktualizacji. */
+    val birthYear: Int = 0,
+    /** Masa ciała w kg (0 = nie podano). */
+    val weightKg: Double = 0.0,
+    /** Wzrost w cm (0 = nie podano). */
+    val heightCm: Int = 0,
 ) {
     /** Części raportu dla lekarza z uwzględnieniem ukrytych modułów: ukryty moduł nie trafia do raportu, nawet jeśli pigułka była włączona. */
     fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn, cykl = rp.cykl && cyklOn)

@@ -85,13 +85,13 @@ class BpTrendTest {
         val a = Analysis("a1", end, "Analiza", md, Markdown.shortExclusions(md))
         val s = Fixtures.state.saveAnalysis(a)
         val html = DoctorReport.html(s, Fixtures.period(7), end, Fixtures.now)
-        assertTrue(html.contains("analiza farmaceutyczno-kliniczna (AI)"))
+        assertTrue(html.contains("analiza lekarsko-farmaceutyczna (AI)"))
         assertTrue(html.contains("Ważne <b>wnioski</b>")); assertTrue(html.contains("Czy tak?"))
         assertFalse(html.contains("<th>a</th>"))                 // sekcja "Tabela" wykluczona
         assertTrue(html.contains("To nie jest ocena lekarska"))
         // wyłączenie chipa usuwa sekcję
         val off = s.copy(settings = s.settings.copy(rp = s.settings.rp.copy(analysis = false)))
-        assertFalse(DoctorReport.html(off, Fixtures.period(7), end, Fixtures.now).contains("analiza farmaceutyczno"))
+        assertFalse(DoctorReport.html(off, Fixtures.period(7), end, Fixtures.now).contains("analiza lekarsko-farmaceutyczna"))
         assertNotNull(s.reportAnalysis())
     }
 }

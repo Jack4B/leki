@@ -38,9 +38,9 @@ class AnalysisDeleteTest {
     @Test fun deletingTheLastAnalysisRemovesItFromTheDoctorReport() {
         val withIt = base.copy(settings = base.settings.copy(rp = base.settings.rp.copy(analysis = true, analysisId = "a1")))
         val per = Period(day.minusDays(6), day)
-        assertTrue("analiza farmaceutyczno" in DoctorReport.html(withIt, per, day, Fixtures.now))
+        assertTrue("analiza lekarsko-farmaceutyczna" in DoctorReport.html(withIt, per, day, Fixtures.now))
         val none = withIt.deleteAnalysis("a1").deleteAnalysis("a2")
         assertTrue(none.analyses.isEmpty())
-        assertTrue("analiza farmaceutyczno" !in DoctorReport.html(none, per, day, Fixtures.now))
+        assertTrue("analiza lekarsko-farmaceutyczna" !in DoctorReport.html(none, per, day, Fixtures.now))
     }
 }
