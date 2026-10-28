@@ -53,6 +53,8 @@ data class TrendGeo(
     val width: Float, val height: Float, val padLeft: Float, val plotTop: Float, val plotBottom: Float,
     val yTicks: List<Tick>, val refs: List<Float>, val marks: List<TrendMark>,
     val days: List<TrendDay>, val readings: List<ReadingPt>, val detailed: Boolean, val dayWidth: Float,
+    /** Wartości progów odpowiadające [refs] (ten sam porządek), do podpisów na wykresie w raporcie. */
+    val refValues: List<Int> = emptyList(),
 )
 
 object Trend {
@@ -71,14 +73,15 @@ object Trend {
         else -> 4.5f
     }
 
-    fun build(list: List<Bp>, from: LocalDate, to: LocalDate, minWidth: Float, hiSys: Int, hiDia: Int, height: Float = 200f): TrendGeo? {
+    /** [aggregate]: zawsze średnie dzienne z zakresem (także w krótkim fragmencie długiego okresu), żeby wykresy w raporcie wyglądały tak samo. [fit]: dzień ma taką szerokość, żeby okres zajął całą [minWidth] (raport do wydruku: wykres nie jest zmniejszany, więc podpisy zostają czytelne). */
+    fun build(list: List<Bp>, from: LocalDate, to: LocalDate, minWidth: Float, hiSys: Int, hiDia: Int, height: Float = 200f, fit: Boolean = false, aggregate: Boolean = false): TrendGeo? {
         val inRange = list.filter { it.date >= from && it.date <= to }.sortedWith(bpOrder)
         if (inRange.isEmpty()) return null
         val nDays = daysBetween(from, to) + 1
-        val detailed = nDays <= DETAIL_MAX_DAYS
-        var dw = dayWidthFor(nDays)
-        val fit = (minWidth - PAD_L - PAD_R) / nDays
-        if (dw == 0f || dw * nDays < minWidth - PAD_L - PAD_R) dw = fit
+        val detailed = !aggregate && nDays <= DETAIL_MAX_DAYS
+        var dw = dayWidthFor(if (aggregate) max(nDays, DETAIL_MAX_DAYS + 1) else nDays)
+        val fitW = (minWidth - PAD_L - PAD_R) / nDays
+        if (fit || dw == 0f || dw * nDays < minWidth - PAD_L - PAD_R) dw = fitW
         val width = max(minWidth, nDays * dw + PAD_L + PAD_R)
         val lo = floor((inRange.minOf { it.dia } - 10) / 10.0) * 10
         val hi = ceil((inRange.maxOf { it.sys } + 10) / 10.0) * 10
@@ -88,7 +91,8 @@ object Trend {
         val ticks = ArrayList<Tick>()
         var v = ceil(lo / step) * step
         while (v <= hi && ticks.size < 40) { ticks.add(Tick(y(v), v.toInt().toString())); v += step }
-        val refs = listOf(hiSys.toDouble(), hiDia.toDouble()).filter { it in lo..hi }.map { y(it) }
+        val refVals = listOf(hiSys, hiDia).filter { it.toDouble() in lo..hi }
+        val refs = refVals.map { y(it.toDouble()) }
 
         // podpisy osi: dni (krótkie okresy), tygodnie (średnie) albo początki miesięcy (długie okresy)
         val marks = ArrayList<TrendMark>()
@@ -113,7 +117,7 @@ object Trend {
             TrendDay(x(a.date, null), y(a.sys), y(a.dia), y(a.sysMin.toDouble()), y(a.sysMax.toDouble()), y(a.diaMin.toDouble()), y(a.diaMax.toDouble()), a.n, a.sys >= hiSys || a.dia >= hiDia)
         }
         val readings = if (detailed) inRange.map { ReadingPt(x(it.date, it.time), y(it.sys.toDouble()), y(it.dia.toDouble()), it.sys >= hiSys || it.dia >= hiDia) } else emptyList()
-        return TrendGeo(width, height, PAD_L, TOP, height - BOTTOM, ticks, refs, marks, agg, readings, detailed, dw)
+        return TrendGeo(width, height, PAD_L, TOP, height - BOTTOM, ticks, refs, marks, agg, readings, detailed, dw, refVals)
     }
 
     // ---------- SVG (raport do wydruku) ----------
@@ -125,15 +129,24 @@ object Trend {
         g.yTicks.forEach {
             sb.append("<line class=\"gr\" x1=\"0\" x2=\"${f1(g.width)}\" y1=\"${f1(it.pos)}\" y2=\"${f1(it.pos)}\"/>")
         }
-        g.refs.forEach { sb.append("<line class=\"ref\" x1=\"0\" x2=\"${f1(g.width)}\" y1=\"${f1(it)}\" y2=\"${f1(it)}\"/>") }
         g.marks.forEach { m ->
             if (m.line) sb.append("<line class=\"sepv\" x1=\"${f1(m.x)}\" x2=\"${f1(m.x)}\" y1=\"${f1(g.plotTop)}\" y2=\"${f1(g.plotBottom)}\"/>")
             m.label?.let { sb.append("<text class=\"ax\" x=\"${f1(m.x)}\" y=\"${f1(g.height - 8)}\" text-anchor=\"start\">$it</text>") }
         }
+        // pole między skurczowym a rozkurczowym (ciśnienie tętna) jako jasne tło pod liniami
+        fun band(sys: List<Pair<Float, Float>>, dia: List<Pair<Float, Float>>) {
+            if (sys.size > 1) sb.append("<polygon class=\"fill\" points=\"${(sys + dia.reversed()).joinToString(" ") { "${f1(it.first)},${f1(it.second)}" }}\"/>")
+        }
+        // progi: przerywana linia z podpisem po prawej, nad linią
+        g.refs.forEachIndexed { i, y ->
+            sb.append("<line class=\"ref\" x1=\"0\" x2=\"${f1(g.width)}\" y1=\"${f1(y)}\" y2=\"${f1(y)}\"/>")
+            g.refValues.getOrNull(i)?.let { v -> sb.append("<text class=\"reftx\" x=\"${f1(g.width - 2)}\" y=\"${f1(y - 3)}\" text-anchor=\"end\">próg $v</text>") }
+        }
         if (g.detailed) {
             fun poly(sel: (ReadingPt) -> Float) = g.readings.joinToString(" ") { "${f1(it.x)},${f1(sel(it))}" }
+            band(g.readings.map { it.x to it.sys }, g.readings.map { it.x to it.dia })
             if (g.readings.size > 1) sb.append("<polyline class=\"l-dia\" points=\"${poly { it.dia }}\"/><polyline class=\"l-sys\" points=\"${poly { it.sys }}\"/>")
-            g.readings.forEach { sb.append("<circle class=\"p-dia\" cx=\"${f1(it.x)}\" cy=\"${f1(it.dia)}\" r=\"3\"/><circle class=\"p-sys\" cx=\"${f1(it.x)}\" cy=\"${f1(it.sys)}\" r=\"3\"/>") }
+            g.readings.forEach { sb.append("<circle class=\"p-dia\" cx=\"${f1(it.x)}\" cy=\"${f1(it.dia)}\" r=\"3\"/><circle class=\"p-sys${if (it.high) " out" else ""}\" cx=\"${f1(it.x)}\" cy=\"${f1(it.sys)}\" r=\"3.4\"/>") }
         } else {
             val bw = (g.dayWidth * 0.55f).coerceIn(1.2f, 6f)
             g.days.forEach {
@@ -141,7 +154,10 @@ object Trend {
                 sb.append("<line class=\"rng-dia\" x1=\"${f1(it.x)}\" x2=\"${f1(it.x)}\" y1=\"${f1(it.diaMin)}\" y2=\"${f1(it.diaMax)}\" stroke-width=\"${f1(bw)}\"/>")
             }
             fun poly(sel: (TrendDay) -> Float) = g.days.joinToString(" ") { "${f1(it.x)},${f1(sel(it))}" }
+            band(g.days.map { it.x to it.sys }, g.days.map { it.x to it.dia })
             if (g.days.size > 1) sb.append("<polyline class=\"l-dia\" points=\"${poly { it.dia }}\"/><polyline class=\"l-sys\" points=\"${poly { it.sys }}\"/>")
+            // dni ze średnią na progu lub powyżej: czerwony punkt na linii skurczowego
+            g.days.filter { it.high }.forEach { sb.append("<circle class=\"p-sys out\" cx=\"${f1(it.x)}\" cy=\"${f1(it.sys)}\" r=\"2.6\"/>") }
         }
         // oś pionowa jako osobny pasek po lewej, żeby wykres miał stałą szerokość 100%
         val axis = g.yTicks.joinToString("") { "<text class=\"ax\" x=\"30\" y=\"${f1(it.pos + 3.5f)}\" text-anchor=\"end\">${it.label}</text>" }

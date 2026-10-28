@@ -1,9 +1,13 @@
 package pl.asystent.leki.core
 
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Raporty muszą być znak w znak takie same jak w poprzedniej wersji aplikacji. */
+/**
+ * Raporty są porównywane znak w znak ze wzorcami w `fixtures` (pierwotnie z poprzedniej wersji aplikacji). Zmiany tekstu i układu są świadome: wzorzec raportu dla lekarza
+ * odtwarza `WRITE_FIXTURES=1 ./gradlew :core:test --tests '*ParityTest*'` (po obejrzeniu zmiany, np. wydruku przez Chromium).
+ */
 class ParityTest {
     private fun assertSame(expected: String, actual: String) {
         if (expected == actual) return
@@ -29,6 +33,12 @@ class ParityTest {
 
     private fun doctor(name: String, preset: Int) {
         val html = DoctorReport.html(Fixtures.state, Fixtures.period(preset), Fixtures.today, Fixtures.now)
+        if (System.getenv("WRITE_FIXTURES") == "1") {
+            var d: File? = File(".").canonicalFile
+            while (d != null && !File(d, "src/test/resources/fixtures").isDirectory && !File(d, "core/src/test/resources/fixtures").isDirectory) d = d.parentFile
+            val dir = listOf("src/test/resources/fixtures", "core/src/test/resources/fixtures").map { File(d ?: error("brak katalogu fixtures"), it) }.first { it.isDirectory }
+            File(dir, "report-$name.html").writeText(html, Charsets.UTF_8)
+        }
         assertSame(Fixtures.text("report-$name.html"), html)
     }
 }

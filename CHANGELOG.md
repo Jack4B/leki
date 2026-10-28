@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.15.8-preview
+
+Nowy układ wydruku raportu dla lekarza: bez luk, bez pojedynczych wierszy na stronie i z czytelniejszymi wykresami ciśnienia. Układ sprawdzony na przykładowych (zmyślonych) danych w wydruku do PDF z Chromium (7, 30, 90 i 180 dni, 4–8 stron zamiast 6–9).
+
+- **Podział na strony:** nagłówek sekcji nie zostaje sam na dole strony (trzyma się z tym, co po nim); długie tabele (pomiary, przyjmowanie leków, pominięte dawki, wyniki) są dzielone na równe grupy po 3–5 wierszy, których wydruk nie rozrywa, więc na kolejnej stronie nie ląduje pojedynczy wiersz, a nagłówek tabeli powtarza się na każdej stronie; tabele do 8 wierszy są nierozerwalne. Wykres, blok wyniku jednego badania i pojedynczy zapis EKG (wykres z opisem) nie są rozrywane między strony.
+- **Wykres ciśnienia:** jeden styl dla każdego okresu (dotąd do 45 dni był inny wykres niż dłuższe). Wykres ma stałą szerokość strony i nie jest zmniejszany (dotąd okresy powyżej 45 dni dawały bardzo mały wykres): przerywane linie progów z podpisem („próg 135”, „próg 85”), **czerwone punkty dla pomiarów na progu lub powyżej** (w długich okresach dla dni ze średnią na progu lub powyżej), jasne tło między skurczowym a rozkurczowym, cieńsze linie. Długie okresy są cięte na segmenty o szerokości strony (ok. 58, 100 lub 156 dni zależnie od długości okresu), wszystkie w tym samym stylu (średnia dzienna i zakres dnia).
+- **Wyniki badań:** wykres parametru i tabela wyników obok siebie (na wąskim ekranie jedno pod drugim), kolumna „Uwagi” tylko gdy któryś wynik ma uwagę; więcej wyników na stronie.
+- **Wygląd:** kafelki z podsumowaniem, nagłówki sekcji z cienką linią, marginesy A4 14/12/16 mm.
+- Wzorcowe pliki raportów dla lekarza (`report-7/30/all.html`) zmienione świadomie (nowy układ); odtwarza je `WRITE_FIXTURES=1 ./gradlew :core:test --tests '*ParityTest*'`. Raport dla AI bez zmian.
+- Wydruk w Androidzie robi systemowy WebView, który może dzielić strony nieco inaczej niż Chromium na komputerze: do sprawdzenia na telefonie (README, „Do sprawdzenia na telefonie”).
+- Liczba testów `core`: 335 (nowy: `PrintLayoutTest`).
+
 ## 0.15.7-preview
 
 Dane osoby w Ustawieniach (wiek, masa ciała, wzrost) i zmieniony punkt widzenia analizy AI.

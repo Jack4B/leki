@@ -64,7 +64,7 @@ object EcgReport {
 
     /** Opis jednego zapisu: wskaźniki, wyniki (ogólne i zdarzenia z czasem) i przebieg. */
     private fun entry(e: Ecg, r: EcgResult, heading: Boolean, trueScale: Boolean): String {
-        val h = StringBuilder()
+        val h = StringBuilder("<div class=\"ecg-e\">")
         if (heading) h.append("<h4>${plDate(e.date)} ${e.time.hhmm()}, ${"%.0f".format(java.util.Locale.ROOT, e.durationS)} s</h4>")
         val parts = ArrayList<String>()
         if (e.watchHr > 0) parts.add("tętno wg zegarka: <b>${e.watchHr}/min</b>")
@@ -82,7 +82,7 @@ object EcgReport {
         h.append(svg(e, r, trueScale))
         if (r.events.isNotEmpty()) h.append("<p class=\"muted\" style=\"margin:2px 0 0\">Numery na wykresie odpowiadają zdarzeniom z listy powyżej; pomarańczowe pasy wskazują miejsce przedwczesnego uderzenia lub przerwy w rytmie, szare tło to zakłócenia pominięte w analizie.</p>")
         if (e.durationS > 30.5) h.append("<p class=\"muted\">Na wykresie są pierwsze 30 s zapisu; wskaźniki obejmują cały zapis.</p>")
-        return h.toString()
+        return h.append("</div>").toString()
     }
 
     fun html(list: List<Ecg>): String {
