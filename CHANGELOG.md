@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.15.6-preview
+
+Usuwanie analiz AI wprost z listy w Raporcie.
+
+- **Przycisk „Usuń” przy każdej analizie** na liście „Analiza AI jako uzupełnienie” (obok „Edytuj”); do tej pory usunięcie było tylko na dole okna edycji. Komunikat ma przycisk „Cofnij”, który przywraca analizę razem z wyborem do raportu, jeśli była wybrana (`AppState.restoreAnalysis`). Usunięcie wybranej analizy zeruje wybór (do raportu idzie wtedy najnowsza).
+- **Lista analiz jest widoczna także przy wyłączonej pigułce „Analiza AI”**, jeśli są zapisane analizy (z podpowiedzią, że w raporcie jest wyłączona), więc można je edytować i usuwać bez włączania sekcji.
+- Liczba testów `core`: 323 (nowy: `AnalysisDeleteTest`).
+
 ## 0.15.5-preview
 
 Dwie zmiany zgłoszone po użyciu aplikacji: wybór zapisów EKG do raportów i kontrola badania, która przestaje czekać na wynik, gdy wynik już jest.

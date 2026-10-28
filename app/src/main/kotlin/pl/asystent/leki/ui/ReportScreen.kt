@@ -62,6 +62,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     val now by rememberNow()
     val today = now.toLocalDate()
     val toast = LocalToast.current
+    val undo = LocalUndo.current
     var preset by rememberSaveable { mutableStateOf(7) }
     var fromStr by rememberSaveable { mutableStateOf("") }
     var toStr by rememberSaveable { mutableStateOf("") }
@@ -135,19 +136,21 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx, EcgSelection.AUTO_DOCTOR) { f -> setRp(f) }
-                    if (rp.analysis) {
+                    if (rp.analysis || s.analyses.isNotEmpty()) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
+                        if (!rp.analysis) Hint("Analiza AI jest teraz wyłączona w raporcie (pigułka „Analiza AI” powyżej). Analizy możesz mimo to edytować i usuwać.", Modifier.padding(bottom = 6.dp))
                         val picked = s.reportAnalysis()
                         if (s.analyses.isEmpty()) {
                             BodyText("Wklej odpowiedź AI na raport z karty „Dla AI” albo wczytaj ją z pliku Markdown, a trafi na koniec raportu dla lekarza (opisana jako analiza AI).")
                         } else LekiCard {
                             s.analyses.sortedByDescending { it.date }.forEachIndexed { i, a ->
                                 if (i > 0) Divider()
-                                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Column(Modifier.weight(1f)) {
                                         CheckRow(a.title, picked?.id == a.id, { setRp { it.copy(analysisId = a.id) } }, subtitle = plDate(a.date) + ", " + Markdown.selected(a.text, a.excluded).length + " z " + a.text.length + " znaków")
                                     }
                                     LekiButton("Edytuj", { editId = a.id; editorOpen = true }, small = true)
+                                    LekiButton("Usuń", { deleteAnalysisWithUndo(store, a, undo) }, small = true, danger = true)
                                 }
                             }
                         }

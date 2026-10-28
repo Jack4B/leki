@@ -204,7 +204,7 @@ Odpowiedź modelu AI na „Raport dla AI” (patrz wyżej) możesz wkleić do ap
 2. Wzory LaTeX i Markdown (nagłówki, listy, tabele, pogrubienia, cytaty) są w raporcie porządkowane do zwykłego tekstu, np. `$2{,}8\text{ mmol/l}$` wychodzi jako „2,8 mmol/l”.
 3. **Skracanie:** tekst jest dzielony na sekcje według nagłówków; każdą można wyłączyć. Przy długim tekście aplikacja od razu zostawia tylko sekcje o podsumowaniu, sprawach pilnych, wnioskach, zaleceniach i pytaniach do lekarza. Przyciski „Tylko podsumowanie i pytania” oraz „Całość” przełączają to jednym ruchem.
 4. W raporcie analiza jest na końcu, z nagłówkiem „Uzupełnienie: analiza farmaceutyczno-kliniczna (AI)” i adnotacją, że to tekst wygenerowany przez AI na podstawie danych z aplikacji, a nie ocena lekarska.
-5. Analizy zapisują się **w kopii zapasowej** (także zaszyfrowanej) razem z pozostałymi danymi. Można mieć kilka (np. z różnych dat) i wybierać, która trafia do raportu. Starsze kopie bez analiz wczytują się normalnie.
+5. Analizy zapisują się **w kopii zapasowej** (także zaszyfrowanej) razem z pozostałymi danymi. Można mieć kilka (np. z różnych dat) i wybierać, która trafia do raportu. **Usuwanie:** przycisk **Usuń** przy analizie na liście w Raporcie (albo „Usuń tę analizę” na dole okna edycji); komunikat ma „Cofnij”. Lista jest widoczna także przy wyłączonej pigułce „Analiza AI”. Starsze kopie bez analiz wczytują się normalnie.
 
 ## Dodawanie wyników ze zdjęcia lub PDF
 
@@ -341,6 +341,7 @@ Ustawienia → Kopie zapasowe i dane → „Szyfrowanie danych na tym telefonie�
 
 ### Do sprawdzenia na telefonie (testy)
 
+- [ ] **Usuwanie analiz AI (0.15.6):** Raport → Dla lekarza → „Usuń” przy analizie na liście (także przy wyłączonej pigułce „Analiza AI”), „Cofnij” przywraca analizę i wybór do raportu.
 - [ ] **Wybór EKG i kontrola badania (0.15.5):** Raport → lista EKG z polami wyboru (zaznaczenie, „Zaznacz wszystkie”, „Automatycznie”, podgląd raportu dla lekarza i tekst dla AI zawierają tylko wybrane zapisy); kontrola potasu z ustawionym parametrem: po wczytaniu PDF z wynikiem z tego dnia ramka na ekranie Leki zamienia się w „Wynik zapisany”, a ręczny wpis nie tworzy dubla w Badaniach.
 - [ ] **Szyfrowanie danych (0.15):** włączenie z kopią z hasłem (wybór pliku, odczyt zwrotny), wszystko na miejscu po restarcie; alarm o dawce i widżet ciśnienia przy zablokowanym ekranie i po restarcie telefonu; wyłączenie szyfrowania; zabicie aplikacji w trakcie włączania (`adb shell am force-stop`) i ponowne uruchomienie; zmiana i usunięcie blokady ekranu, dodanie odcisku palca (dane muszą się czytać); „Usuń wszystkie dane” (znikają pliki `.enc`, `keys.bin*`, aliasy); telefon bez StrongBox i z nim; komunikat i „Zaczynam od nowa” po symulowanej utracie klucza (podmiana `keys.bin` na telefonie testowym); aktualizacja z wersji z jawnymi plikami i kilkoma osobami.
 - [ ] **Moduły aplikacji (0.14):** Ustawienia → Moduły aplikacji: ukrycie Ciśnienia u jednej osoby (zakładka znika tylko u niej, po zmianie osoby wraca), raport i „Przygotuj na wizytę” bez ciśnienia, widżet „Moduł ukryty”, skrót ciśnienia z komunikatem, kopia i wczytanie zachowują wybór; kalendarz Cyklu w obu motywach (okno płodne bardzo prawdopodobne/możliwe, legenda, widok dnia z procentem).

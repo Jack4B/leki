@@ -24,6 +24,7 @@ import pl.asystent.leki.core.Analysis
 import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.deleteAnalysis
 import pl.asystent.leki.core.newId
+import pl.asystent.leki.core.restoreAnalysis
 import pl.asystent.leki.core.saveAnalysis
 import java.time.LocalDate
 
@@ -139,12 +140,7 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, prefill: 
         }
         if (text.isNotBlank()) Hint("W raporcie: ${shown.length} z ${text.length} znaków.")
         if (initial != null) LinkButton("Usuń tę analizę", {
-            // usunięcie wybranej do raportu analizy zeruje wybór; cofnięcie ma go przywrócić
-            val wasPicked = store.state.value.settings.rp.analysisId == initial.id
-            store.update { it.deleteAnalysis(initial.id) }
-            undo("Usunięto analizę") {
-                store.update { st -> st.saveAnalysis(initial).let { if (wasPicked) it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(analysisId = initial.id))) else it } }
-            }
+            deleteAnalysisWithUndo(store, initial, undo)
             onClose()
         }, danger = true)
     }
@@ -152,4 +148,11 @@ fun AnalysisEditor(initial: Analysis?, store: Store, today: LocalDate, prefill: 
         ConfirmDialog("Zastąpić wpisaną treść?", "W polu jest już tekst (${text.length} znaków). Nowy tekst ($source) ma ${t.length} znaków i go zastąpi.", "Zastąp",
             onConfirm = { acceptText(t, source, suggested); incoming = null }, onDismiss = { incoming = null })
     }
+}
+
+/** Usuwa analizę (przy usuwaniu wybranej do raportu zeruje się wybór) i pokazuje „Cofnij”, które przywraca analizę razem z wyborem. */
+internal fun deleteAnalysisWithUndo(store: Store, a: Analysis, undo: (String, () -> Unit) -> Unit) {
+    val wasPicked = store.state.value.settings.rp.analysisId == a.id
+    store.update { it.deleteAnalysis(a.id) }
+    undo("Usunięto analizę: ${a.title}") { store.update { st -> st.restoreAnalysis(a, wasPicked) } }
 }
