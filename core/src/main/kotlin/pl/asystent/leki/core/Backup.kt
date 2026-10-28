@@ -130,7 +130,7 @@ object Backup {
         val ai = AiParts(
             meds = aiIn["meds"].bool(aD.meds), history = aiIn["history"].bool(aD.history), adherence = aiIn["adherence"].bool(aD.adherence),
             bp = aiIn["bp"].bool(aD.bp), labs = aiIn["labs"].bool(aD.labs), events = aiIn["events"].bool(aD.events),
-            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), cykl = aiIn["cykl"].bool(aD.cykl), name = aiIn["name"].bool(aD.name),
+            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), cykl = aiIn["cykl"].bool(aD.cykl), name = aiIn["name"].bool(aD.name), profile = aiIn["profile"].bool(aD.profile),
             context = aiIn["context"].str()?.take(2000) ?: "",
             detail = intOr(aiIn["detail"], aD.detail, 0, 1),
         )
@@ -152,6 +152,9 @@ object Backup {
             cyklFrom = st["cyklFrom"].str()?.takeIf { Regex("p\\d{1,2}|#\\d").matches(it) } ?: "",
             bpOn = st["bpOn"].bool(true),
             labsOn = st["labsOn"].bool(true),
+            birthYear = intOr(st["birthYear"], 0, 0, 9999).takeIf { it == 0 || it >= BodyInfo.MIN_YEAR } ?: 0,
+            weightKg = st["weightKg"].number()?.let { Math.round(it * 10) / 10.0 }?.takeIf { it in BodyInfo.WEIGHT_KG } ?: 0.0,
+            heightCm = intOr(st["heightCm"], 0, 0, 999).takeIf { it in BodyInfo.HEIGHT_CM } ?: 0,
         )
 
         val slots = d["slots"].arr().orEmpty().mapNotNull { x ->
@@ -315,7 +318,7 @@ object Backup {
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
                 put("bp", c.ai.bp); put("labs", c.ai.labs); put("events", c.ai.events)
-                put("notes", c.ai.notes); put("ecg", c.ai.ecg); if (c.ai.cykl) put("cykl", true); put("name", c.ai.name); put("context", c.ai.context); put("detail", c.ai.detail)
+                put("notes", c.ai.notes); put("ecg", c.ai.ecg); if (c.ai.cykl) put("cykl", true); put("name", c.ai.name); if (!c.ai.profile) put("profile", false); put("context", c.ai.context); put("detail", c.ai.detail)
             }
             put("lateMin", c.lateMin); put("waterGoal", c.waterGoal); put("glassMl", c.glassMl)
             put("hiSys", c.hiSys); put("hiDia", c.hiDia); put("loSys", c.loSys); put("loDia", c.loDia)
@@ -325,6 +328,9 @@ object Backup {
             if (c.cyklFrom.isNotEmpty()) put("cyklFrom", c.cyklFrom)
             if (!c.bpOn) put("bpOn", false)
             if (!c.labsOn) put("labsOn", false)
+            if (c.birthYear != 0) put("birthYear", c.birthYear)
+            if (c.weightKg != 0.0) put("weightKg", numberOrInt(c.weightKg))
+            if (c.heightCm != 0) put("heightCm", c.heightCm)
         }
         put("rules", s.rules)
         putJsonArray("slots") { s.slots.forEach { add(buildJsonObject { put("id", it.id); put("name", it.name); put("time", it.time.hhmm()) }) } }

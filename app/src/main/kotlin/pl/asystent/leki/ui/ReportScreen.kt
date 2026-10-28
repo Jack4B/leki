@@ -38,6 +38,7 @@ import pl.asystent.leki.Store
 import pl.asystent.leki.core.AiParts
 import pl.asystent.leki.core.AiReport
 import pl.asystent.leki.core.AppState
+import pl.asystent.leki.core.BodyInfo
 import pl.asystent.leki.core.DoctorReport
 import pl.asystent.leki.core.EcgReport
 import pl.asystent.leki.core.EcgSelection
@@ -190,6 +191,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
+                        if (BodyInfo.describe(s.settings, today) != null) ToggleChip("Wiek, masa, wzrost", ai.profile) { setAi { it.copy(profile = !it.profile) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     if (ai.ecg && s.settings.labsOn) EcgPicker(s, s.settings.rp, per, today, now, ctx, EcgSelection.AUTO_AI) { f -> setRp(f) }
@@ -198,7 +200,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     Hint("Polecenie prosi model o odpowiedź w stałym formacie (nagłówki, tabele, ramki Pilne i Do omówienia, plakietki ważności), który aplikacja ostyluje w raporcie dla lekarza.", Modifier.padding(top = 6.dp))
                     var context by remember { mutableStateOf(ai.context) }
                     LekiField("Kontekst medyczny (opcjonalnie)", context, { context = it.take(2000); setAi { a -> a.copy(context = it.take(2000)) } },
-                        Modifier.padding(top = 18.dp), singleLine = false, minLines = 3, placeholder = "np. wiek, płeć, choroby, alergie, leki bez recepty i suplementy, godziny posiłków")
+                        Modifier.padding(top = 18.dp), singleLine = false, minLines = 3, placeholder = "np. płeć, choroby, alergie, leki bez recepty i suplementy, godziny posiłków (wiek, masę ciała i wzrost podaj w Ustawieniach)")
                     Hint("Im więcej kontekstu, tym trafniejsza analiza. Nie wpisuj danych, których nie chcesz ujawniać. Imię jest domyślnie pomijane.", Modifier.padding(top = 6.dp))
                     val text = AiReport.build(store.withSharedCykl(s, store.activeId.value), per, today, now, BuildConfig.VERSION_NAME)
                     Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

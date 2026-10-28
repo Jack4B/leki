@@ -245,7 +245,7 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
         if (P.analysis) s.reportAnalysis()?.let { a ->
             val body = Markdown.selected(a.text, a.excluded)
             if (body.isNotBlank()) {
-                h.append("<h3>Uzupełnienie: analiza farmaceutyczno-kliniczna (AI)</h3>")
+                h.append("<h3>Uzupełnienie: analiza lekarsko-farmaceutyczna (AI)</h3>")
                 h.append("<p class=\"muted\">Tekst wygenerowany przez model AI na podstawie danych z aplikacji (analiza z dnia ${plDate(a.date)}) i dołączony przez pacjenta. To nie jest ocena lekarska ani zalecenie. Do weryfikacji przez lekarza.</p>")
                 h.append("<div class=\"ai\">").append(Markdown.toHtml(body)).append("</div>")
             }

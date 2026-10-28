@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.15.7-preview
+
+Dane osoby w Ustawieniach (wiek, masa ciała, wzrost) i zmieniony punkt widzenia analizy AI.
+
+- **Ustawienia → Ogólne:** nowe opcjonalne pola **rok urodzenia**, **masa ciała (kg)** i **wzrost (cm)**, osobne dla każdej osoby. Zapisują się tylko poprawne wartości (rok od 1900 do bieżącego, masa 2–400 kg, wzrost 40–250 cm; puste pole = brak). Pod polami aplikacja pokazuje wiek (z roku urodzenia, dokładność do roku) i BMI jako zwykłą liczbę, **bez oceny**. Dane są w kopii zapasowej, zapisywane tylko wtedy, gdy są podane; starsze kopie wczytują się bez zmian. Logika i walidacja w `core/.../BodyInfo.kt`.
+- **Tekst dla AI:** w sekcji „Pacjent” pojawia się wiersz „Dane z ustawień aplikacji: wiek ok. …, masa ciała …, wzrost …, BMI …”, jeśli dane podano. W Raport → Dla AI jest pigułka **„Wiek, masa, wzrost”** (domyślnie włączona; widoczna, gdy są dane) do wyłączenia. Dane **nie trafiają do raportu dla lekarza**.
+- **Analiza AI jako lekarz i farmaceuta:** polecenie dla modelu każe działać jak zespół lekarza (internisty, w razie potrzeby kardiologa lub nefrologa) i farmaceuty klinicznego, opierać się na aktualnej wiedzy klinicznej i aktualnych wytycznych (towarzystwa polskie i europejskie, Charakterystyki Produktów Leczniczych, bazy interakcji), oceniać wyniki i ciśnienie według aktualnych norm dla wieku pacjenta, uwzględniać wiek, masę, wzrost i BMI przy dawkach i funkcji nerek oraz pisać wprost, gdy wytyczne mogły się zmienić albo model nie jest pewny. Zasady bezpieczeństwa zostają (analiza pomocnicza, bez samodzielnego odstawiania leków i zmiany dawek, pewność wniosków, brak wymyślonych źródeł). Nagłówek w raporcie dla lekarza: „Uzupełnienie: analiza lekarsko-farmaceutyczna (AI)” z adnotacją, że to tekst wygenerowany przez AI i nie jest oceną lekarską.
+- Fixtures `ai-7.md`, `ai-30.md`, `ai-all.md` zmienione świadomie (nowe zdania w poleceniu); reszta raportu bez zmian.
+- Liczba testów `core`: 329 (nowy: `BodyInfoTest`).
+
 ## 0.15.6-preview
 
 Usuwanie analiz AI wprost z listy w Raporcie.
