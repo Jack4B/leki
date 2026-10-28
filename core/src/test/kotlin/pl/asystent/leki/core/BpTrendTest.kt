@@ -71,7 +71,7 @@ class BpTrendTest {
         val html = DoctorReport.html(s, per, end, Fixtures.now)
         assertTrue(html.contains("Miesiąc"), "powinno być zestawienie miesięczne")
         assertFalse(html.contains("<th>Godz.</th>"))             // brak tabeli każdego pomiaru
-        assertEquals(5, Regex("<svg class=\"chart\"").findAll(html).count { true } - labsCharts(html))
+        assertEquals(4, Regex("<svg class=\"chart\"").findAll(html).count { true } - labsCharts(html), "rok: wykresy w segmentach po ok. 100 dni")
         assertTrue(html.contains("zestawienie miesięczne"))
         // krótki okres nadal ma pełną listę (zgodność z poprzednią wersją sprawdza ParityTest)
         val short = DoctorReport.html(s, Period(end.minusDays(6), end), end, Fixtures.now)

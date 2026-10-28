@@ -24,32 +24,47 @@ object DoctorReport {
 body{margin:0;padding:16px;background:#fff;color:var(--ink);font:13px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 h2.rp-title{margin:0 0 4px;font-size:19px;font-weight:650}
 .rp-meta{font-size:13px;color:var(--ink-2);line-height:1.6}
-h3{margin:22px 0 8px;font-size:14px;font-weight:650}
+h3{margin:22px 0 8px;padding-bottom:3px;border-bottom:2px solid var(--accent-soft);font-size:14px;font-weight:650;break-after:avoid}
 .muted{font-size:12.5px;color:var(--ink-3)}
+h3+.muted{break-after:avoid}
 .tbl{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead{display:table-header-group}
 th{text-align:left;font-weight:600;color:var(--ink-2);padding:6px 6px 6px 0;border-bottom:1px solid var(--ink-3);white-space:nowrap}
 td{padding:6px 6px 6px 0;border-bottom:1px solid #ddd;vertical-align:top}
-tr{break-inside:avoid}
+tr,tbody{break-inside:avoid}
+.tbl.keep{break-inside:avoid}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 ul{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink-2)}
-li{margin-bottom:6px}
-.rp-foot{margin-top:18px;font-size:11.5px;color:var(--ink-3)}
-.rp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:10px}
+li{margin-bottom:6px;break-inside:avoid}
+.rp-foot{margin-top:18px;font-size:11.5px;color:var(--ink-3);break-before:avoid}
+.rp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px;break-inside:avoid;break-after:avoid}
+.rp-sum>div{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fafafa}
 .rp-sum b{display:block;font:600 18px var(--mono)}
 .rp-sum span{font-size:11.5px;color:var(--ink-3)}
-.rp-lab{margin:14px 0 4px;font-size:13px;font-weight:650}
-.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--ink-2);margin-bottom:6px}
+.rp-lab{margin:14px 0 4px;font-size:13px;font-weight:650;break-after:avoid}
+.fig{break-inside:avoid}
+.lab{margin:12px 0 6px;break-inside:avoid}
+.lab-body{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start}
+.lab-fig{flex:1.3 1 300px;min-width:0}
+.lab-tbl{flex:1 1 230px;min-width:0}
+.lab-tbl .tbl table{font-size:12px}
+.ecg-e{break-inside:avoid;margin-bottom:8px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--ink-2);margin-bottom:6px;break-after:avoid}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sw.sys{background:var(--accent)}
 .sw.dia{border:2px solid var(--ink-3);background:#fff}
+.sw.hi{background:var(--danger)}
 .chart{width:100%;height:auto;display:block}
 .chart .gr{stroke:#ddd;stroke-width:1}
 .chart .sepv{stroke:#ddd;stroke-width:1;stroke-dasharray:2 3}
 .chart .ax{fill:var(--ink-3);font:10px var(--mono)}
-.chart .l-sys{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
-.chart .l-dia{fill:none;stroke:var(--ink-3);stroke-width:2;stroke-linejoin:round}
+.chart .l-sys{fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linejoin:round}
+.chart .fill{fill:var(--accent-soft);opacity:.7}
+.chart .reftx{fill:#8a5a00;font:600 9px var(--mono)}
+.chart .p-sys.out{fill:var(--danger)}
+.chart .l-dia{fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-linejoin:round}
 .chart .p-sys{fill:var(--accent);stroke:#fff;stroke-width:1.5}
 .chart .p-dia{fill:#fff;stroke:var(--ink-3);stroke-width:2}
 .chart .band{fill:var(--accent-soft)}
@@ -89,8 +104,9 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
 .card-ask{border-color:#0b6b58;background:#f6fbf9}
 .card-sum{background:#fafafa}
 .card h4{margin-top:8px}
-@page{size:A4;margin:14mm}
-@media print{body{padding:0;font-size:12px}}
+@media screen and (max-width:600px){.fig{overflow-x:auto}.fig .chart{min-width:600px}}
+@page{size:A4;margin:14mm 12mm 16mm}
+@media print{body{padding:0;font-size:12px}h4,h5{break-after:avoid}p{orphans:3;widows:3}}
 """
 
     fun document(body: String): String =
@@ -119,36 +135,37 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                 h.append("<p class=\"muted\" style=\"margin:0 0 10px\">Skurczowe ${st.minS}-${st.maxS}, rozkurczowe ${st.minD}-${st.maxD}.")
                 if (st.rano.n > 0) h.append(" Rano średnio ${st.rano.s}/${st.rano.d} (${st.rano.n}).")
                 if (st.wieczor.n > 0) h.append(" Wieczorem średnio ${st.wieczor.s}/${st.wieczor.d} (${st.wieczor.n}).")
+                h.append("</p>")
                 val nDays = daysBetween(per.from, per.to) + 1
-                if (nDays <= Trend.DETAIL_MAX_DAYS) {
-                    h.append("</p><div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span></div>")
-                    bpChart(list)?.let { h.append(bpChartSvg(it)) }
-                    h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>Data</th><th>Godz.</th><th>Ciśnienie</th><th>Tętno</th><th>Pora</th><th>Uwagi</th></tr></thead><tbody>")
-                    list.forEach { r ->
+                val detail = nDays <= Trend.DETAIL_MAX_DAYS
+                h.append("<div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span><span><i class=\"sw hi\"></i>na progu lub powyżej</span>")
+                h.append(if (detail) "<span>przerywana linia: próg</span></div>" else "<span>linia: średnia dzienna, pionowa kreska: zakres dnia (min–max), przerywana linia: próg</span></div>")
+                if (detail) {
+                    Trend.build(list, per.from, per.to, 720f, c.hiSys, c.hiDia, 230f, fit = true)?.let { h.append("<div class=\"fig\">").append(Trend.svg(it)).append("</div>") }
+                    val rowsHtml = list.map { r ->
                         val f = c.bpFlagText(r)
-                        h.append("<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>")
-                        if (f.isNotEmpty()) h.append("<b>$f</b>")
-                        if (f.isNotEmpty() && r.note.isNotEmpty()) h.append(", ")
-                        h.append(esc(r.note)).append("</td></tr>")
+                        "<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>" +
+                            (if (f.isNotEmpty()) "<b>$f</b>" else "") + (if (f.isNotEmpty() && r.note.isNotEmpty()) ", " else "") + esc(r.note) + "</td></tr>"
                     }
-                    h.append("</tbody></table></div><p class=\"muted\" style=\"margin:6px 0 0\">Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
+                    h.append(printTable(listOf("Data", "Godz.", "Ciśnienie", "Tętno", "Pora", "Uwagi"), rowsHtml, "margin-top:12px"))
+                    h.append("<p class=\"muted\" style=\"margin:6px 0 0\">Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
                 } else {
-                    h.append("</p><div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span><span>linia: średnia dzienna, pionowa kreska: zakres dnia (min–max), linia przerywana: próg</span></div>")
+                    // segmenty o szerokości zbliżonej do strony, żeby wykres nie był zmniejszany (i podpisy zostały czytelne)
+                    val seg = ((720f - 18f) / Trend.dayWidthFor(nDays)).toInt().coerceAtLeast(30)
                     var a = per.from
                     while (a <= per.to) {
-                        val b = minOf(a.plusDays(90), per.to)
-                        Trend.build(list, a, b, 720f, c.hiSys, c.hiDia)?.let { g ->
-                            h.append("<div class=\"rp-lab\">${plDate(a)} – ${plDate(b)}</div>").append(Trend.svg(g))
+                        val b = minOf(a.plusDays(seg - 1L), per.to)
+                        Trend.build(list, a, b, 720f, c.hiSys, c.hiDia, 230f, aggregate = true)?.let { g ->
+                            h.append("<div class=\"fig\"><div class=\"rp-lab\">${plDate(a)} – ${plDate(b)}</div>").append(Trend.svg(g)).append("</div>")
                         }
                         a = b.plusDays(1)
                     }
                     val monthly = nDays > 190
-                    val rows = bpPeriods(list, monthly, c)
-                    h.append("<div class=\"tbl\"><table style=\"margin-top:12px\"><thead><tr><th>${if (monthly) "Miesiąc" else "Tydzień od"}</th><th>Pomiarów</th><th>Średnie</th><th>Skurczowe min–max</th><th>Rozkurczowe min–max</th><th>Tętno</th><th>Podwyższone</th><th>Niskie</th></tr></thead><tbody>")
-                    rows.forEach { r ->
-                        h.append("<tr><td class=\"num\">${if (monthly) "%02d.%04d".format(r.from.monthValue, r.from.year) else plDate(r.from)}</td><td class=\"num\">${r.n}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.sysMin}-${r.sysMax}</td><td class=\"num\">${r.diaMin}-${r.diaMax}</td><td class=\"num\">${r.pulse ?: ""}</td><td class=\"num\">${if (r.high > 0) "<b>${r.high}</b>" else "0"}</td><td class=\"num\">${r.low}</td></tr>")
+                    val rowsHtml = bpPeriods(list, monthly, c).map { r ->
+                        "<tr><td class=\"num\">${if (monthly) "%02d.%04d".format(r.from.monthValue, r.from.year) else plDate(r.from)}</td><td class=\"num\">${r.n}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.sysMin}-${r.sysMax}</td><td class=\"num\">${r.diaMin}-${r.diaMax}</td><td class=\"num\">${r.pulse ?: ""}</td><td class=\"num\">${if (r.high > 0) "<b>${r.high}</b>" else "0"}</td><td class=\"num\">${r.low}</td></tr>"
                     }
-                    h.append("</tbody></table></div><p class=\"muted\" style=\"margin:6px 0 0\">Okres dłuższy niż ${Trend.DETAIL_MAX_DAYS} dni: zamiast listy pojedynczych pomiarów podano zestawienie ${if (monthly) "miesięczne" else "tygodniowe"}. Pełne dane są w aplikacji i w kopii zapasowej. Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
+                    h.append(printTable(listOf(if (monthly) "Miesiąc" else "Tydzień od", "Pomiarów", "Średnie", "Skurczowe min–max", "Rozkurczowe min–max", "Tętno", "Podwyższone", "Niskie"), rowsHtml, "margin-top:12px"))
+                    h.append("<p class=\"muted\" style=\"margin:6px 0 0\">Okres dłuższy niż ${Trend.DETAIL_MAX_DAYS} dni: zamiast listy pojedynczych pomiarów podano zestawienie ${if (monthly) "miesięczne" else "tygodniowe"}. Pełne dane są w aplikacji i w kopii zapasowej. Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
                 }
             }
         }
@@ -184,22 +201,19 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                 h.append("<div class=\"rp-sum\"><div><b>$fullDays/$schedDays</b><span>dni z kompletem</span></div><div><b>$taken/$planned</b><span>przyjęte dawki</span></div><div><b>${if (planned > 0) Math.round(taken * 100.0 / planned).let { if (taken < planned && it >= 100) 99L else it } else 0}%</b><span>zgodność z planem</span></div></div>")
                 h.append("<p class=\"muted\" style=\"margin:0 0 10px\">Pominięte dawki: ${skips.size}.")
                 if (c.lateMin > 0) h.append(" Przyjęte po czasie (ponad ${c.lateMin} min po porze): $lateTaken.")
-                h.append("</p><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Leki</th>")
-                if (hasM) h.append("<th>Potas, mmol</th>")
-                if (c.waterGoal > 0) h.append("<th>Woda</th>")
-                h.append("<th>Notatka</th></tr></thead><tbody>")
-                rows.forEach { x ->
-                    h.append("<tr><td class=\"num\">${shortDate(x.d)}</td><td class=\"num\">${x.s.n}/${x.s.tot}</td>")
-                    if (hasM) h.append("<td class=\"num\">").append(if (x.s.hasMmol) num(x.s.mmolTaken) + "/" + num(x.s.mmolPlan) else "").append("</td>")
-                    if (c.waterGoal > 0) h.append("<td class=\"num\">${num(x.r.water * c.glassMl / 1000.0)} l</td>")
-                    h.append("<td>${esc(x.r.note)}</td></tr>")
+                h.append("</p>")
+                val head = ArrayList<String>().apply { add("Data"); add("Leki"); if (hasM) add("Potas, mmol"); if (c.waterGoal > 0) add("Woda"); add("Notatka") }
+                val rowsHtml = rows.map { x ->
+                    val sb = StringBuilder("<tr><td class=\"num\">${shortDate(x.d)}</td><td class=\"num\">${x.s.n}/${x.s.tot}</td>")
+                    if (hasM) sb.append("<td class=\"num\">").append(if (x.s.hasMmol) num(x.s.mmolTaken) + "/" + num(x.s.mmolPlan) else "").append("</td>")
+                    if (c.waterGoal > 0) sb.append("<td class=\"num\">${num(x.r.water * c.glassMl / 1000.0)} l</td>")
+                    sb.append("<td>${esc(x.r.note)}</td></tr>").toString()
                 }
-                h.append("</tbody></table></div>")
+                h.append(printTable(head, rowsHtml))
             }
             if (skips.isNotEmpty()) {
-                h.append("<h3>Pominięte dawki</h3><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Lek</th><th>Pora</th><th>Powód</th></tr></thead><tbody>")
-                skips.forEach { x -> h.append("<tr><td class=\"num\">${shortDate(x.d)}</td><td>${esc(x.name)}</td><td>${esc(x.slot)}</td><td>${esc(x.reason)}${if (x.note.isNotEmpty()) ", " + esc(x.note) else ""}</td></tr>") }
-                h.append("</tbody></table></div>")
+                h.append("<h3>Pominięte dawki</h3>")
+                h.append(printTable(listOf("Data", "Lek", "Pora", "Powód"), skips.map { x -> "<tr><td class=\"num\">${shortDate(x.d)}</td><td>${esc(x.name)}</td><td>${esc(x.slot)}</td><td>${esc(x.reason)}${if (x.note.isNotEmpty()) ", " + esc(x.note) else ""}</td></tr>" }))
             }
         }
 
@@ -254,6 +268,28 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
         return h.toString()
     }
 
+    /**
+     * Tabela do wydruku bez pojedynczych wierszy na stronie: nagłówek powtarza się na kolejnych stronach, wiersze są w równych grupach (tbody) po najwyżej [maxChunk],
+     * których druk nie rozrywa, a krótka tabela (do [KEEP_ROWS] wierszy) jest nierozerwalna. Na ekranie wygląda jak zwykła tabela.
+     */
+    internal fun printTable(head: List<String>, rows: List<String>, style: String = "", maxChunk: Int = 5): String {
+        val sb = StringBuilder()
+        sb.append("<div class=\"tbl${if (rows.size <= KEEP_ROWS) " keep" else ""}\"><table${if (style.isNotEmpty()) " style=\"$style\"" else ""}><thead><tr>")
+        head.forEach { sb.append("<th>").append(it).append("</th>") }
+        sb.append("</tr></thead>")
+        val k = Math.ceil(rows.size / maxChunk.toDouble()).toInt().coerceAtLeast(1)
+        var i = 0
+        for (g in 0 until k) {
+            val n = rows.size / k + if (g < rows.size % k) 1 else 0
+            sb.append("<tbody>")
+            repeat(n) { sb.append(rows[i++]) }
+            sb.append("</tbody>")
+        }
+        return sb.append("</table></div>").toString()
+    }
+
+    private const val KEEP_ROWS = 8
+
     private fun labsHtml(s: AppState, per: Period, onlyPeriod: Boolean): String {
         val h = StringBuilder()
         var any = false
@@ -270,27 +306,26 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             val list = all.takeLast(12)
             if (list.size < 2) { singles.add(m to list[0]); continue }
             head()
-            h.append("<div class=\"rp-lab\">${esc(m.name)}${if (m.unit.isNotEmpty()) ", " + esc(m.unit) else ""}")
+            h.append("<div class=\"lab\"><div class=\"rp-lab\">${esc(m.name)}${if (m.unit.isNotEmpty()) ", " + esc(m.unit) else ""}")
             if (rangeText(m).isNotEmpty()) h.append(" (zakres odniesienia ${esc(rangeText(m))})")
-            h.append("</div>")
-            labChart(list, m)?.let { h.append(labChartSvg(it, m.name)) }
-            h.append("<div class=\"tbl\"><table><thead><tr><th>Data</th><th>Wynik</th><th>Ocena</th><th>Uwagi</th></tr></thead><tbody>")
-            list.forEach { l ->
+            h.append("</div><div class=\"lab-body\">")
+            labChart(list, m)?.let { h.append("<div class=\"lab-fig\">").append(labChartSvg(it, m.name)).append("</div>") }
+            val notes = list.any { it.note.isNotBlank() }
+            val rowsHtml = list.map { l ->
                 val f = labFlag(l, m)
-                h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td class=\"num\"><b>${lnum(l.value)}</b></td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td><td>${esc(l.note)}</td></tr>")
+                "<tr><td class=\"num\">${plDate(l.date)}</td><td class=\"num\"><b>${lnum(l.value)}</b></td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td>" + (if (notes) "<td>${esc(l.note)}</td>" else "") + "</tr>"
             }
-            h.append("</tbody></table></div>")
+            h.append("<div class=\"lab-tbl\">").append(printTable(listOf("Data", "Wynik", "Ocena") + (if (notes) listOf("Uwagi") else emptyList()), rowsHtml)).append("</div></div></div>")
         }
         if (singles.isNotEmpty()) {
             head()
             val coll = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("pl"))
             singles.sortWith { a, b -> if (a.second.date != b.second.date) b.second.date.compareTo(a.second.date) else coll.compare(a.first.name, b.first.name) }
-            h.append("<div class=\"rp-lab\">Pojedyncze wyniki</div><div class=\"tbl\"><table><thead><tr><th>Data</th><th>Parametr</th><th>Wynik</th><th>Zakres</th><th>Ocena</th></tr></thead><tbody>")
-            singles.forEach { (m, l) ->
+            h.append("<div class=\"rp-lab\">Pojedyncze wyniki</div>")
+            h.append(printTable(listOf("Data", "Parametr", "Wynik", "Zakres", "Ocena"), singles.map { (m, l) ->
                 val f = labFlag(l, m)
-                h.append("<tr><td class=\"num\">${plDate(l.date)}</td><td>${esc(m.name)}</td><td class=\"num\"><b>${lnum(l.value)}</b> ${esc(m.unit)}</td><td class=\"num\">${esc(rangeText(l, m).ifEmpty { "-" })}</td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td></tr>")
-            }
-            h.append("</tbody></table></div>")
+                "<tr><td class=\"num\">${plDate(l.date)}</td><td>${esc(m.name)}</td><td class=\"num\"><b>${lnum(l.value)}</b> ${esc(m.unit)}</td><td class=\"num\">${esc(rangeText(l, m).ifEmpty { "-" })}</td><td>${if (f.isNotEmpty()) "<b>$f</b>" else "w zakresie"}</td></tr>"
+            }))
         }
         return h.toString()
     }
