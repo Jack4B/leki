@@ -10,7 +10,10 @@ Nowa sekcja **Badania → Opisowe**: badania opisowe i obrazowe (USG, tomografia
 - **Tekst dla AI:** sekcja „Badania opisowe i obrazowe (opis słowny, bez obrazów)”: opis (do 3000 znaków na badanie) i wnioski, informacja o liczbie zdjęć (same zdjęcia nie trafiają do tekstu), nowy nagłówek w formacie odpowiedzi i zasada dla modelu: obrazów nie widzi, nie ocenia ich i nie stawia rozpoznań z samego opisu. Wiersze z numerem PESEL są z tekstu dla AI zawsze usuwane.
 - **Kopia zapasowa:** nowe pola (`studies`, `studyIds` i pigułki) zapisywane tylko przy wartościach niedomyślnych; stare kopie wczytują się bez zmian; uszkodzone wpisy i zdjęcia są odrzucane. Zdjęcia są w stanie osoby (w tym w zaszyfrowanych danych) z limitami: 8 na badanie, ok. 4,5 MB na osobę.
 - **Ograniczenia:** zdjęcia z badań nie są czyszczone z danych osobowych (nie dodawaj zdjęcia strony z imieniem i PESEL), nie ma plików DICOM, powiększania z przesuwaniem ani zamazywania; ukryty moduł Badania ukrywa te badania też w raportach.
-- Liczba testów `core`: 345 (nowy: `StudiesTest`).
+- **Wczytywanie kopii:** podgląd pokazuje liczbę badań opisowych i zdjęć w pliku (kopia z samymi badaniami nie wygląda jak pusta), a ostrzeżenie „Zastąp wszystkie dane” wymienia badania razem ze zdjęciami.
+- **Odczyt opisu z pliku:** PDF jest rozpoznawany po nagłówku „%PDF-”, rozszerzeniu i typie (selektor plików nie zawsze podaje typ), a plik, którego nie da się odczytać jako zdjęcie, jest jeszcze raz próbowany jako PDF (`Studies.looksLikePdf`). Odczyt wyników badań laboratoryjnych bez zmian.
+- Zrzuty ekranów (Paparazzi) zakładki Opisowe: z badaniami, pusta i na wąskim ekranie.
+- Liczba testów `core`: 347 (nowy: `StudiesTest`, 12 testów).
 
 ## 0.15.8-preview
 
