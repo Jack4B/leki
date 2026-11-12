@@ -28,6 +28,10 @@ Poza wynikami liczbowymi (Badania → Przegląd) i EKG z zegarka osoba ma badani
 
 `StudyText` (`core`): OCR zwraca wiersze z położeniem. `readingOrder` odtwarza kolejność czytania (pochylenie z mediany nachylenia lewego marginesu, rzędy), `joinRows` skleja wiersze w akapity (próg „krótkiego wiersza” 85% najdłuższego, odstęp większy niż 0,8 wysokości wiersza, nagłówek z dwukropkiem), `parse` odcina nagłówek placówki (przed wierszem z PESEL) i podpis (ostatnie 5 wierszy), wydziela „Wnioski” i odczytuje tytuł, rodzaj i datę z nagłówka. `reflow` robi to samo dla zwykłego tekstu (przycisk w edytorze). Heurystyki; ograniczenia: pełny wiersz kończący akapit kropką skleja się z następnym, a dwukolumnowe układy nie są obsługiwane.
 
+## Automatyczna korekta zdjęć (0.16.1)
+
+`PhotoFix` (`core`) liczy plan na małej kopii (256 px, skala szarości): próg Otsu oddziela ciemne kadry badania od jasnego tła (stół, kartka), kąt pochylenia wynika z dominującego kierunku krawędzi (gradient Sobela złożony modulo 90°, ważony siłą, ±12°, z jedną poprawką resztkową), ramka to zakres wierszy i kolumn z ciemnymi pikselami (≥10% maksimum) z marginesem 1,5%, a poziomy to 1. i 99. percentyl w ramce (wzmocnienie najwyżej 2×). Plan jest pusty, gdy nie ma tła do odcięcia: ramka mniejsza niż 6% albo większa niż 92% obrazu albo mniej niż 25% ciemnych pikseli w ramce (strona tekstu, obraz w całości ciemny). Android stosuje plan (`StudyImages.autoFix`: obrót macierzą z wypełnieniem kolorem tła, przycięcie, `ColorMatrix`). Ograniczenia: bez korekty perspektywy (pasek sfotografowany pod kątem lub zwinięty zostaje trapezem), ciemne elementy tła (krawędź stołu) wchodzą do ramki, jedno wspólne przycięcie dla całego paska (kadry nie są rozdzielane).
+
 ## Prywatność (najważniejsze)
 
 - Wynik z przychodni zwykle zawiera **imię, nazwisko i PESEL** (przykład: „Pacjent JAN TESTOWY PESEL 00000000000”). Aplikacja ich nie potrzebuje.

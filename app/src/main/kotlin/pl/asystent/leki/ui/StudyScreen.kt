@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,6 +122,8 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
     var conclusions by remember { mutableStateOf(initial?.conclusions.orEmpty()) }
     var images by remember { mutableStateOf(initial?.images.orEmpty()) }
     var busy by remember { mutableStateOf<String?>(null) }
+    // automatyczna korekta nowych zdjęć (przycięcie tła, wyprostowanie, kontrast); zapamiętana przy obrocie ekranu
+    var autoFix by rememberSaveable { mutableStateOf(true) }
     var viewId by remember { mutableStateOf("") }
     var pendingText by remember { mutableStateOf<ParsedStudyText?>(null) }
 
@@ -135,10 +138,10 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
 
     val addImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        busy = "Zmniejszam zdjęcie…"
+        busy = if (autoFix) "Przycinam i poprawiam zdjęcie…" else "Zmniejszam zdjęcie…"
         scope.launch {
             try {
-                val data = StudyImages.fromUri(ctx, uri)
+                val data = StudyImages.fromUri(ctx, uri, autoFix)
                 if (data == null) toast("Nie udało się odczytać zdjęcia albo jest za duże nawet po zmniejszeniu.")
                 else {
                     val all = store.state.value.studies.filter { it.id != id } + draft()
@@ -215,21 +218,38 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         Overline("Zdjęcia z badania (${images.size} z ${Studies.MAX_IMAGES})", Modifier.padding(top = 4.dp))
         if (images.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             images.forEach { im ->
-                val bmp = remember(im.id) { StudyImages.thumb(im.data, 320)?.asImageBitmap() }
+                val bmp = remember(im.data) { StudyImages.thumb(im.data, 320)?.asImageBitmap() }
                 Box(Modifier.size(96.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, pal.line, RoundedCornerShape(8.dp)).clickable(role = Role.Button) { viewId = im.id }) {
                     if (bmp != null) Image(bmp, im.caption.ifEmpty { "Zdjęcie z badania" }, Modifier.size(96.dp), contentScale = ContentScale.Crop)
                 }
             }
         }
+        ToggleChip("Automatycznie przytnij tło i wyprostuj nowe zdjęcia", autoFix) { autoFix = !autoFix }
         LekiButton("Dodaj zdjęcie z galerii", { addImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Image, enabled = busy == null && images.size < Studies.MAX_IMAGES)
         Hint("Zdjęcia są pomniejszane i zapisywane w aplikacji oraz w kopii zapasowej (do ${Studies.MAX_IMAGES} przy badaniu). Trafią do raportu dla lekarza, jeśli wybierzesz to badanie; do tekstu dla AI nie trafiają.")
         if (initial != null) LinkButton("Usuń to badanie", { deleteStudyWithUndo(store, initial, undo); onClose() }, danger = true)
     }
     images.firstOrNull { it.id == viewId }?.let { im ->
         FullScreenDialog("Zdjęcie z badania", { viewId = "" }) {
-            val big = remember(im.id) { StudyImages.thumb(im.data, 1600)?.asImageBitmap() }
+            val big = remember(im.data) { StudyImages.thumb(im.data, 1600)?.asImageBitmap() }
             if (big != null) Image(big, im.caption.ifEmpty { "Zdjęcie z badania" }, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
             LekiField("Podpis (opcjonalnie)", im.caption, { c -> images = images.map { if (it.id == im.id) it.copy(caption = c.take(Studies.MAX_CAPTION)) else it } }, placeholder = "np. pęcherzyk żółciowy")
+            LekiButton("Przytnij i wyprostuj automatycznie", {
+                busy = "Przycinam i poprawiam zdjęcie…"
+                scope.launch {
+                    try {
+                        val fixed = StudyImages.fixStored(im.data)
+                        if (fixed == null) toast("Nie znaleziono tła do przycięcia na tym zdjęciu.")
+                        else { images = images.map { if (it.id == im.id) it.copy(data = fixed) else it }; toast("Zdjęcie poprawione. „Anuluj” w edytorze cofa zmianę.") }
+                    } catch (e: OutOfMemoryError) {
+                        toast("Zdjęcie jest za duże dla pamięci telefonu.")
+                    } catch (e: Exception) {
+                        toast("Nie udało się poprawić zdjęcia.")
+                    } finally {
+                        busy = null
+                    }
+                }
+            }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Scan, enabled = busy == null)
             LinkButton("Usuń to zdjęcie", { images = images.filter { it.id != im.id }; viewId = "" }, danger = true)
         }
     }
