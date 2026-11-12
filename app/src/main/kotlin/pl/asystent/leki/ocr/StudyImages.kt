@@ -7,6 +7,7 @@ import android.net.Uri
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import pl.asystent.leki.Platform
 import pl.asystent.leki.core.Studies
 import java.io.ByteArrayOutputStream
 
@@ -51,17 +52,30 @@ object StudyImages {
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
     }.getOrNull()
 
-    /** Tekst ze zdjęcia lub PDF (do 6 stron), wiersz po wierszu; puste, gdy nic nie rozpoznano. Wyniku nie zapisuje: osoba sprawdza go przed zapisem. */
+    /** Czy plik to PDF: typ, nazwa i nagłówek (patrz [Studies.looksLikePdf]); selektor plików nie zawsze podaje typ. */
+    private suspend fun isPdf(ctx: Context, uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        val head = runCatching { ctx.contentResolver.openInputStream(uri)?.use { s -> ByteArray(5).let { b -> val n = s.read(b); if (n == 5) b else null } } }.getOrNull()
+        Studies.looksLikePdf(ctx.contentResolver.getType(uri), Platform.displayName(ctx, uri), head)
+    }
+
+    /**
+     * Tekst ze zdjęcia lub PDF (do 6 stron), wiersz po wierszu; puste, gdy nic nie rozpoznano. Wyniku nie zapisuje: osoba sprawdza go przed zapisem.
+     * Błąd odczytu PDF zgłasza [ScanImages.PdfException]. Plik, którego nie da się odczytać jako zdjęcie, jest jeszcze raz próbowany jako PDF (bez typu i rozszerzenia).
+     */
     suspend fun readText(ctx: Context, uri: Uri): String {
         val engine = OcrEngine()
         try {
-            val isPdf = ctx.contentResolver.getType(uri) == "application/pdf"
             val parts = ArrayList<String>()
-            if (isPdf) {
-                ScanImages.forEachPdfPage(ctx, uri, MAX_PDF_PAGES) { _, _, bmp -> parts.add(engine.recognizeBest(bmp).joinToString("\n") { it.text }) }
-            } else {
-                val bmp = ScanImages.load(ctx, uri) ?: return ""
-                try { parts.add(engine.recognizeBest(bmp).joinToString("\n") { it.text }) } finally { bmp.recycle() }
+            suspend fun pdf() { ScanImages.forEachPdfPage(ctx, uri, MAX_PDF_PAGES) { _, _, bmp -> parts.add(engine.recognizeBest(bmp).joinToString("\n") { it.text }) } }
+            if (isPdf(ctx, uri)) pdf()
+            else {
+                val bmp = ScanImages.load(ctx, uri)
+                if (bmp != null) {
+                    try { parts.add(engine.recognizeBest(bmp).joinToString("\n") { it.text }) } finally { bmp.recycle() }
+                } else {
+                    // to nie obraz: ostatnia próba jako PDF; „to nie PDF” nie jest tu błędem odczytu, tylko brakiem tekstu
+                    try { pdf() } catch (e: ScanImages.PdfException) { parts.clear() }
+                }
             }
             return parts.filter { it.isNotBlank() }.joinToString("\n\n")
         } finally {

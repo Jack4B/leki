@@ -73,6 +73,16 @@ object Studies {
         else -> null
     }
 
+    /**
+     * Czy wybrany plik to PDF: nagłówek „%PDF-” rozstrzyga (niezależnie od typu i nazwy, bo selektory plików często nie podają typu), potem typ obrazu oznacza zdjęcie,
+     * a dopiero potem typ `application/pdf` albo nazwa kończąca się na „.pdf”. [head]: pierwsze bajty pliku (może być null, gdy nie dało się ich odczytać).
+     */
+    fun looksLikePdf(mime: String?, name: String?, head: ByteArray?): Boolean = when {
+        head != null && head.size >= 5 && String(head, 0, 5, Charsets.ISO_8859_1) == "%PDF-" -> true
+        mime?.startsWith("image/", ignoreCase = true) == true -> false
+        else -> mime.equals("application/pdf", ignoreCase = true) || name?.trim()?.endsWith(".pdf", ignoreCase = true) == true
+    }
+
     /** Dopisek do podglądu wczytywanej kopii (liczba badań opisowych i obrazowych oraz zdjęć); pusty, gdy badań nie ma, żeby kopia z samymi badaniami nie wyglądała jak pusta. */
     fun importNote(studies: List<Study>): String {
         if (studies.isEmpty()) return ""

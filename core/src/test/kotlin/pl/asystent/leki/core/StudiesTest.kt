@@ -40,6 +40,16 @@ class StudiesTest {
         assertTrue(Studies.cannotAddImage(capped, null, 300_000)!!.contains("MB"), "łączny limit")
     }
 
+    @Test fun pdfIsRecognisedWithoutRelyingOnMimeType() {
+        val pdf = "%PDF-1.7".toByteArray(); val jpg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0)
+        assertTrue(Studies.looksLikePdf("application/pdf", "wynik", null))
+        assertTrue(Studies.looksLikePdf(null, "wynik.PDF", null), "samo rozszerzenie")
+        assertTrue(Studies.looksLikePdf("application/octet-stream", "plik", pdf), "nagłówek PDF, typ i nazwa nic nie mówią")
+        assertTrue(Studies.looksLikePdf("image/jpeg", "zdjecie.jpg", pdf), "nagłówek rozstrzyga")
+        assertFalse(Studies.looksLikePdf("image/jpeg", "wynik.pdf", jpg), "typ obrazu i nagłówek JPEG wygrywają z nazwą")
+        assertFalse(Studies.looksLikePdf(null, "zdjecie.jpg", jpg)); assertFalse(Studies.looksLikePdf(null, null, null)); assertFalse(Studies.looksLikePdf("text/plain", "notatka.txt", "abc".toByteArray()))
+    }
+
     @Test fun importPreviewMentionsStudiesAndImages() {
         assertEquals("", Studies.importNote(emptyList()))
         assertEquals(", badania opisowe i obrazowe: 1", Studies.importNote(listOf(study("a", 1))))
