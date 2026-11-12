@@ -40,6 +40,16 @@ class StudiesTest {
         assertTrue(Studies.cannotAddImage(capped, null, 300_000)!!.contains("MB"), "łączny limit")
     }
 
+    @Test fun importPreviewMentionsStudiesAndImages() {
+        assertEquals("", Studies.importNote(emptyList()))
+        assertEquals(", badania opisowe i obrazowe: 1", Studies.importNote(listOf(study("a", 1))))
+        assertEquals(", badania opisowe i obrazowe: 2, zdjęć: 3", Studies.importNote(listOf(study("a", 1, images = 2), study("b", 2, images = 1))))
+        // kopia z samymi badaniami (bez leków, pomiarów i wyników) ma w podglądzie co pokazać po wczytaniu
+        val only = Backup.parseAll(Backup.export(base.saveStudy(study("a", 1, images = 2)))).single()
+        assertTrue(only.meds.isEmpty() && only.bp.isEmpty() && only.labs.isEmpty())
+        assertEquals(", badania opisowe i obrazowe: 1, zdjęć: 2", Studies.importNote(only.studies))
+    }
+
     @Test fun identifiersAreStrippedFromTextForAi() {
         val t = "Pacjent JAN TESTOWY   PESEL 00000000000\nWątroba niepowiększona.\n\n\n\nNr 12345678901 skierowania\nWnioski: brak."
         assertEquals("Wątroba niepowiększona.\n\nWnioski: brak.", Studies.stripIdentifiers(t))

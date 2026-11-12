@@ -35,6 +35,7 @@ import pl.asystent.leki.core.Backup
 import pl.asystent.leki.core.BackupCrypto
 import pl.asystent.leki.core.Cykl
 import pl.asystent.leki.core.applyLabsMerge
+import pl.asystent.leki.core.Studies
 import pl.asystent.leki.core.plN
 import pl.asystent.leki.core.previewLabsMerge
 import java.time.LocalDate
@@ -110,7 +111,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                     BodyText("W pliku:")
                     p.all.forEach { a ->
-                        BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${cyklNote(a)}")
+                        BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${Studies.importNote(a.studies)}${cyklNote(a)}")
                     }
                     // świeża aplikacja bez żadnych danych: zwykłe wczytanie, bez wyboru
                     val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.studies.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty && s.events.isEmpty() && s.patient.isBlank() && s.rules.isBlank()
@@ -121,7 +122,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
                         val here = store.profiles.value
                         val room = Backup.MAX_PROFILES - here.size
                         val known = here.map { it.name.trim().lowercase() }.toSet()
-                        BodyText("„Dodaj osoby z pliku” niczego nie usuwa: osoby z kopii pojawią się obok obecnych, a ich przypomnienia o lekach zaczną działać na tym telefonie. „Zastąp wszystkie dane” usuwa z tego telefonu: ${here.joinToString(", ") { it.name }} (wszystkie leki, pomiary, wyniki${if (store.allStates().any { (Cykl.summary(it.second.cykl.db)?.entries ?: 0) > 0 }) " i dzienniki cyklu" else ""}), a potem wczytuje kopię. Cofnąć można tylko od razu, przyciskiem „Cofnij”. Aby najpierw zrobić kopię, wybierz Anuluj i użyj Ustawienia → Kopie zapasowe i dane.")
+                        BodyText("„Dodaj osoby z pliku” niczego nie usuwa: osoby z kopii pojawią się obok obecnych, a ich przypomnienia o lekach zaczną działać na tym telefonie. „Zastąp wszystkie dane” usuwa z tego telefonu: ${here.joinToString(", ") { it.name }} (wszystkie leki, pomiary, wyniki${if (store.allStates().any { it.second.studies.isNotEmpty() }) ", badania opisowe i obrazowe razem ze zdjęciami" else ""}${if (store.allStates().any { (Cykl.summary(it.second.cykl.db)?.entries ?: 0) > 0 }) " i dzienniki cyklu" else ""}), a potem wczytuje kopię. Cofnąć można tylko od razu, przyciskiem „Cofnij”. Aby najpierw zrobić kopię, wybierz Anuluj i użyj Ustawienia → Kopie zapasowe i dane.")
                         if (p.all.all { it.patient.trim().lowercase() in known }) Hint("Wszystkie te osoby już są na tym telefonie. „Dodaj” utworzy duplikaty z dopiskiem „(z pliku)”. Aby odtworzyć dane z kopii, użyj „Zastąp”.")
                         else if (p.all.any { it.patient.trim().lowercase() in known }) Hint("Co najmniej jedno imię z pliku jest już na telefonie: taka osoba zostanie dodana z dopiskiem „(z pliku)”.")
                         if (room < p.all.size) Hint("Limit osób to ${Backup.MAX_PROFILES}. Na tym telefonie zostało miejsce dla: $room, a w pliku jest osób: ${p.all.size}. Usuń osobę (Ustawienia → Osoby) albo zastąp dane.")
