@@ -50,6 +50,13 @@ li{margin-bottom:6px;break-inside:avoid}
 .lab-tbl{flex:1 1 230px;min-width:0}
 .lab-tbl .tbl table{font-size:12px}
 .ecg-e{break-inside:avoid;margin-bottom:8px}
+.study{margin:0 0 12px;break-inside:avoid}
+.study h4{break-after:avoid}
+.study p{margin:3px 0 7px;line-height:1.5}
+.imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.imgs figure{margin:0;break-inside:avoid;width:44mm}
+.imgs img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:3px}
+.imgs figcaption{font-size:10.5px;color:var(--ink-3);margin-top:1px}
 .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--ink-2);margin-bottom:6px;break-after:avoid}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:10px;height:10px;border-radius:50%;display:inline-block}
@@ -249,6 +256,13 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
             Cykl.briefLines(b).forEach { h.append("<li>${esc(it)}</li>") }
             h.append("</ul>")
         }
+        if (P.studies) {
+            val pick = StudySelection.forReport(s, per, P.studyIds)
+            if (pick.chosen.isNotEmpty()) {
+                h.append(studiesHtml(pick.chosen.reversed()))
+                if (P.studyIds == null && pick.inPeriod > pick.chosen.size) h.append("<p class=\"muted\">Pokazano ${pick.chosen.size} najnowszych z ${pick.inPeriod} badań z tego okresu.</p>")
+            } else if (s.studies.isNotEmpty()) h.append("<h3>Badania opisowe i obrazowe</h3><p class=\"muted\">" + (if (P.studyIds != null) "Nie wybrano badań do raportu." else "Brak badań opisowych i obrazowych w wybranym okresie.") + "</p>")
+        }
         if (P.ecg) {
             val pick = EcgSelection.forReport(s, per, P.ecgIds, EcgSelection.AUTO_DOCTOR)
             if (pick.chosen.isNotEmpty()) {
@@ -289,6 +303,30 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
     }
 
     private const val KEEP_ROWS = 8
+
+    /** Badania opisowe i obrazowe: opis i wnioski tak, jak je wpisała lub wczytała osoba (aplikacja niczego nie interpretuje), zdjęcia jako miniatury w rzędzie. */
+    private fun studiesHtml(list: List<Study>): String {
+        val h = StringBuilder("<h3>Badania opisowe i obrazowe</h3>")
+        h.append("<p class=\"muted\" style=\"margin:0 0 6px\">Opisy wpisała lub wczytała ze zdjęcia wyniku osoba, której dotyczy raport; aplikacja ich nie sprawdza ani nie interpretuje, a zdjęcia są pomniejszone (nie nadają się do oceny diagnostycznej).</p>")
+        // puste wiersze oddzielają akapity, pojedynczy znak nowego wiersza to łamanie w akapicie
+        fun paras(s: String, lead: String = "") = s.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
+            .mapIndexed { i, para -> "<p>" + (if (i == 0) lead else "") + esc(para).replace("\n", "<br>") + "</p>" }.joinToString("")
+        for (st in list) {
+            h.append("<div class=\"study\"><h4>${plDate(st.date)}, ${esc(st.title)}")
+            if (st.kind != StudyKind.Other && !st.title.contains(st.kind.label, ignoreCase = true)) h.append(" (${esc(st.kind.label)})")
+            h.append("</h4>")
+            if (st.place.isNotEmpty()) h.append("<p class=\"muted\" style=\"margin:0 0 4px\">${esc(st.place)}</p>")
+            if (st.description.isNotEmpty()) h.append(paras(st.description))
+            if (st.conclusions.isNotEmpty()) h.append(paras(st.conclusions, "<b>Wnioski:</b> "))
+            if (st.images.isNotEmpty()) {
+                h.append("<div class=\"imgs\">")
+                st.images.forEach { im -> h.append("<figure><img src=\"data:image/jpeg;base64,${im.data}\" alt=\"${esc(im.caption.ifEmpty { st.title })}\">${if (im.caption.isNotEmpty()) "<figcaption>${esc(im.caption)}</figcaption>" else ""}</figure>") }
+                h.append("</div>")
+            }
+            h.append("</div>")
+        }
+        return h.toString()
+    }
 
     private fun labsHtml(s: AppState, per: Period, onlyPeriod: Boolean): String {
         val h = StringBuilder()

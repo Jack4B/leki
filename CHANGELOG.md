@@ -1,5 +1,33 @@
 # Zmiany
 
+## 0.16.1-preview
+
+Poprawa formatowania opisu badania wczytanego ze zdjęcia lub PDF i jego wyglądu w raporcie dla lekarza. Powód: tekst z odczytu (OCR) miał twarde łamania wierszy w środku zdań, a przy lekko pochylonym zdjęciu wiersze były pomieszane (nagłówek przychodni, data, „Wnioski” i końcówki akapitów lądowały w środku opisu).
+
+- **Kolejność czytania:** wiersze z odczytu są układane od nowa z położenia na zdjęciu. Pochylenie wynika z lewego marginesu (mediana nachylenia), wiersze są prostowane o ten kąt, układane od góry i grupowane w rzędy (adres placówki i data obok siebie). Test z pochylonymi o 3,5°, −3° i 5° stronami i losowo pomieszaną kolejnością (`StudyTextTest`).
+- **Akapity zamiast łamania wierszy:** wiersze jednego akapitu są sklejane (przeniesione „korowo-” + „rdzeniowym” zostaje z łącznikiem); nowy akapit zaczyna się po krótkim wierszu kończącym zdanie, po wyraźnym odstępie i po nagłówku z dwukropkiem.
+- **Wnioski w osobnym polu:** akapit zaczynający się od „Wnioski” trafia do pola „Wnioski”; w raporcie dla lekarza jest jako „Wnioski: …”.
+- **Bez nagłówka i podpisu:** z wczytanego tekstu znikają nagłówek placówki (wszystko przed wierszem z numerem PESEL) oraz podpis i pieczątka lekarza na końcu; z nagłówka odczytywane są tytuł (np. „Badanie ultrasonograficzne”), rodzaj i data badania, wpisywane tylko do nowego, jeszcze nienazwanego badania. Wszystko heurystyczne: tekst trzeba sprawdzić przed zapisem (OCR myli też znaki, zwłaszcza przy słabym świetle).
+- **„Uporządkuj podział wierszy w opisie i wnioskach”:** przycisk w edytorze poprawia opisy zapisane wcześniej (złącza wiersze w akapity, ten sam algorytm dla zwykłego tekstu).
+- **Raport dla lekarza:** opis i wnioski są akapitami (`<p>`), puste wiersze rozdzielają akapity, pojedyncze łamanie to `<br>`; tekst ma lekko zwiększony odstęp między wierszami.
+- **Automatyczne przycinanie i poprawa zdjęć badań:** nowe zdjęcia (np. pasek USG sfotografowany na stole) są domyślnie poprawiane przed zapisem, żeby zostało samo badanie: aplikacja znajduje ciemne kadry na jasnym tle (próg Otsu), **wyprostowuje zdjęcie** (kąt z dominującego kierunku krawędzi, do ±12°), **przycina do kadrów** z niewielkim marginesem i **rozciąga kontrast** (1.–99. percentyl, wzmocnienie najwyżej 2×). Zdjęcie bez tła do odcięcia (strona tekstu, obraz w całości ciemny lub jasny) zostaje bez zmian. Przełącznik „Automatycznie przytnij tło i wyprostuj nowe zdjęcia” (domyślnie włączony) jest nad przyciskiem dodawania zdjęcia, a w podglądzie zapisanego zdjęcia jest przycisk **„Przytnij i wyprostuj automatycznie”** (zmianę cofa „Anuluj” w edytorze). Logika w `core/.../PhotoFix.kt` (testy na syntetycznych obrazach), na telefonie tylko obrót, przycięcie i filtr kolorów.
+- Zmiana w `core` (`StudyText.kt`, `PhotoFix.kt`) z testami, w `app` tylko wywołania (`StudyImages`, edytor). Liczba testów `core`: 362.
+
+## 0.16.0-preview
+
+Nowa sekcja **Badania → Opisowe**: badania opisowe i obrazowe (USG, tomografia, rezonans, RTG, endoskopia, echo serca i inne) z opisem, wnioskami i zdjęciami, z wyborem do raportu dla lekarza i do tekstu dla AI. Konspekt i decyzje: `docs/plan-badania-opisowe.md`.
+
+- **Badania → Opisowe:** lista badań (miniatura, data, rodzaj, liczba zdjęć, przyciski **„Edytuj”** i **„Usuń”** przy każdym badaniu; dotknięcie badania też otwiera edycję) i edytor: rodzaj, data, tytuł, miejsce, opis, wnioski, do 8 zdjęć z galerii (pomniejszone na telefonie do 1280 px, JPEG do ok. 260 KB, podgląd, podpis, usuwanie). „Wczytaj opis ze zdjęcia lub PDF” odczytuje tekst wyniku na telefonie (OCR, do 6 stron PDF, bez sieci); wiersze z numerem PESEL (zwykle razem z imieniem i nazwiskiem) są z niego usuwane, a resztę sprawdzasz przed zapisem. Usunięcie badania (z listy albo z edytora, „Usuń to badanie”) ma „Cofnij” (przywraca też wybór do raportów). W edytorze można zmienić wszystkie pola, dodawać i usuwać zdjęcia oraz zmieniać ich podpisy.
+- **Wybór do raportów:** Raport → „Dla lekarza” i „Dla AI”: pigułka **„Badania opisowe i obrazowe”** (domyślnie wyłączona, widoczna, gdy są badania) i lista z polami wyboru. Bez wyboru do raportu trafia do 5 najnowszych badań z okresu; po zaznaczeniu tylko zaznaczone, **niezależnie od daty** (takie badania są rzadkie). Wybór jest wspólny dla obu raportów. „Przygotuj na wizytę” włącza sekcję, jeśli są badania.
+- **Raport dla lekarza:** sekcja „Badania opisowe i obrazowe”: opis i wnioski tak, jak je wpisano, zdjęcia jako miniatury w rzędzie (44 mm), z adnotacją, że to opisy osoby, a zdjęcia są pomniejszone i nie służą do oceny diagnostycznej. Wydruk nie rozrywa badania (nagłówek, opis i zdjęcia zostają razem).
+- **Tekst dla AI:** sekcja „Badania opisowe i obrazowe (opis słowny, bez obrazów)”: opis (do 3000 znaków na badanie) i wnioski, informacja o liczbie zdjęć (same zdjęcia nie trafiają do tekstu), nowy nagłówek w formacie odpowiedzi i zasada dla modelu: obrazów nie widzi, nie ocenia ich i nie stawia rozpoznań z samego opisu. Wiersze z numerem PESEL są z tekstu dla AI zawsze usuwane.
+- **Kopia zapasowa:** nowe pola (`studies`, `studyIds` i pigułki) zapisywane tylko przy wartościach niedomyślnych; stare kopie wczytują się bez zmian; uszkodzone wpisy i zdjęcia są odrzucane. Zdjęcia są w stanie osoby (w tym w zaszyfrowanych danych) z limitami: 8 na badanie, ok. 4,5 MB na osobę.
+- **Ograniczenia:** zdjęcia z badań nie są czyszczone z danych osobowych (nie dodawaj zdjęcia strony z imieniem i PESEL), nie ma plików DICOM, powiększania z przesuwaniem ani zamazywania; ukryty moduł Badania ukrywa te badania też w raportach.
+- **Wczytywanie kopii:** podgląd pokazuje liczbę badań opisowych i zdjęć w pliku (kopia z samymi badaniami nie wygląda jak pusta), a ostrzeżenie „Zastąp wszystkie dane” wymienia badania razem ze zdjęciami.
+- **Odczyt opisu z pliku:** PDF jest rozpoznawany po nagłówku „%PDF-”, rozszerzeniu i typie (selektor plików nie zawsze podaje typ), a plik, którego nie da się odczytać jako zdjęcie, jest jeszcze raz próbowany jako PDF (`Studies.looksLikePdf`). Odczyt wyników badań laboratoryjnych bez zmian.
+- Zrzuty ekranów (Paparazzi) zakładki Opisowe: z badaniami, pusta i na wąskim ekranie.
+- Liczba testów `core`: 347 (nowy: `StudiesTest`, 12 testów).
+
 ## 0.15.8-preview
 
 Nowy układ wydruku raportu dla lekarza: bez luk, bez pojedynczych wierszy na stronie i z czytelniejszymi wykresami ciśnienia. Układ sprawdzony na przykładowych (zmyślonych) danych w wydruku do PDF z Chromium (7, 30, 90 i 180 dni, 4–8 stron zamiast 6–9).
