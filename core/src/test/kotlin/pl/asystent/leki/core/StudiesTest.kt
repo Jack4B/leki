@@ -53,11 +53,14 @@ class StudiesTest {
     @Test fun importPreviewMentionsStudiesAndImages() {
         assertEquals("", Studies.importNote(emptyList()))
         assertEquals(", badania opisowe i obrazowe: 1", Studies.importNote(listOf(study("a", 1))))
-        assertEquals(", badania opisowe i obrazowe: 2, zdjęć: 3", Studies.importNote(listOf(study("a", 1, images = 2), study("b", 2, images = 1))))
+        assertEquals(", badania opisowe i obrazowe: 2, 3 zdjęcia", Studies.importNote(listOf(study("a", 1, images = 2), study("b", 2, images = 1))))
+        assertEquals(", badania opisowe i obrazowe: 1, 1 zdjęcie", Studies.importNote(listOf(study("a", 1, images = 1))))
+        assertEquals(", badania opisowe i obrazowe: 1, 5 zdjęć", Studies.importNote(listOf(study("a", 1, images = 5))))
+        assertEquals(", badania opisowe i obrazowe: 1, 12 zdjęć", Studies.importNote(listOf(study("a", 1, images = 12))))
         // kopia z samymi badaniami (bez leków, pomiarów i wyników) ma w podglądzie co pokazać po wczytaniu
         val only = Backup.parseAll(Backup.export(base.saveStudy(study("a", 1, images = 2)))).single()
         assertTrue(only.meds.isEmpty() && only.bp.isEmpty() && only.labs.isEmpty())
-        assertEquals(", badania opisowe i obrazowe: 1, zdjęć: 2", Studies.importNote(only.studies))
+        assertEquals(", badania opisowe i obrazowe: 1, 2 zdjęcia", Studies.importNote(only.studies))
     }
 
     @Test fun identifiersAreStrippedFromTextForAi() {

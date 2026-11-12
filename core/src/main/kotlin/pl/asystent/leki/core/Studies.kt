@@ -87,7 +87,7 @@ object Studies {
     fun importNote(studies: List<Study>): String {
         if (studies.isEmpty()) return ""
         val images = studies.sumOf { it.images.size }
-        return ", badania opisowe i obrazowe: ${studies.size}" + if (images > 0) ", zdjęć: $images" else ""
+        return ", badania opisowe i obrazowe: ${studies.size}" + if (images > 0) ", $images ${plN(images, "zdjęcie", "zdjęcia", "zdjęć")}" else ""
     }
 
     private val PESEL_LINE = Regex("""(?i)pesel|(?<!\d)\d{11}(?!\d)""")
