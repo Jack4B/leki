@@ -56,7 +56,7 @@ import pl.asystent.leki.ocr.StudyImages
 import java.time.LocalDate
 
 /** Lista badań opisowych i obrazowych w zakładce Badania. */
-fun LazyListScope.studiesSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit) {
+fun LazyListScope.studiesSection(s: AppState, onAdd: () -> Unit, onOpen: (String) -> Unit, onDelete: (String) -> Unit) {
     item {
         Column(Modifier.padding(top = 14.dp)) {
             BodyText("Badania opisowe i obrazowe: USG, tomografia, rezonans, RTG i inne. Wpisz opis i wnioski albo wczytaj je ze zdjęcia lub PDF wyniku, dołącz zdjęcia z badania (pomniejszone). Które badania trafią do raportu dla lekarza i do tekstu dla AI, wybierzesz w zakładce Raport.")
@@ -67,7 +67,7 @@ fun LazyListScope.studiesSection(s: AppState, onAdd: () -> Unit, onOpen: (String
     if (list.isEmpty()) item { EmptyBox("Brak badań opisowych i obrazowych.", Modifier.padding(top = 16.dp)) }
     else item {
         Column(Modifier.padding(top = 16.dp)) {
-            LekiCard { list.forEachIndexed { i, st -> if (i > 0) Divider(); StudyRow(st) { onOpen(st.id) } } }
+            LekiCard { list.forEachIndexed { i, st -> if (i > 0) Divider(); StudyRow(st, { onOpen(st.id) }, { onDelete(st.id) }) } }
             val kb = Studies.imageChars(s.studies) * 3 / 4 / 1024
             if (kb > 0) Hint("Zdjęcia badań zajmują ok. ${if (kb >= 1024) "%.1f".format(java.util.Locale.forLanguageTag("pl"), kb / 1024.0) + " MB" else "$kb KB"} z ${Studies.MAX_TOTAL_CHARS * 3 / 4 / 1024 / 1024} MB dostępnych na osobę.", Modifier.padding(top = 6.dp))
         }
@@ -75,8 +75,8 @@ fun LazyListScope.studiesSection(s: AppState, onAdd: () -> Unit, onOpen: (String
 }
 
 @Composable
-private fun StudyRow(st: Study, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun StudyRow(st: Study, onEdit: () -> Unit, onDelete: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onEdit).padding(14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         val first = remember(st.images.firstOrNull()?.data) { st.images.firstOrNull()?.let { StudyImages.thumb(it.data, 160)?.asImageBitmap() } }
         if (first != null) Image(first, null, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
         else Box(Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, pal.line, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) { PhIcon(Ph.FileText, size = 22.dp) }
@@ -87,9 +87,19 @@ private fun StudyRow(st: Study, onClick: () -> Unit) {
                 style = TextStyle(fontSize = 12.5.sp, color = pal.ink3), modifier = Modifier.padding(top = 2.dp),
             )
             if (st.conclusions.isNotEmpty()) Text(st.conclusions.lines().first().take(90), style = TextStyle(fontSize = 13.sp, color = pal.ink2), maxLines = 2, modifier = Modifier.padding(top = 2.dp))
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LekiButton("Edytuj", onEdit, small = true, tonal = true)
+                LekiButton("Usuń", onDelete, small = true, danger = true)
+            }
         }
-        PhIcon(Ph.CaretRight, size = 16.dp)
     }
+}
+
+/** Usuwa badanie razem ze zdjęciami i z wyboru do raportów oraz pokazuje „Cofnij”, które przywraca badanie i ten wybór. */
+internal fun deleteStudyWithUndo(store: Store, st: Study, undo: (String, () -> Unit) -> Unit) {
+    val wasPicked = store.state.value.settings.rp.studyIds?.contains(st.id) == true
+    store.update { it.deleteStudy(st.id) }
+    undo("Usunięto badanie: ${st.title}") { store.update { s2 -> s2.restoreStudy(st, wasPicked) } }
 }
 
 /** Edytor badania: rodzaj, data, tytuł, miejsce, opis, wnioski i zdjęcia; opis można wczytać ze zdjęcia lub PDF wyniku (numery PESEL są usuwane, resztę sprawdza osoba). */
@@ -201,12 +211,7 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         }
         LekiButton("Dodaj zdjęcie z galerii", { addImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Image, enabled = busy == null && images.size < Studies.MAX_IMAGES)
         Hint("Zdjęcia są pomniejszane i zapisywane w aplikacji oraz w kopii zapasowej (do ${Studies.MAX_IMAGES} przy badaniu). Trafią do raportu dla lekarza, jeśli wybierzesz to badanie; do tekstu dla AI nie trafiają.")
-        if (initial != null) LinkButton("Usuń to badanie", {
-            val wasPicked = store.state.value.settings.rp.studyIds?.contains(initial.id) == true
-            store.update { it.deleteStudy(initial.id) }
-            undo("Usunięto badanie: ${initial.title}") { store.update { st -> st.restoreStudy(initial, wasPicked) } }
-            onClose()
-        }, danger = true)
+        if (initial != null) LinkButton("Usuń to badanie", { deleteStudyWithUndo(store, initial, undo); onClose() }, danger = true)
     }
     images.firstOrNull { it.id == viewId }?.let { im ->
         FullScreenDialog("Zdjęcie z badania", { viewId = "" }) {

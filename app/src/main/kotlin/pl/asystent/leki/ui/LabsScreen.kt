@@ -103,7 +103,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 }
                 SegRow(listOf("Przegląd", "Mapa", "Daty", "EKG", "Opisowe"), mode, { mode = it })
             }
-            if (mode == 4) studiesSection(s, onAdd = { studyNew = true }, onOpen = { studyOpenId = it })
+            if (mode == 4) studiesSection(s, onAdd = { studyNew = true }, onOpen = { studyOpenId = it }, onDelete = { id -> s.study(id)?.let { deleteStudyWithUndo(store, it, undo) } })
             else if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { id -> s.ecg(id)?.let { e -> store.update { it.deleteEcg(id) }; undo("Usunięto EKG z ${plDate(e.date)}") { store.update { it.saveEcg(e) } } } })
             else if (mode == 2) labsByDate(s, labHist, today) { openLab(it, it.marker) }
             else if (mode == 1) item { LabMap(s, ui) { openId = it } }
