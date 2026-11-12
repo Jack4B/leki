@@ -24,6 +24,10 @@ Poza wynikami liczbowymi (Badania → Przegląd) i EKG z zegarka osoba ma badani
 6. **Raport dla AI: tylko tekst.** Opis (do 3000 znaków na badanie) i wnioski, bez zdjęć, z informacją „Pacjent ma N zdjęć, nie ma ich w tym tekście”. Polecenie mówi modelowi, że obrazów nie widzi i nie ma ich oceniać ani stawiać rozpoznań z samego opisu.
 7. **Ukryty moduł Badania ukrywa też te badania w raportach** (`labsOn`), jak EKG.
 
+## Porządkowanie tekstu z odczytu (0.16.1)
+
+`StudyText` (`core`): OCR zwraca wiersze z położeniem. `readingOrder` odtwarza kolejność czytania (pochylenie z mediany nachylenia lewego marginesu, rzędy), `joinRows` skleja wiersze w akapity (próg „krótkiego wiersza” 85% najdłuższego, odstęp większy niż 0,8 wysokości wiersza, nagłówek z dwukropkiem), `parse` odcina nagłówek placówki (przed wierszem z PESEL) i podpis (ostatnie 5 wierszy), wydziela „Wnioski” i odczytuje tytuł, rodzaj i datę z nagłówka. `reflow` robi to samo dla zwykłego tekstu (przycisk w edytorze). Heurystyki; ograniczenia: pełny wiersz kończący akapit kropką skleja się z następnym, a dwukolumnowe układy nie są obsługiwane.
+
 ## Prywatność (najważniejsze)
 
 - Wynik z przychodni zwykle zawiera **imię, nazwisko i PESEL** (przykład: „Pacjent JAN TESTOWY PESEL 00000000000”). Aplikacja ich nie potrzebuje.

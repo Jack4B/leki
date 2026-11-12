@@ -92,6 +92,9 @@ object Studies {
 
     private val PESEL_LINE = Regex("""(?i)pesel|(?<!\d)\d{11}(?!\d)""")
 
+    /** Czy wiersz zawiera numer PESEL (słowo „PESEL” lub 11 cyfr z rzędu). */
+    fun hasIdentifier(line: String): Boolean = PESEL_LINE.containsMatchIn(line)
+
     /**
      * Usuwa z tekstu wczytanego z wyniku wiersze z numerem PESEL (słowo „PESEL” lub 11 cyfr z rzędu); w takim wierszu zwykle jest też imię i nazwisko. Numer PESEL i imię nie
      * są potrzebne w aplikacji ani w raporcie dla AI. To zabezpieczenie dodatkowe: przed zapisem osoba i tak sprawdza tekst.

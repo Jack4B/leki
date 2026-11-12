@@ -41,7 +41,9 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import pl.asystent.leki.Store
 import pl.asystent.leki.core.AppState
+import pl.asystent.leki.core.ParsedStudyText
 import pl.asystent.leki.core.Studies
+import pl.asystent.leki.core.StudyText
 import pl.asystent.leki.core.Study
 import pl.asystent.leki.core.StudyImage
 import pl.asystent.leki.core.StudyKind
@@ -120,9 +122,16 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
     var images by remember { mutableStateOf(initial?.images.orEmpty()) }
     var busy by remember { mutableStateOf<String?>(null) }
     var viewId by remember { mutableStateOf("") }
-    var pendingText by remember { mutableStateOf<String?>(null) }
+    var pendingText by remember { mutableStateOf<ParsedStudyText?>(null) }
 
     fun draft() = Study(id, date, kind, title, place, description, conclusions, images)
+
+    /** Wpisuje wczytany tekst: opis i wnioski w akapitach; tytuł, rodzaj i datę z nagłówka tylko do nowego, jeszcze nienazwanego badania. */
+    fun applyParsed(p: ParsedStudyText) {
+        description = p.description.take(Studies.MAX_DESCRIPTION)
+        if (p.conclusions.isNotBlank()) conclusions = p.conclusions.take(Studies.MAX_CONCLUSIONS)
+        if (title.isBlank()) { if (p.title.isNotBlank()) title = p.title.take(Studies.MAX_TITLE); p.kind?.let { kind = it }; p.date?.let { date = it } }
+    }
 
     val addImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -150,10 +159,10 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         busy = "Odczytuję tekst… Nic nie jest wysyłane."
         scope.launch {
             try {
-                val text = Studies.stripIdentifiers(StudyImages.readText(ctx, uri))
-                if (text.isBlank()) toast("Nie rozpoznano tekstu. Spróbuj zdjęcia z lepszym światłem albo wpisz opis ręcznie.")
-                else if (description.isBlank()) { description = text.take(Studies.MAX_DESCRIPTION); toast("Wczytano opis. Sprawdź go przed zapisem.") }
-                else pendingText = text
+                val parsed = StudyText.parse(StudyImages.readPages(ctx, uri))
+                if (parsed.isEmpty) toast("Nie rozpoznano tekstu. Spróbuj zdjęcia z lepszym światłem albo wpisz opis ręcznie.")
+                else if (description.isBlank()) { applyParsed(parsed); toast("Wczytano opis. Sprawdź go przed zapisem (zwłaszcza polskie znaki i liczby).") }
+                else pendingText = parsed
             } catch (e: pl.asystent.leki.ocr.ScanImages.PdfException) {
                 toast(e.message ?: "Nie można otworzyć PDF.")
             } catch (e: OutOfMemoryError) {
@@ -198,6 +207,9 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
             LekiButton("Wczytaj opis ze zdjęcia lub PDF", { readText.launch(arrayOf("image/*", "application/pdf")) }, Modifier.weight(1f), tonal = true, icon = Ph.Scan, enabled = busy == null)
         }
         LekiField("Opis badania", description, { description = it.take(Studies.MAX_DESCRIPTION) }, singleLine = false, minLines = 6, placeholder = "Opis z wyniku badania")
+        if (description.contains('\n') || conclusions.contains('\n')) LinkButton("Uporządkuj podział wierszy w opisie i wnioskach", {
+            description = StudyText.reflow(description); conclusions = StudyText.reflow(conclusions); toast("Wiersze złączono w akapity. Sprawdź tekst.")
+        })
         LekiField("Wnioski", conclusions, { conclusions = it.take(Studies.MAX_CONCLUSIONS) }, singleLine = false, minLines = 2, placeholder = "Wnioski z wyniku badania")
         Hint("Z wczytanego tekstu aplikacja usuwa wiersze z numerem PESEL (zwykle z imieniem i nazwiskiem). Sprawdź jednak tekst przed zapisem i nie dodawaj zdjęć strony z danymi osobowymi: zdjęcia z opisu nie są czyszczone.")
         Overline("Zdjęcia z badania (${images.size} z ${Studies.MAX_IMAGES})", Modifier.padding(top = 4.dp))
@@ -222,7 +234,7 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         }
     }
     pendingText?.let { t ->
-        ConfirmDialog("Zastąpić wpisany opis?", "W polu jest już opis (${description.length} znaków). Wczytany tekst ma ${t.length} znaków i go zastąpi.", "Zastąp",
-            onConfirm = { description = t.take(Studies.MAX_DESCRIPTION); pendingText = null }, onDismiss = { pendingText = null })
+        ConfirmDialog("Zastąpić wpisany opis?", "W polu jest już opis (${description.length} znaków). Wczytany tekst ma ${t.description.length + t.conclusions.length} znaków i zastąpi opis (wnioski też, jeśli je rozpoznano).", "Zastąp",
+            onConfirm = { applyParsed(t); pendingText = null }, onDismiss = { pendingText = null })
     }
 }

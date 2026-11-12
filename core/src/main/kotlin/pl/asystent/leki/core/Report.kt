@@ -52,7 +52,7 @@ li{margin-bottom:6px;break-inside:avoid}
 .ecg-e{break-inside:avoid;margin-bottom:8px}
 .study{margin:0 0 12px;break-inside:avoid}
 .study h4{break-after:avoid}
-.study p{margin:3px 0 6px}
+.study p{margin:3px 0 7px;line-height:1.5}
 .imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .imgs figure{margin:0;break-inside:avoid;width:44mm}
 .imgs img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:3px}
@@ -308,14 +308,16 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
     private fun studiesHtml(list: List<Study>): String {
         val h = StringBuilder("<h3>Badania opisowe i obrazowe</h3>")
         h.append("<p class=\"muted\" style=\"margin:0 0 6px\">Opisy wpisała lub wczytała ze zdjęcia wyniku osoba, której dotyczy raport; aplikacja ich nie sprawdza ani nie interpretuje, a zdjęcia są pomniejszone (nie nadają się do oceny diagnostycznej).</p>")
-        fun text(s: String) = esc(s).replace("\n", "<br>")
+        // puste wiersze oddzielają akapity, pojedynczy znak nowego wiersza to łamanie w akapicie
+        fun paras(s: String, lead: String = "") = s.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
+            .mapIndexed { i, para -> "<p>" + (if (i == 0) lead else "") + esc(para).replace("\n", "<br>") + "</p>" }.joinToString("")
         for (st in list) {
             h.append("<div class=\"study\"><h4>${plDate(st.date)}, ${esc(st.title)}")
             if (st.kind != StudyKind.Other && !st.title.contains(st.kind.label, ignoreCase = true)) h.append(" (${esc(st.kind.label)})")
             h.append("</h4>")
             if (st.place.isNotEmpty()) h.append("<p class=\"muted\" style=\"margin:0 0 4px\">${esc(st.place)}</p>")
-            if (st.description.isNotEmpty()) h.append("<p>${text(st.description)}</p>")
-            if (st.conclusions.isNotEmpty()) h.append("<p><b>Wnioski:</b> ${text(st.conclusions)}</p>")
+            if (st.description.isNotEmpty()) h.append(paras(st.description))
+            if (st.conclusions.isNotEmpty()) h.append(paras(st.conclusions, "<b>Wnioski:</b> "))
             if (st.images.isNotEmpty()) {
                 h.append("<div class=\"imgs\">")
                 st.images.forEach { im -> h.append("<figure><img src=\"data:image/jpeg;base64,${im.data}\" alt=\"${esc(im.caption.ifEmpty { st.title })}\">${if (im.caption.isNotEmpty()) "<figcaption>${esc(im.caption)}</figcaption>" else ""}</figure>") }

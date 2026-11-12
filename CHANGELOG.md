@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.16.1-preview
+
+Poprawa formatowania opisu badania wczytanego ze zdjęcia lub PDF i jego wyglądu w raporcie dla lekarza. Powód: tekst z odczytu (OCR) miał twarde łamania wierszy w środku zdań, a przy lekko pochylonym zdjęciu wiersze były pomieszane (nagłówek przychodni, data, „Wnioski” i końcówki akapitów lądowały w środku opisu).
+
+- **Kolejność czytania:** wiersze z odczytu są układane od nowa z położenia na zdjęciu. Pochylenie wynika z lewego marginesu (mediana nachylenia), wiersze są prostowane o ten kąt, układane od góry i grupowane w rzędy (adres placówki i data obok siebie). Test z pochylonymi o 3,5°, −3° i 5° stronami i losowo pomieszaną kolejnością (`StudyTextTest`).
+- **Akapity zamiast łamania wierszy:** wiersze jednego akapitu są sklejane (przeniesione „korowo-” + „rdzeniowym” zostaje z łącznikiem); nowy akapit zaczyna się po krótkim wierszu kończącym zdanie, po wyraźnym odstępie i po nagłówku z dwukropkiem.
+- **Wnioski w osobnym polu:** akapit zaczynający się od „Wnioski” trafia do pola „Wnioski”; w raporcie dla lekarza jest jako „Wnioski: …”.
+- **Bez nagłówka i podpisu:** z wczytanego tekstu znikają nagłówek placówki (wszystko przed wierszem z numerem PESEL) oraz podpis i pieczątka lekarza na końcu; z nagłówka odczytywane są tytuł (np. „Badanie ultrasonograficzne”), rodzaj i data badania, wpisywane tylko do nowego, jeszcze nienazwanego badania. Wszystko heurystyczne: tekst trzeba sprawdzić przed zapisem (OCR myli też znaki, zwłaszcza przy słabym świetle).
+- **„Uporządkuj podział wierszy w opisie i wnioskach”:** przycisk w edytorze poprawia opisy zapisane wcześniej (złącza wiersze w akapity, ten sam algorytm dla zwykłego tekstu).
+- **Raport dla lekarza:** opis i wnioski są akapitami (`<p>`), puste wiersze rozdzielają akapity, pojedyncze łamanie to `<br>`; tekst ma lekko zwiększony odstęp między wierszami.
+- Zmiana w `core` (`StudyText.kt`) z testami, w `app` tylko wywołanie (`StudyImages.readPages`, edytor). Liczba testów `core`: 357.
+
 ## 0.16.0-preview
 
 Nowa sekcja **Badania → Opisowe**: badania opisowe i obrazowe (USG, tomografia, rezonans, RTG, endoskopia, echo serca i inne) z opisem, wnioskami i zdjęciami, z wyborem do raportu dla lekarza i do tekstu dla AI. Konspekt i decyzje: `docs/plan-badania-opisowe.md`.
