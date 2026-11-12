@@ -74,6 +74,8 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     var scan by remember { mutableStateOf(false) }
     var ecgDraft by remember { mutableStateOf<pl.asystent.leki.core.Ecg?>(null) }
     var ecgOpenId by rememberSaveable { mutableStateOf("") }
+    var studyNew by remember { mutableStateOf(false) }
+    var studyOpenId by rememberSaveable { mutableStateOf("") }
     val ecgImport = rememberEcgImporter { ecgDraft = it }
     val ecgHist = rememberHistoryState()
     val labHist = rememberHistoryState()
@@ -94,18 +96,19 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
         if (open == null) {
             item {
                 Text("Badania", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 12.dp, bottom = 12.dp))
-                // przyciski dotyczą wyników badań; w zakładce EKG ma być jeden, własny przycisk dodawania
-                if (mode != 3) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+                // przyciski dotyczą wyników badań; w zakładkach EKG i Opisowe jest jeden, własny przycisk dodawania
+                if (mode < 3) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                     LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.4f), primary = true, icon = Ph.Scan)
                     LekiButton("Dodaj ręcznie", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, Modifier.weight(1f), tonal = true, icon = Ph.Plus)
                 }
-                SegRow(listOf("Przegląd", "Mapa", "Daty", "EKG"), mode, { mode = it })
+                SegRow(listOf("Przegląd", "Mapa", "Daty", "EKG", "Opisowe"), mode, { mode = it })
             }
-            if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { id -> s.ecg(id)?.let { e -> store.update { it.deleteEcg(id) }; undo("Usunięto EKG z ${plDate(e.date)}") { store.update { it.saveEcg(e) } } } })
+            if (mode == 4) studiesSection(s, onAdd = { studyNew = true }, onOpen = { studyOpenId = it })
+            else if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { id -> s.ecg(id)?.let { e -> store.update { it.deleteEcg(id) }; undo("Usunięto EKG z ${plDate(e.date)}") { store.update { it.saveEcg(e) } } } })
             else if (mode == 2) labsByDate(s, labHist, today) { openLab(it, it.marker) }
             else if (mode == 1) item { LabMap(s, ui) { openId = it } }
             else overview(s, model, ui, labDays, asOf?.toString().orEmpty(), today, showNone, { showNone = !showNone }, { openId = it }, { openLab(null, it) })
-            if (mode != 3) item {
+            if (mode < 3) item {
                 Column(Modifier.padding(top = 18.dp)) {
                     LinkButton("Parametry badań: nazwy, jednostki, zakresy ›", { markersOpen = true })
                     LinkButton("Dołącz wyniki z pliku (np. przygotowanego z Diagnostyki)", onImport)
@@ -179,6 +182,8 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     if (scan) ScanDialog(s, store, onClose = { scan = false })
     ecgDraft?.let { EcgEditor(it, true, store) { ecgDraft = null } }
     s.ecg(ecgOpenId)?.let { EcgEditor(it, false, store) { ecgOpenId = "" } }
+    if (studyNew) StudyEditor(null, store) { studyNew = false }
+    s.study(studyOpenId)?.let { StudyEditor(it, store) { studyOpenId = "" } }
     labEdit?.let { (lab, markerId) ->
         LabEditor(s, lab, markerId, onSave = { store.update { st -> st.saveLab(it) }; labEdit = null; toast("Zapisano wynik") },
             onDelete = { id ->

@@ -28,6 +28,7 @@ object AiReport {
         val c = s.settings
         val A = c.effectiveAi()
         val ecgs = if (A.ecg) EcgSelection.forReport(s, per, c.rp.ecgIds, EcgSelection.AUTO_AI).chosen.reversed() else emptyList()
+        val studies = if (A.studies) StudySelection.forReport(s, per, c.rp.studyIds).chosen.reversed() else emptyList()
         val L = ArrayList<String>()
         fun p(x: String = "") { L.add(x) }
         p("# Raport o lekach do analizy przez AI")
@@ -54,6 +55,7 @@ object AiReport {
         p("- To analiza pomocnicza. Nie zalecaj samodzielnego odstawiania leków ani zmiany dawek bez konsultacji z lekarzem.")
         p("- Jeśli wytyczne lub normy mogły się zmienić albo nie masz pewności, co jest aktualne, napisz to wprost i wskaż, co sprawdzić. Gdy zakres odniesienia podany przy wyniku różni się od zalecanego dla wieku pacjenta, zaznacz to.")
         p("- Jeśli brakuje danych potrzebnych do oceny (wiek, waga, funkcja nerek, leki bez recepty, suplementy, godziny posiłków), wypisz, o co zapytać pacjenta. Wiek, masę ciała, wzrost i BMI (gdy podane w sekcji Pacjent) uwzględniaj przy ocenie dawek, funkcji nerek (np. szacowany klirens kreatyniny, gdy jest kreatynina) i norm.")
+        if (studies.isNotEmpty()) p("- Opisy badań opisowych i obrazowych (USG, tomografia, rezonans i inne) to tekst z wyniku, wpisany lub wczytany przez pacjenta; obrazów nie widzisz i nie oceniaj ich. Uwzględnij opis i wnioski przy ocenie leków, dawek, wyników badań i funkcji narządów (np. wątroby, nerek), wskaż, co wymaga konsultacji, i nie stawiaj rozpoznań na podstawie samego opisu.")
         if (ecgs.isNotEmpty()) p("- EKG z zegarka to jedno odprowadzenie opracowane prostą heurystyką, a nie diagnoza. Nie oceniaj odstępu QT, odcinka ST ani niedokrwienia. Wskaż, kiedy potrzebne jest pełne EKG, zwłaszcza przy lekach wydłużających QT i zaburzeniach elektrolitów, i jakie badania laboratoryjne warto zlecić.")
         p()
         p("## Format odpowiedzi (ważne: aplikacja ostyluje Twoją odpowiedź w raporcie, więc trzymaj się tych reguł)")
@@ -67,6 +69,7 @@ object AiReport {
         p("- `## Pory dnia i harmonogram`")
         p("- `## Duplikaty i dawki`")
         p(if (ecgs.isEmpty()) "- `## Powiązania z wynikami`" else "- `## Powiązania z wynikami i EKG`")
+        if (studies.isNotEmpty()) p("- `## Badania opisowe i obrazowe`")
         p("- `## Systematyczność`")
         p("- `## Pytania do lekarza`")
         p()
@@ -188,6 +191,18 @@ object AiReport {
                 val rr = r.validRr
                 if (rr.isNotEmpty()) p("- Kolejne wiarygodne odstępy RR (ms): " + rr.take(60).joinToString(", ") { Math.round(it * 1000).toString() } + if (rr.size > 60) " (pierwsze 60 z ${rr.size})" else "")
                 if (e.note.isNotBlank()) p("- Notatka pacjenta: ${cell(e.note)}")
+            }
+        }
+        if (studies.isNotEmpty()) {
+            p(); p("## Badania opisowe i obrazowe (opis słowny, bez obrazów)"); p()
+            studies.forEach { st ->
+                p("### ${plDate(st.date)} ${cell(st.title)}" + if (st.kind != StudyKind.Other && !st.title.contains(st.kind.label, ignoreCase = true)) " (${st.kind.label})" else "")
+                p()
+                if (st.place.isNotEmpty()) p("- Miejsce: ${cell(st.place)}")
+                Studies.aiDescription(st).takeIf { it.isNotEmpty() }?.let { d -> p("- Opis: " + d.lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
+                st.conclusions.takeIf { it.isNotBlank() }?.let { c2 -> p("- Wnioski: " + Studies.stripIdentifiers(c2).lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
+                if (st.images.isNotEmpty()) p("- Pacjent ma ${st.images.size} ${plN(st.images.size, "zdjęcie", "zdjęcia", "zdjęć")} z tego badania; nie ma ich w tym tekście.")
+                p()
             }
         }
         if (A.cykl) Cykl.brief(s.cykl.db, today)?.let { b ->

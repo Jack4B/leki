@@ -113,7 +113,7 @@ fun rememberImporter(s: AppState, store: Store): () -> Unit {
                         BodyText("• ${a.patient.ifBlank { "Osoba bez imienia" }}: ${a.meds.size} ${plN(a.meds.size, "lek", "leki", "leków")}, ${a.bp.size} ${plN(a.bp.size, "pomiar", "pomiary", "pomiarów")} ciśnienia, ${a.labs.size} ${plN(a.labs.size, "wynik", "wyniki", "wyników")} badań${cyklNote(a)}")
                     }
                     // świeża aplikacja bez żadnych danych: zwykłe wczytanie, bez wyboru
-                    val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty && s.events.isEmpty() && s.patient.isBlank() && s.rules.isBlank()
+                    val emptyHere = store.allStates().size == 1 && s.meds.isEmpty() && s.bp.isEmpty() && s.labs.isEmpty() && s.days.isEmpty() && s.ecgs.isEmpty() && s.studies.isEmpty() && s.analyses.isEmpty() && s.cykl.isEmpty && s.events.isEmpty() && s.patient.isBlank() && s.rules.isBlank()
                     if (emptyHere) {
                         LekiButton("Wczytaj kopię", { replaceWithUndo(p.all); pending = null }, Modifier.fillMaxWidth(), primary = true)
                         LinkButton("Anuluj", { pending = null })

@@ -42,6 +42,7 @@ import pl.asystent.leki.core.BodyInfo
 import pl.asystent.leki.core.DoctorReport
 import pl.asystent.leki.core.EcgReport
 import pl.asystent.leki.core.EcgSelection
+import pl.asystent.leki.core.StudySelection
 import pl.asystent.leki.core.Markdown
 import pl.asystent.leki.core.Period
 import pl.asystent.leki.core.ReportParts
@@ -94,7 +95,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
                         LekiButton("Przygotuj na wizytę", {
                             preset = 30; fromStr = ""; toStr = ""; customRange = false
-                            setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true) }
+                            setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true, studies = s.studies.isNotEmpty() && s.settings.labsOn) }
                             preview = true
                         }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Stethoscope)
                     }
@@ -134,9 +135,11 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
                         ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn && s.studies.isNotEmpty()) ToggleChip("Badania opisowe i obrazowe", rp.studies) { setRp { it.copy(studies = !it.studies) } }
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
                     }
                     if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx, EcgSelection.AUTO_DOCTOR) { f -> setRp(f) }
+                    if (rp.studies && s.settings.labsOn && s.studies.isNotEmpty()) StudyPicker(s, rp, per, true) { f -> setRp(f) }
                     if (rp.analysis || s.analyses.isNotEmpty()) {
                         Overline("Analiza AI jako uzupełnienie", Modifier.padding(top = 18.dp))
                         if (!rp.analysis) Hint("Analiza AI jest teraz wyłączona w raporcie (pigułka „Analiza AI” powyżej). Analizy możesz mimo to edytować i usuwać.", Modifier.padding(bottom = 6.dp))
@@ -190,11 +193,13 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         ToggleChip("Kontrole", ai.events) { setAi { it.copy(events = !it.events) } }
                         ToggleChip("Moje notatki", ai.notes) { setAi { it.copy(notes = !it.notes) } }
                         if (s.settings.labsOn) ToggleChip("EKG z zegarka", ai.ecg) { setAi { it.copy(ecg = !it.ecg) } }
+                        if (s.settings.labsOn && s.studies.isNotEmpty()) ToggleChip("Badania opisowe i obrazowe", ai.studies) { setAi { it.copy(studies = !it.studies) } }
                         if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", ai.cykl) { setAi { it.copy(cykl = !it.cykl) } }
                         if (BodyInfo.describe(s.settings, today) != null) ToggleChip("Wiek, masa, wzrost", ai.profile) { setAi { it.copy(profile = !it.profile) } }
                         ToggleChip("Imię i nazwisko", ai.name) { setAi { it.copy(name = !it.name) } }
                     }
                     if (ai.ecg && s.settings.labsOn) EcgPicker(s, s.settings.rp, per, today, now, ctx, EcgSelection.AUTO_AI) { f -> setRp(f) }
+                    if (ai.studies && s.settings.labsOn && s.studies.isNotEmpty()) StudyPicker(s, s.settings.rp, per, false) { f -> setRp(f) }
                     Text("Szczegółowość odpowiedzi AI", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
                     SegRow(listOf("Krótko (ok. 1 strony)", "Szczegółowo"), ai.detail, { setAi { a -> a.copy(detail = it) } })
                     Hint("Polecenie prosi model o odpowiedź w stałym formacie (nagłówki, tabele, ramki Pilne i Do omówienia, plakietki ważności), który aplikacja ostyluje w raporcie dla lekarza.", Modifier.padding(top = 6.dp))
@@ -283,6 +288,36 @@ private fun EcgPicker(s: AppState, rp: ReportParts, per: Period, today: LocalDat
     Hint(
         if (rp.ecgIds == null) "Bez wyboru do raportu dla lekarza trafia do ${EcgSelection.AUTO_DOCTOR} najnowszych zapisów z okresu, a do raportu dla AI do ${EcgSelection.AUTO_AI}. Zaznacz zapisy, które mają wejść do obu raportów, np. tylko te najgorsze."
         else "Do obu raportów (dla lekarza i dla AI) trafiają tylko zaznaczone zapisy z okresu: ${picked.size} z ${inPeriod.size}. Przycisk PDF zapisuje pojedyncze EKG osobno, w skali papieru (A4 poziomo, 25 mm/s i 10 mm/mV).",
+        Modifier.padding(top = 6.dp),
+    )
+}
+
+/**
+ * Wybór badań opisowych i obrazowych do raportów: bez wyboru do raportu trafiają najnowsze badania z okresu, po zaznaczeniu tylko zaznaczone, niezależnie od daty
+ * (wybór jest wspólny dla raportu dla lekarza i dla AI). [forDoctor]: podpowiedź mówi, że zdjęcia są tylko w raporcie dla lekarza.
+ */
+@Composable
+private fun StudyPicker(s: AppState, rp: ReportParts, per: Period, forDoctor: Boolean, setRp: ((ReportParts) -> ReportParts) -> Unit) {
+    val all = StudySelection.all(s)
+    val picked = StudySelection.forReport(s, per, rp.studyIds).chosen.map { it.id }.toSet()
+    Overline("Badania opisowe i obrazowe do raportu", Modifier.padding(top = 18.dp))
+    LekiCard {
+        all.forEachIndexed { i, st ->
+            if (i > 0) Divider()
+            CheckRow(
+                st.title, st.id in picked,
+                { setRp { r -> r.copy(studyIds = StudySelection.toggled(s, per, r.studyIds, st.id)) } },
+                subtitle = listOf(plDate(st.date), st.kind.label, if (st.images.isNotEmpty()) "${st.images.size} zdj." else "", if (st.date in per.from..per.to) "" else "poza okresem").filter { it.isNotEmpty() }.joinToString(", "),
+            )
+        }
+    }
+    Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        LinkButton("Zaznacz wszystkie", { setRp { it.copy(studyIds = all.map { st -> st.id }) } })
+        if (rp.studyIds != null) LinkButton("Automatycznie (z okresu)", { setRp { it.copy(studyIds = null) } })
+    }
+    Hint(
+        (if (rp.studyIds == null) "Bez wyboru do raportu trafia do ${StudySelection.AUTO_MAX} najnowszych badań z okresu. " else "Do raportów trafiają tylko zaznaczone badania, niezależnie od daty: ${picked.size} z ${all.size}. ") +
+            (if (forDoctor) "W raporcie dla lekarza są opis, wnioski i zdjęcia; do tekstu dla AI idzie sam opis (wybór jest wspólny)." else "Do tekstu dla AI idzie sam opis i wnioski, bez zdjęć; w raporcie dla lekarza są też zdjęcia (wybór jest wspólny)."),
         Modifier.padding(top = 6.dp),
     )
 }

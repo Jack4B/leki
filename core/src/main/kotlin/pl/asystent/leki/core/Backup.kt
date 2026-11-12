@@ -125,12 +125,13 @@ object Backup {
             meds = rpIn["meds"].bool(rpD.meds), plan = rpIn["plan"].bool(rpD.plan), events = rpIn["events"].bool(rpD.events),
             analysis = rpIn["analysis"].bool(rpD.analysis), analysisId = rpIn["analysisId"].str() ?: "", ecg = rpIn["ecg"].bool(rpD.ecg), cykl = rpIn["cykl"].bool(rpD.cykl),
             ecgIds = rpIn["ecgIds"].arr()?.mapNotNull { it.str() },
+            studies = rpIn["studies"].bool(rpD.studies), studyIds = rpIn["studyIds"].arr()?.mapNotNull { it.str() },
         )
         val aD = AiParts()
         val ai = AiParts(
             meds = aiIn["meds"].bool(aD.meds), history = aiIn["history"].bool(aD.history), adherence = aiIn["adherence"].bool(aD.adherence),
             bp = aiIn["bp"].bool(aD.bp), labs = aiIn["labs"].bool(aD.labs), events = aiIn["events"].bool(aD.events),
-            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), cykl = aiIn["cykl"].bool(aD.cykl), name = aiIn["name"].bool(aD.name), profile = aiIn["profile"].bool(aD.profile),
+            notes = aiIn["notes"].bool(aD.notes), ecg = aiIn["ecg"].bool(aD.ecg), cykl = aiIn["cykl"].bool(aD.cykl), name = aiIn["name"].bool(aD.name), profile = aiIn["profile"].bool(aD.profile), studies = aiIn["studies"].bool(aD.studies),
             context = aiIn["context"].str()?.take(2000) ?: "",
             detail = intOr(aiIn["detail"], aD.detail, 0, 1),
         )
@@ -271,6 +272,19 @@ object Backup {
             Ecg(id, date, time, o["source"].strOr("zegarek"), intOr(o["watchHr"], 0, 0, 300), o["watchNote"].strOr().take(200), fs, cmv, o["note"].strOr().take(500))
         }
 
+        // badania opisowe i obrazowe: uszkodzony wpis jest pomijany, pola i zdjęcia przechodzą przez te same limity co przy zapisie
+        val studies = Studies.capTotal(d["studies"].arr().orEmpty().take(500).mapNotNull { x ->
+            val o = x as? JsonObject ?: return@mapNotNull null
+            val id = o["id"].str()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val date = o["date"].date() ?: return@mapNotNull null
+            val images = o["images"].arr().orEmpty().take(Studies.MAX_IMAGES * 2).mapNotNull { im ->
+                val io = im as? JsonObject ?: return@mapNotNull null
+                val data = io["data"].str() ?: return@mapNotNull null
+                StudyImage(io["id"].str()?.takeIf { it.isNotEmpty() } ?: newId(), data, io["caption"].strOr())
+            }
+            Studies.sanitize(Study(id, date, StudyKind.of(o["kind"].str()), o["title"].strOr(), o["place"].strOr(), o["description"].strOr(), o["conclusions"].strOr(), images))
+        })
+
         // Wyniki wpisane przy kontrolach (pole wyniku) trafiają do dziennika badań
         for (e in events) {
             if (e.marker.isEmpty()) continue
@@ -285,7 +299,7 @@ object Backup {
             lastBackup = d["lastBackup"].date(),
             settings = settings,
             rules = d["rules"].str() ?: "",
-            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses, ecgs = ecgs,
+            slots = slots, meds = meds, events = events, markers = markers, labs = labs, days = days, bp = bp, analyses = analyses, ecgs = ecgs, studies = studies,
             timerEnd = d["timerEnd"].number()?.toLong() ?: 0L,
             timerMed = d["timerMed"].strOr(), timerNote = d["timerNote"].strOr(),
             cykl = Cykl.fromJson(d["cykl"]),
@@ -313,12 +327,14 @@ object Backup {
                 put("bp", c.rp.bp); put("labs", c.rp.labs); put("labsPeriod", c.rp.labsPeriod)
                 put("meds", c.rp.meds); put("plan", c.rp.plan); put("events", c.rp.events)
                 put("analysis", c.rp.analysis); put("analysisId", c.rp.analysisId); put("ecg", c.rp.ecg); if (c.rp.cykl) put("cykl", true)
+                if (c.rp.studies) put("studies", true)
+                c.rp.studyIds?.let { ids -> putJsonArray("studyIds") { ids.forEach { add(JsonPrimitive(it)) } } }
                 c.rp.ecgIds?.let { ids -> putJsonArray("ecgIds") { ids.forEach { add(JsonPrimitive(it)) } } }
             }
             putJsonObject("ai") {
                 put("meds", c.ai.meds); put("history", c.ai.history); put("adherence", c.ai.adherence)
                 put("bp", c.ai.bp); put("labs", c.ai.labs); put("events", c.ai.events)
-                put("notes", c.ai.notes); put("ecg", c.ai.ecg); if (c.ai.cykl) put("cykl", true); put("name", c.ai.name); if (!c.ai.profile) put("profile", false); put("context", c.ai.context); put("detail", c.ai.detail)
+                put("notes", c.ai.notes); put("ecg", c.ai.ecg); if (c.ai.cykl) put("cykl", true); put("name", c.ai.name); if (!c.ai.profile) put("profile", false); if (c.ai.studies) put("studies", true); put("context", c.ai.context); put("detail", c.ai.detail)
             }
             put("lateMin", c.lateMin); put("waterGoal", c.waterGoal); put("glassMl", c.glassMl)
             put("hiSys", c.hiSys); put("hiDia", c.hiDia); put("loSys", c.loSys); put("loDia", c.loDia)
@@ -406,6 +422,15 @@ object Backup {
                     put("id", e.id); put("date", e.date.toString()); put("time", e.time.hhmm()); put("source", e.source)
                     put("watchHr", e.watchHr); put("watchNote", e.watchNote); put("fs", e.fs); put("note", e.note)
                     put("cmvp", EcgVector.pack(e.cmv))
+                })
+            }
+        }
+        if (s.studies.isNotEmpty()) putJsonArray("studies") {
+            s.studies.forEach { st ->
+                add(buildJsonObject {
+                    put("id", st.id); put("date", st.date.toString()); put("kind", st.kind.id); put("title", st.title)
+                    put("place", st.place); put("description", st.description); put("conclusions", st.conclusions)
+                    if (st.images.isNotEmpty()) putJsonArray("images") { st.images.forEach { im -> add(buildJsonObject { put("id", im.id); put("data", im.data); put("caption", im.caption) }) } }
                 })
             }
         }

@@ -266,7 +266,7 @@ fun AppState.deleteMed(id: String): AppState {
 /** Tekst przypomnienia o kopii zapasowej albo null, gdy nie trzeba. */
 fun AppState.needBackup(today: LocalDate): String? {
     // dane do stracenia to nie tylko ciśnienie i odhaczenia, ale też leki, badania, EKG i analizy
-    if (bp.isEmpty() && days.isEmpty() && meds.isEmpty() && labs.isEmpty() && ecgs.isEmpty() && analyses.isEmpty() && cykl.isEmpty) return null
+    if (bp.isEmpty() && days.isEmpty() && meds.isEmpty() && labs.isEmpty() && ecgs.isEmpty() && studies.isEmpty() && analyses.isEmpty() && cykl.isEmpty) return null
     val lb = lastBackup ?: return if (daysBetween(created, today) >= 3) "nigdy" else null
     val n = daysBetween(lb, today)
     return if (n >= 7) "$n dni temu" else null
@@ -287,6 +287,22 @@ fun AppState.deleteAnalysis(id: String): AppState =
 /** Cofnięcie usunięcia analizy: wraca analiza, a jeśli była wybrana do raportu, także ten wybór. */
 fun AppState.restoreAnalysis(a: Analysis, wasPicked: Boolean): AppState =
     saveAnalysis(a).let { if (wasPicked) it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(analysisId = a.id))) else it }
+
+// ---------- Badania opisowe i obrazowe ----------
+
+/** Zapisuje badanie (pola przycięte do limitów, niepoprawne zdjęcia odrzucone); łączny limit zdjęć osoby pilnuje interfejs ([Studies.cannotAddImage]) i wczytywanie kopii. */
+fun AppState.saveStudy(st: Study): AppState {
+    val c = Studies.sanitize(st)
+    return if (studies.any { it.id == c.id }) copy(studies = studies.map { if (it.id == c.id) c else it }) else copy(studies = studies + c)
+}
+
+/** Usuwa badanie razem z jego zdjęciami i z wyboru do raportów. */
+fun AppState.deleteStudy(id: String): AppState =
+    copy(studies = studies.filter { it.id != id }, settings = settings.rp.studyIds?.let { ids -> settings.copy(rp = settings.rp.copy(studyIds = ids - id)) } ?: settings)
+
+/** Cofnięcie usunięcia badania: wraca badanie, a jeśli było wybrane do raportów (wybór ręczny), także ten wybór. */
+fun AppState.restoreStudy(st: Study, wasPicked: Boolean): AppState =
+    saveStudy(st).let { s -> if (wasPicked) s.settings.rp.studyIds?.let { ids -> s.copy(settings = s.settings.copy(rp = s.settings.rp.copy(studyIds = (ids + st.id).distinct()))) } ?: s else s }
 
 // ---------- EKG z zegarka ----------
 

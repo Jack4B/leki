@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.16.0-preview
+
+Nowa sekcja **Badania → Opisowe**: badania opisowe i obrazowe (USG, tomografia, rezonans, RTG, endoskopia, echo serca i inne) z opisem, wnioskami i zdjęciami, z wyborem do raportu dla lekarza i do tekstu dla AI. Konspekt i decyzje: `docs/plan-badania-opisowe.md`.
+
+- **Badania → Opisowe:** lista badań (miniatura, data, rodzaj, liczba zdjęć) i edytor: rodzaj, data, tytuł, miejsce, opis, wnioski, do 8 zdjęć z galerii (pomniejszone na telefonie do 1280 px, JPEG do ok. 260 KB, podgląd, podpis, usuwanie). „Wczytaj opis ze zdjęcia lub PDF” odczytuje tekst wyniku na telefonie (OCR, do 6 stron PDF, bez sieci); wiersze z numerem PESEL (zwykle razem z imieniem i nazwiskiem) są z niego usuwane, a resztę sprawdzasz przed zapisem. Usunięcie badania ma „Cofnij” (przywraca też wybór do raportów).
+- **Wybór do raportów:** Raport → „Dla lekarza” i „Dla AI”: pigułka **„Badania opisowe i obrazowe”** (domyślnie wyłączona, widoczna, gdy są badania) i lista z polami wyboru. Bez wyboru do raportu trafia do 5 najnowszych badań z okresu; po zaznaczeniu tylko zaznaczone, **niezależnie od daty** (takie badania są rzadkie). Wybór jest wspólny dla obu raportów. „Przygotuj na wizytę” włącza sekcję, jeśli są badania.
+- **Raport dla lekarza:** sekcja „Badania opisowe i obrazowe”: opis i wnioski tak, jak je wpisano, zdjęcia jako miniatury w rzędzie (44 mm), z adnotacją, że to opisy osoby, a zdjęcia są pomniejszone i nie służą do oceny diagnostycznej. Wydruk nie rozrywa zdjęć ani nagłówka badania.
+- **Tekst dla AI:** sekcja „Badania opisowe i obrazowe (opis słowny, bez obrazów)”: opis (do 3000 znaków na badanie) i wnioski, informacja o liczbie zdjęć (same zdjęcia nie trafiają do tekstu), nowy nagłówek w formacie odpowiedzi i zasada dla modelu: obrazów nie widzi, nie ocenia ich i nie stawia rozpoznań z samego opisu. Wiersze z numerem PESEL są z tekstu dla AI zawsze usuwane.
+- **Kopia zapasowa:** nowe pola (`studies`, `studyIds` i pigułki) zapisywane tylko przy wartościach niedomyślnych; stare kopie wczytują się bez zmian; uszkodzone wpisy i zdjęcia są odrzucane. Zdjęcia są w stanie osoby (w tym w zaszyfrowanych danych) z limitami: 8 na badanie, ok. 4,5 MB na osobę.
+- **Ograniczenia:** zdjęcia z badań nie są czyszczone z danych osobowych (nie dodawaj zdjęcia strony z imieniem i PESEL), nie ma plików DICOM, powiększania z przesuwaniem ani zamazywania; ukryty moduł Badania ukrywa te badania też w raportach.
+- Liczba testów `core`: 345 (nowy: `StudiesTest`).
+
 ## 0.15.8-preview
 
 Nowy układ wydruku raportu dla lekarza: bez luk, bez pojedynczych wierszy na stronie i z czytelniejszymi wykresami ciśnienia. Układ sprawdzony na przykładowych (zmyślonych) danych w wydruku do PDF z Chromium (7, 30, 90 i 180 dni, 4–8 stron zamiast 6–9).

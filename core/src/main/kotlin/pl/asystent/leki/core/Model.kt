@@ -88,8 +88,12 @@ data class ReportParts(
     val analysisId: String = "",
     /** Wybrane zapisy EKG do raportów (dla lekarza i dla AI); null = automatycznie najnowsze z okresu (patrz [EcgSelection]). */
     val ecgIds: List<String>? = null,
+    /** Czy dołączyć badania opisowe i obrazowe (opis, wnioski, zdjęcia); które, patrz [StudySelection]. Domyślnie wyłączone (wrażliwe i rzadko potrzebne w każdym raporcie). */
+    val studies: Boolean = false,
+    /** Wybrane badania opisowe i obrazowe do raportów (dla lekarza i dla AI); null = automatycznie najnowsze z okresu. */
+    val studyIds: List<String>? = null,
 ) {
-    val any get() = bp || labs || meds || plan || events || analysis || ecg || cykl
+    val any get() = bp || labs || meds || plan || events || analysis || ecg || cykl || studies
 }
 
 /**
@@ -111,6 +115,8 @@ data class AiParts(
     /** Czy dołączyć opisowe podsumowanie z dziennika cyklu (domyślnie wyłączone). */
     val cykl: Boolean = false,
     val name: Boolean = false,
+    /** Czy dołączyć opisy badań opisowych i obrazowych (bez zdjęć, tylko tekst; wybór jak w raporcie dla lekarza). Domyślnie wyłączone. */
+    val studies: Boolean = false,
     /** Czy dołączyć wiek, masę ciała i wzrost z Ustawień (gdy podane); patrz [BodyInfo]. */
     val profile: Boolean = true,
     val context: String = "",
@@ -154,9 +160,9 @@ data class Settings(
     val heightCm: Int = 0,
 ) {
     /** Części raportu dla lekarza z uwzględnieniem ukrytych modułów: ukryty moduł nie trafia do raportu, nawet jeśli pigułka była włączona. */
-    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn, cykl = rp.cykl && cyklOn)
+    fun effectiveRp(): ReportParts = rp.copy(bp = rp.bp && bpOn, labs = rp.labs && labsOn, labsPeriod = rp.labsPeriod && labsOn, ecg = rp.ecg && labsOn, studies = rp.studies && labsOn, cykl = rp.cykl && cyklOn)
     /** To samo dla tekstu dla AI. */
-    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn, cykl = ai.cykl && cyklOn)
+    fun effectiveAi(): AiParts = ai.copy(bp = ai.bp && bpOn, labs = ai.labs && labsOn, ecg = ai.ecg && labsOn, studies = ai.studies && labsOn, cykl = ai.cykl && cyklOn)
 }
 
 data class AppState(
@@ -174,6 +180,8 @@ data class AppState(
     val bp: List<Bp> = emptyList(),
     val analyses: List<Analysis> = emptyList(),
     val ecgs: List<Ecg> = emptyList(),
+    /** Badania opisowe i obrazowe (opis, wnioski, zdjęcia); patrz [Study]. */
+    val studies: List<Study> = emptyList(),
     /** Koniec odliczania po dawce, czas w milisekundach od 1970 (0 = brak). */
     val timerEnd: Long = 0,
     val timerMed: String = "",
@@ -188,6 +196,7 @@ data class AppState(
     fun event(id: String): Event? = events.firstOrNull { it.id == id }
     fun sortedSlots(): List<Slot> = slots.sortedBy { it.time }
     fun ecg(id: String): Ecg? = ecgs.firstOrNull { it.id == id }
+    fun study(id: String): Study? = studies.firstOrNull { it.id == id }
     fun analysis(id: String): Analysis? = analyses.firstOrNull { it.id == id }
     /** Analiza do raportu: wybrana, a gdy nie ma wyboru, najnowsza. */
     fun reportAnalysis(): Analysis? = analysis(settings.rp.analysisId) ?: analyses.maxByOrNull { it.date }
