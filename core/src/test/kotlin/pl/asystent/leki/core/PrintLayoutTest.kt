@@ -32,7 +32,7 @@ class PrintLayoutTest {
         assertTrue("thead{display:table-header-group}" in css)
         assertTrue("@media screen and (max-width:600px){.fig{overflow-x:auto}" in css, "na wąskim ekranie (podgląd) wykres ma czytelną szerokość i się przewija, a druk go nie dotyczy")
         assertTrue("tr,tbody{break-inside:avoid}" in css)
-        for (cls in listOf(".fig{break-inside:avoid}", ".lab{margin:12px 0 6px;break-inside:avoid}", ".ecg-e{break-inside:avoid")) assertTrue(cls in css, cls)
+        for (cls in listOf(".fig{break-inside:avoid}", ".lab{margin:12px 0 6px;break-inside:avoid}", ".ecg-e{break-inside:avoid", ".study{margin:0 0 12px;break-inside:avoid}")) assertTrue(cls in css, cls)
     }
 
     private fun readings(days: Int, high: Boolean = true) = (0 until days).map { i ->

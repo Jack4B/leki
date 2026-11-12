@@ -50,7 +50,7 @@ li{margin-bottom:6px;break-inside:avoid}
 .lab-tbl{flex:1 1 230px;min-width:0}
 .lab-tbl .tbl table{font-size:12px}
 .ecg-e{break-inside:avoid;margin-bottom:8px}
-.study{margin:0 0 12px}
+.study{margin:0 0 12px;break-inside:avoid}
 .study h4{break-after:avoid}
 .study p{margin:3px 0 6px}
 .imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}

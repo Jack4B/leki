@@ -20,7 +20,7 @@ Poza wynikami liczbowymi (Badania → Przegląd) i EKG z zegarka osoba ma badani
 2. **Nowe pola w kopii tylko przy wartościach niedomyślnych** (`studies`, `ReportParts.studies/studyIds`, `AiParts.studies`); stare kopie wczytują się bez zmian. Wczytywanie odrzuca uszkodzone wpisy i zdjęcia (niepoprawny JPEG, za duże, ponad limit łączny).
 3. **Wybór do raportów jak przy EKG, ale bez filtra daty przy wyborze ręcznym:** `studyIds == null` oznacza najnowsze badania z okresu (do 5), lista (także pusta) to tylko zaznaczone, **niezależnie od daty**, bo takie badania robi się rzadko i do raportu trafiają starsze. Wybór jest wspólny dla raportu dla lekarza i dla AI.
 4. **Domyślnie wyłączone w obu raportach** (jak cykl i imię): to dane wrażliwe, niekoniecznie potrzebne w każdym raporcie.
-5. **Raport dla lekarza:** opis, wnioski i zdjęcia jako miniatury (44 mm), z adnotacją, że opisy wpisała osoba, a zdjęcia są pomniejszone i nie nadają się do oceny diagnostycznej. Wydruk nie rozrywa badania z nagłówkiem, a zdjęcia są nierozrywane.
+5. **Raport dla lekarza:** opis, wnioski i zdjęcia jako miniatury (44 mm), z adnotacją, że opisy wpisała osoba, a zdjęcia są pomniejszone i nie nadają się do oceny diagnostycznej. Wydruk nie rozrywa badania (nagłówek, opis i zdjęcia zostają razem; `.study{break-inside:avoid}`).
 6. **Raport dla AI: tylko tekst.** Opis (do 3000 znaków na badanie) i wnioski, bez zdjęć, z informacją „Pacjent ma N zdjęć, nie ma ich w tym tekście”. Polecenie mówi modelowi, że obrazów nie widzi i nie ma ich oceniać ani stawiać rozpoznań z samego opisu.
 7. **Ukryty moduł Badania ukrywa też te badania w raportach** (`labsOn`), jak EKG.
 

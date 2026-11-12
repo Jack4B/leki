@@ -129,7 +129,7 @@ class StudiesTest {
         assertTrue("<h3>Badania opisowe i obrazowe</h3>" in html && "USG jamy brzusznej" in html && "Kamica pęcherzyka żółciowego." in html)
         assertFalse("Tomografia głowy" in html, "badanie spoza okresu wchodzi dopiero po wyborze")
         assertEquals(2, Regex("<img src=\"data:image/jpeg;base64,").findAll(html).count()); assertTrue("<figcaption>Pęcherzyk</figcaption>" in html)
-        assertTrue("Wątroba niepowiększona, bez zmian ogniskowych.<br>" in html || "PESEL" in html, "opis jest pokazany jak wpisany, z podziałem wierszy")
+        assertTrue("Wątroba niepowiększona, bez zmian ogniskowych.<br>Pęcherzyk żółciowy zawiera złóg ok. 1,5 cm." in html, "opis jest pokazany jak wpisany, z podziałem wierszy")
         val picked = on.copy(settings = on.settings.copy(rp = on.settings.rp.copy(studyIds = listOf("b"))))
         val h2 = DoctorReport.html(picked, per, end, Fixtures.now)
         assertTrue("Tomografia głowy" in h2 && "USG jamy brzusznej" !in h2)
