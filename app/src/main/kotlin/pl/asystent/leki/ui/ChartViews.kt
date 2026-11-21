@@ -5,6 +5,14 @@ import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +30,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -30,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import pl.asystent.leki.core.Anchor
+import pl.asystent.leki.core.Trend
 import pl.asystent.leki.core.TrendGeo
 import pl.asystent.leki.core.LabChartGeo
 import pl.asystent.leki.core.Pt
@@ -43,10 +54,13 @@ private fun DrawScope.text(t: String, x: Float, y: Float, size: Float, color: Co
 
 private fun anchor(a: Anchor) = when (a) { Anchor.Start -> Paint.Align.LEFT; Anchor.End -> Paint.Align.RIGHT; Anchor.Middle -> Paint.Align.CENTER }
 
-/** Wykres ciśnienia w czasie: oś pionowa stała po lewej, wykres przewijany w poziomie (domyślnie na końcu, czyli przy najnowszych dniach). */
+/**
+ * Wykres ciśnienia w czasie: oś pionowa stała po lewej (wartości progów wyróżnione), wykres przewijany w poziomie (domyślnie na końcu, czyli przy najnowszych dniach).
+ * Pole między skurczowym a rozkurczowym jest lekko zacienione, a przerwy od [Trend.GAP_DAYS] dni bez pomiaru są zaznaczone jako „brak pomiarów” i linia się w nich urywa.
+ */
 @Composable
 fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier) {
-    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val surface = pal.surface; val warn = pal.warn; val danger = pal.danger
+    val line = pal.line; val ink3 = pal.ink3; val accent = pal.accent; val soft = pal.accentSoft; val surface = pal.surface; val warn = pal.warn; val danger = pal.danger
     val scroll = rememberScrollState()
     LaunchedEffect(g) {
         withTimeoutOrNull(600) { snapshotFlow { scroll.maxValue }.first { it > 0 } }?.let { scroll.scrollTo(it) }
@@ -54,44 +68,84 @@ fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier)
     Row(modifier.fillMaxWidth().semantics { contentDescription = description }) {
         Canvas(Modifier.width(AXIS_W.dp).height(g.height.dp)) {
             val k = density
-            g.yTicks.forEach { text(it.label, (AXIS_W - 4) * k, (it.pos + 3.5f) * k, 10f * k, ink3, Paint.Align.RIGHT) }
+            Trend.axisLabels(g).forEach { (t, ref) -> text(t.label, (AXIS_W - 4) * k, (t.pos + 3.5f) * k, 10f * k, if (ref) warn else ink3, Paint.Align.RIGHT, bold = ref) }
         }
         Box(Modifier.weight(1f).horizontalScroll(scroll)) {
             Canvas(Modifier.width(g.width.dp).height(g.height.dp)) {
                 val k = density
                 fun xy(x: Float, y: Float) = Offset(x * k, y * k)
-                g.yTicks.forEach { drawLine(line, xy(0f, it.pos), xy(g.width, it.pos), strokeWidth = 1f) }
-                val dash = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))
-                g.refs.forEach { drawLine(warn.copy(alpha = .8f), xy(0f, it), xy(g.width, it), strokeWidth = 1.2f * k, pathEffect = dash) }
+                g.gaps.forEach { gp ->
+                    drawRect(line.copy(alpha = .3f), xy(gp.x1, g.plotTop), Size((gp.x2 - gp.x1) * k, (g.plotBottom - g.plotTop) * k))
+                    if (gp.x2 - gp.x1 >= Trend.GAP_LABEL_MIN) text("brak pomiarów", (gp.x1 + gp.x2) / 2 * k, (g.plotTop + 13f) * k, 10f * k, ink3, Paint.Align.CENTER)
+                }
+                Trend.axisLabels(g).filter { !it.second }.forEach { (t, _) -> drawLine(line.copy(alpha = .6f), xy(0f, t.pos), xy(g.width, t.pos), strokeWidth = 1f) }
+                drawLine(line, xy(0f, g.plotBottom), xy(g.width, g.plotBottom), strokeWidth = 1f * k)
                 g.marks.forEach { m ->
-                    if (m.line) drawLine(line.copy(alpha = .7f), xy(m.x, g.plotTop), xy(m.x, g.plotBottom), strokeWidth = 1f)
+                    if (m.line) drawLine(line.copy(alpha = .6f), xy(m.x, g.plotTop), xy(m.x, g.plotBottom), strokeWidth = 1f)
                     m.label?.let { text(it, m.x * k + 2f * k, (g.height - 8) * k, 10f * k, ink3, Paint.Align.LEFT) }
                 }
-                fun poly(pts: List<Offset>, color: Color) {
+                val dash = PathEffect.dashPathEffect(floatArrayOf(5f * k, 4f * k))
+                g.refs.forEach { drawLine(warn.copy(alpha = .75f), xy(0f, it), xy(g.width, it), strokeWidth = 1.2f * k, pathEffect = dash) }
+                fun band(sys: List<Offset>, dia: List<Offset>) {
+                    if (sys.size < 2) return
+                    val all = sys + dia.reversed()
+                    drawPath(Path().apply { moveTo(all[0].x, all[0].y); all.drop(1).forEach { lineTo(it.x, it.y) }; close() }, soft.copy(alpha = .55f))
+                }
+                fun poly(pts: List<Offset>, color: Color, w: Float) {
                     if (pts.size < 2) return
                     val path = Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) } }
-                    drawPath(path, color, style = Stroke(width = 2f * k))
+                    drawPath(path, color, style = Stroke(width = w * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+                fun sysDot(o: Offset, high: Boolean, r: Float) {
+                    val rr = if (high) r + 1f else r
+                    drawCircle(if (high) danger else accent, rr * k, o); drawCircle(surface, rr * k, o, style = Stroke(width = 1.5f * k))
+                }
+                fun diaDot(o: Offset, high: Boolean, r: Float) {
+                    drawCircle(surface, r * k, o); drawCircle(if (high) danger else ink3, r * k, o, style = Stroke(width = (if (high) 2.4f else 2f) * k))
                 }
                 if (g.detailed) {
-                    poly(g.readings.map { xy(it.x, it.dia) }, ink3); poly(g.readings.map { xy(it.x, it.sys) }, accent)
-                    g.readings.forEach {
-                        drawCircle(surface, 4f * k, xy(it.x, it.dia)); drawCircle(ink3, 4f * k, xy(it.x, it.dia), style = Stroke(width = 2f * k))
-                        // pomiar na progu lub powyżej niego (ustawianym w Ustawieniach) jest czerwony i większy
-                        val c = if (it.high) danger else accent
-                        drawCircle(c, (if (it.high) 5.2f else 4f) * k, xy(it.x, it.sys)); drawCircle(surface, (if (it.high) 5.2f else 4f) * k, xy(it.x, it.sys), style = Stroke(width = 1.5f * k))
-                        drawCircle(c, (if (it.high) 4.2f else 3.2f) * k, xy(it.x, it.sys))
-                    }
+                    g.readingRuns.forEach { r -> val l = g.readings.slice(r); band(l.map { xy(it.x, it.sys) }, l.map { xy(it.x, it.dia) }) }
+                    g.readingRuns.forEach { r -> val l = g.readings.slice(r); poly(l.map { xy(it.x, it.dia) }, ink3, 1.8f); poly(l.map { xy(it.x, it.sys) }, accent, 2.2f) }
+                    // pomiar na progu lub powyżej niego (ustawianym w Ustawieniach) jest czerwony: skurczowe pełne, rozkurczowe z czerwoną obwódką
+                    g.readings.forEach { diaDot(xy(it.x, it.dia), it.diaHigh, 3.6f); sysDot(xy(it.x, it.sys), it.sysHigh, 4f) }
                 } else {
                     val bw = (g.dayWidth * 0.55f).coerceIn(1.2f, 6f) * k
-                    g.days.forEach {
-                        drawLine(ink3.copy(alpha = .35f), xy(it.x, it.diaMin), xy(it.x, it.diaMax), strokeWidth = bw)
-                        drawLine(accent.copy(alpha = .35f), xy(it.x, it.sysMin), xy(it.x, it.sysMax), strokeWidth = bw)
+                    g.dayRuns.forEach { r -> val l = g.days.slice(r); band(l.map { xy(it.x, it.sys) }, l.map { xy(it.x, it.dia) }) }
+                    g.days.filter { it.n > 1 }.forEach {
+                        if (it.diaMin - it.diaMax >= .5f) drawLine(ink3.copy(alpha = .3f), xy(it.x, it.diaMin), xy(it.x, it.diaMax), strokeWidth = bw, cap = StrokeCap.Round)
+                        if (it.sysMin - it.sysMax >= .5f) drawLine(accent.copy(alpha = .3f), xy(it.x, it.sysMin), xy(it.x, it.sysMax), strokeWidth = bw, cap = StrokeCap.Round)
                     }
-                    poly(g.days.map { xy(it.x, it.dia) }, ink3); poly(g.days.map { xy(it.x, it.sys) }, accent)
-                    if (g.dayWidth >= 7f) g.days.forEach { drawCircle(if (it.high) danger else accent, (if (it.high) 2.6f else 1.8f) * k, xy(it.x, it.sys)); drawCircle(ink3, 1.8f * k, xy(it.x, it.dia)) }
+                    g.dayRuns.forEach { r -> val l = g.days.slice(r); poly(l.map { xy(it.x, it.dia) }, ink3, 1.8f); poly(l.map { xy(it.x, it.sys) }, accent, 2.2f) }
+                    val lone = g.dayRuns.filter { it.first == it.last }.map { it.first }.toSet()
+                    g.days.forEachIndexed { i, d ->
+                        if (d.diaHigh || i in lone || g.dayWidth >= 12f) diaDot(xy(d.x, d.dia), d.diaHigh, 2.4f)
+                        if (d.sysHigh || i in lone || g.dayWidth >= 12f) sysDot(xy(d.x, d.sys), d.sysHigh, 2.6f)
+                    }
                 }
             }
         }
+    }
+}
+
+/** Legenda wykresu ciśnienia: znaczniki narysowane tak samo jak na wykresie, zawijane na wąskim ekranie. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun BpLegend(hiSys: Int, hiDia: Int, modifier: Modifier = Modifier) {
+    val accent = pal.accent; val ink3 = pal.ink3; val danger = pal.danger; val warn = pal.warn; val surface = pal.surface
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LegendItem("skurczowe") { drawCircle(accent, 4.5.dp.toPx(), center) }
+        LegendItem("rozkurczowe") { drawCircle(surface, 4.dp.toPx(), center); drawCircle(ink3, 4.dp.toPx(), center, style = Stroke(width = 2.dp.toPx())) }
+        LegendItem("na progu lub powyżej") { drawCircle(danger, 4.5.dp.toPx(), center) }
+        LegendItem("próg $hiSys/$hiDia") { drawLine(warn, Offset(0f, center.y), Offset(size.width, center.y), strokeWidth = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))) }
+        Text("mmHg", style = TextStyle(fontSize = 12.5.sp, color = pal.ink3))
+    }
+}
+
+@Composable
+private fun LegendItem(label: String, draw: DrawScope.() -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Canvas(Modifier.width(18.dp).height(12.dp).clearAndSetSemantics { }, onDraw = draw)
+        Text(label, style = TextStyle(fontSize = 12.5.sp, color = pal.ink2))
     }
 }
 
