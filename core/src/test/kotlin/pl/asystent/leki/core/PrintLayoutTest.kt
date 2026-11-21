@@ -49,6 +49,11 @@ class PrintLayoutTest {
         assertTrue("<polygon class=\"fill\"" in html, "tło między skurczowym a rozkurczowym")
         assertTrue("na progu lub powyżej" in html)
         assertEquals(1, Regex("<svg class=\"chart\"").findAll(html).count())
+        assertFalse("brak pomiarów" in html, "legenda bez przerw, gdy na wykresie ich nie ma")
+        // przerwa 5 dni: legenda i wykres ją pokazują
+        val gap = s.copy(bp = s.bp.filterIndexed { i, _ -> i !in 5..9 })
+        val gh = DoctorReport.html(gap, Period(end.minusDays(19), end), end, Fixtures.now)
+        assertTrue("<i class=\"sw gapsw\"></i>brak pomiarów" in gh && "class=\"gap\"" in gh)
     }
 
     @Test fun longPeriodsUseOneStyleOfChartAndSegmentsFitThePage() {

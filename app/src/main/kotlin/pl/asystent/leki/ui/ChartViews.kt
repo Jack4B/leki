@@ -76,7 +76,7 @@ fun BpTrendView(g: TrendGeo, description: String, modifier: Modifier = Modifier)
                 fun xy(x: Float, y: Float) = Offset(x * k, y * k)
                 g.gaps.forEach { gp ->
                     drawRect(line.copy(alpha = .3f), xy(gp.x1, g.plotTop), Size((gp.x2 - gp.x1) * k, (g.plotBottom - g.plotTop) * k))
-                    if (gp.x2 - gp.x1 >= 70f) text("brak pomiarów", (gp.x1 + gp.x2) / 2 * k, (g.plotTop + 13f) * k, 10f * k, ink3, Paint.Align.CENTER)
+                    if (gp.x2 - gp.x1 >= Trend.GAP_LABEL_MIN) text("brak pomiarów", (gp.x1 + gp.x2) / 2 * k, (g.plotTop + 13f) * k, 10f * k, ink3, Paint.Align.CENTER)
                 }
                 Trend.axisLabels(g).filter { !it.second }.forEach { (t, _) -> drawLine(line.copy(alpha = .6f), xy(0f, t.pos), xy(g.width, t.pos), strokeWidth = 1f) }
                 drawLine(line, xy(0f, g.plotBottom), xy(g.width, g.plotBottom), strokeWidth = 1f * k)

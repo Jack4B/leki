@@ -75,7 +75,6 @@ li{margin-bottom:6px;break-inside:avoid}
 .chart .ax{fill:var(--ink-3);font:10px var(--mono)}
 .chart .l-sys{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .chart .fill{fill:var(--accent-soft);opacity:.55}
-.chart .reftx{fill:#8a5a00;font:600 9px var(--mono)}
 .chart .p-sys.out{fill:var(--danger)}
 .chart .l-dia{fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .chart .p-sys{fill:var(--accent);stroke:#fff;stroke-width:1.5}
@@ -152,11 +151,26 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                 h.append("</p>")
                 val nDays = daysBetween(per.from, per.to) + 1
                 val detail = nDays <= Trend.DETAIL_MAX_DAYS
+                // wykresy powstają przed legendą, żeby legenda wymieniała tylko to, co na nich jest (próg, przerwy)
+                val figs: List<Pair<String?, TrendGeo>> = if (detail) listOfNotNull(Trend.build(list, per.from, per.to, 720f, c.hiSys, c.hiDia, 230f, fit = true)?.let { null to it })
+                else {
+                    // segmenty o szerokości zbliżonej do strony, żeby wykres nie był zmniejszany (i podpisy zostały czytelne)
+                    val seg = ((720f - 18f) / Trend.dayWidthFor(nDays)).toInt().coerceAtLeast(30)
+                    generateSequence(per.from) { it.plusDays(seg.toLong()) }.takeWhile { it <= per.to }.mapNotNull { a ->
+                        val b = minOf(a.plusDays(seg - 1L), per.to)
+                        Trend.build(list, a, b, 720f, c.hiSys, c.hiDia, 230f, aggregate = true)?.let { "${plDate(a)} – ${plDate(b)}" to it }
+                    }.toList()
+                }
                 h.append("<div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span><span><i class=\"sw hi\"></i>na progu lub powyżej</span>")
-                h.append("<span><i class=\"sw ref\"></i>próg ${c.hiSys}/${c.hiDia} (wyróżniony na osi)</span><span><i class=\"sw gapsw\"></i>brak pomiarów (${Trend.GAP_DAYS}+ dni)</span>")
+                if (figs.any { it.second.refs.isNotEmpty() }) h.append("<span><i class=\"sw ref\"></i>próg ${c.hiSys}/${c.hiDia} (wyróżniony na osi)</span>")
+                if (figs.any { it.second.gaps.isNotEmpty() }) h.append("<span><i class=\"sw gapsw\"></i>brak pomiarów (${Trend.GAP_DAYS}+ dni)</span>")
                 h.append(if (detail) "<span>mmHg</span></div>" else "<span>linia: średnia dzienna, kreska: zakres dnia (min–max), mmHg</span></div>")
+                figs.forEach { (lab, g) ->
+                    h.append("<div class=\"fig\">")
+                    lab?.let { h.append("<div class=\"rp-lab\">$it</div>") }
+                    h.append(Trend.svg(g)).append("</div>")
+                }
                 if (detail) {
-                    Trend.build(list, per.from, per.to, 720f, c.hiSys, c.hiDia, 230f, fit = true)?.let { h.append("<div class=\"fig\">").append(Trend.svg(it)).append("</div>") }
                     val rowsHtml = list.map { r ->
                         val f = c.bpFlagText(r)
                         "<tr><td class=\"num\">${shortDate(r.date)}</td><td class=\"num\">${r.time.hhmm()}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.pulse ?: ""}</td><td>${esc(r.ctx)}</td><td>" +
@@ -165,16 +179,6 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                     h.append(printTable(listOf("Data", "Godz.", "Ciśnienie", "Tętno", "Pora", "Uwagi"), rowsHtml, "margin-top:12px"))
                     h.append("<p class=\"muted\" style=\"margin:6px 0 0\">Oznaczenia orientacyjne: ${c.thresholdText()}.</p>")
                 } else {
-                    // segmenty o szerokości zbliżonej do strony, żeby wykres nie był zmniejszany (i podpisy zostały czytelne)
-                    val seg = ((720f - 18f) / Trend.dayWidthFor(nDays)).toInt().coerceAtLeast(30)
-                    var a = per.from
-                    while (a <= per.to) {
-                        val b = minOf(a.plusDays(seg - 1L), per.to)
-                        Trend.build(list, a, b, 720f, c.hiSys, c.hiDia, 230f, aggregate = true)?.let { g ->
-                            h.append("<div class=\"fig\"><div class=\"rp-lab\">${plDate(a)} – ${plDate(b)}</div>").append(Trend.svg(g)).append("</div>")
-                        }
-                        a = b.plusDays(1)
-                    }
                     val monthly = nDays > 190
                     val rowsHtml = bpPeriods(list, monthly, c).map { r ->
                         "<tr><td class=\"num\">${if (monthly) "%02d.%04d".format(r.from.monthValue, r.from.year) else plDate(r.from)}</td><td class=\"num\">${r.n}</td><td class=\"num\"><b>${r.sys}/${r.dia}</b></td><td class=\"num\">${r.sysMin}-${r.sysMax}</td><td class=\"num\">${r.diaMin}-${r.diaMax}</td><td class=\"num\">${r.pulse ?: ""}</td><td class=\"num\">${if (r.high > 0) "<b>${r.high}</b>" else "0"}</td><td class=\"num\">${r.low}</td></tr>"

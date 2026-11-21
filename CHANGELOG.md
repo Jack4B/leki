@@ -10,7 +10,7 @@
 - **Czytelniejszy wygląd:** siatka pionowa co tydzień (co dzień tylko w krótkich okresach), jaśniejsza siatka i linia podstawy, zaokrąglone linie, delikatniejsze pole między skurczowym a rozkurczowym, kreski zakresu dnia tylko tam, gdzie było kilka różnych pomiarów.
 - **Aplikacja:** pole między liniami jak w wydruku, legenda z prawdziwymi znacznikami (skurczowe, rozkurczowe, na progu lub powyżej, próg z wartościami) zamiast „● ○”, krótszy opis pod wykresem.
 - **Raport dla lekarza:** legenda z progiem z ustawień i oznaczeniem przerw. Zmieniony wygląd wykresu wymagał świadomej aktualizacji fixtures `report-*.html` (poza wykresem i legendą raport bez zmian).
-- Liczba testów `core`: 374 (nowe w `BpTrendTest`).
+- Liczba testów `core`: 373 (nowe w `BpTrendTest`, `PrintLayoutTest`). Legenda raportu wymienia próg i przerwy tylko wtedy, gdy są na wykresie; ten sam próg szerokości podpisu „brak pomiarów” w wydruku i w aplikacji (`Trend.GAP_LABEL_MIN`).
 
 ## 0.16.2-preview
 

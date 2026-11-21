@@ -73,6 +73,8 @@ object Trend {
     const val DETAIL_MAX_DAYS = 45
     /** Od tylu dni bez pomiarów linia wykresu się urywa, a przerwa jest zaznaczona jako „brak pomiarów” (krótsze przerwy, np. weekend, są łączone). */
     const val GAP_DAYS = 3
+    /** Najmniejsza szerokość przerwy (w jednostkach wykresu), w której mieści się podpis „brak pomiarów”; wspólna dla wydruku i aplikacji. */
+    const val GAP_LABEL_MIN = 70f
     private const val PAD_L = 8f
     private const val PAD_R = 10f
     private const val TOP = 10f
@@ -172,7 +174,7 @@ object Trend {
         // luki bez pomiarów: jasne tło z podpisem, żeby przerwa nie wyglądała jak równy przebieg
         g.gaps.forEach { gp ->
             sb.append("<rect class=\"gap\" x=\"${f1(gp.x1)}\" y=\"${f1(g.plotTop)}\" width=\"${f1(gp.x2 - gp.x1)}\" height=\"${f1(g.plotBottom - g.plotTop)}\"/>")
-            if (gp.x2 - gp.x1 >= 62f) sb.append("<text class=\"gaptx\" x=\"${f1((gp.x1 + gp.x2) / 2)}\" y=\"${f1(g.plotTop + 12)}\" text-anchor=\"middle\">brak pomiarów</text>")
+            if (gp.x2 - gp.x1 >= GAP_LABEL_MIN) sb.append("<text class=\"gaptx\" x=\"${f1((gp.x1 + gp.x2) / 2)}\" y=\"${f1(g.plotTop + 12)}\" text-anchor=\"middle\">brak pomiarów</text>")
         }
         // siatka tylko przy podpisanych podziałkach (podziałka zastąpiona wartością progu nie ma linii, bo próg ma własną)
         axisLabels(g).filter { !it.second }.map { it.first }.forEach {

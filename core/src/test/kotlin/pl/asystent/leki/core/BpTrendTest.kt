@@ -112,7 +112,7 @@ class BpTrendTest {
         val svg = Trend.svg(g)
         assertEquals(2, Regex("class=\"l-sys\"").findAll(svg).count(), "osobna linia dla każdego odcinka")
         assertEquals(2, Regex("class=\"fill\"").findAll(svg).count())
-        assertEquals(g.gaps.count { it.x2 - it.x1 >= 62f }, Regex("brak pomiarów").findAll(svg).count(), "podpis w każdej dość szerokiej luce")
+        assertEquals(g.gaps.count { it.x2 - it.x1 >= Trend.GAP_LABEL_MIN }, Regex("brak pomiarów").findAll(svg).count(), "podpis w każdej dość szerokiej luce")
         // bez luk: jeden odcinek, bez zaznaczeń
         val full = Trend.build(readings(30), from, end, 720f, 135, 85, fit = true)!!
         assertEquals(1, full.readingRuns.size); assertTrue(full.gaps.isEmpty())
