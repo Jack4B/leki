@@ -28,14 +28,13 @@ object StudyText {
         val bodies = ArrayList<List<OcrLine>>()
         pages.forEachIndexed { pi, raw ->
             var lines = readingOrder(raw.map { it.copy(text = it.text.trim()) }.filter { it.text.isNotEmpty() })
-            if (pi == 0) {
-                // wiersz z numerem PESEL (i imieniem) kończy nagłówek placówki; wszystko przed nim to adres, tytuł i data
-                val idx = lines.indexOfFirst { Studies.hasIdentifier(it.text) }
-                if (idx in 1..14) {
-                    val header = lines.take(idx).map { it.text }
-                    title = headerTitle(header); kind = headerKind(header.joinToString(" ").lowercase().replace(" ", "")); date = headerDate(header.joinToString(" "))
-                    lines = lines.drop(idx)
-                }
+            // wiersz z numerem PESEL (i imieniem) kończy nagłówek placówki; wszystko przed nim to adres, tytuł i data. Na kolejnych stronach nagłówek bywa powtórzony
+            // (razem z „Pacjent: …”), więc odcinamy go na każdej stronie, a tytuł, rodzaj i datę bierzemy tylko z pierwszej.
+            val idx = lines.indexOfFirst { Studies.hasIdentifier(it.text) }
+            if (idx in 1..14) {
+                val header = lines.take(idx).map { it.text }
+                if (pi == 0) { title = headerTitle(header); kind = headerKind(header.joinToString(" ").lowercase().replace(" ", "")); date = headerDate(header.joinToString(" ")) }
+                lines = lines.drop(idx)
             }
             lines = lines.filterNot { Studies.hasIdentifier(it.text) }
             // podpis lekarza i pieczątka (kilka ostatnich wierszy): odcinamy od pierwszego wiersza z podpisem do końca

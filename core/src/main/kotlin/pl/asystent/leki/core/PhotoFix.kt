@@ -162,6 +162,8 @@ object PhotoFix {
         fun pct(p: Double): Int { var acc = 0; for (t in 0 until 256) { acc += hist[t]; if (acc >= n * p) return t }; return 255 }
         val lo = pct(0.01); var hi = pct(0.99)
         if (hi - lo < 40) return 0 to 255
+        // wzmocnienie najwyżej 2× (zakres co najmniej 128); przy jasnych kadrach (lo > 127) tego się nie da bez obcinania jasnych miejsc, więc bez zmian
+        if (lo + 128 > 255) return 0 to 255
         if (hi < lo + 128) hi = lo + 128
         return if (lo <= 8 && hi >= 247) 0 to 255 else lo to min(255, hi)
     }

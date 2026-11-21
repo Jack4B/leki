@@ -63,6 +63,15 @@ class StudyTextTest {
         assertEquals("" to "Tylko wnioski.", StudyText.splitConclusions("Wnioski\n\nTylko wnioski."))
     }
 
+    @Test fun repeatedHeaderOnLaterPagesIsDroppedToo() {
+        val page2 = listOf(line("NZOZ Przychodnia Przykładowa", 500, 0), line("Pacjent: JAN TESTOWY", 300, 1), line("PESEL 00000000000", 300, 2),
+            line("Dalszy opis z drugiej strony badania.", 400, 3))
+        val p = StudyText.parse(listOf(page, page2))
+        assertTrue(p.description.endsWith("Dalszy opis z drugiej strony badania.") || p.conclusions.endsWith("Dalszy opis z drugiej strony badania."))
+        assertFalse("JAN TESTOWY" in p.description + p.conclusions || "Przychodnia" in p.description + p.conclusions, "nagłówek drugiej strony (z imieniem) też znika")
+        assertEquals("Badanie ultrasonograficzne", p.title, "tytuł tylko z pierwszej strony")
+    }
+
     @Test fun pagesAreSeparatedByAParagraphBreak() {
         val p = StudyText.parse(listOf(listOf(line("Strona pierwsza kończy się bez kropki", 700, 0)), listOf(line("Strona druga zaczyna się dalej.", 300, 0))))
         assertEquals("Strona pierwsza kończy się bez kropki\n\nStrona druga zaczyna się dalej.", p.description)

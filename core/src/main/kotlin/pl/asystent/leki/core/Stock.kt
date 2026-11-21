@@ -136,7 +136,7 @@ fun AppState.housekeepingReminders(zone: ZoneId, nowMillis: Long, today: LocalDa
         }
     }
     val bd = settings.backupRemindDays
-    val hasData = meds.isNotEmpty() || bp.isNotEmpty() || labs.isNotEmpty() || ecgs.isNotEmpty()
+    val hasData = meds.isNotEmpty() || bp.isNotEmpty() || labs.isNotEmpty() || ecgs.isNotEmpty() || studies.isNotEmpty() || analyses.isNotEmpty() || !cykl.isEmpty
     if (bd > 0 && hasData) {
         val last = lastBackup ?: created
         val dueDate = last.plusDays(bd.toLong())

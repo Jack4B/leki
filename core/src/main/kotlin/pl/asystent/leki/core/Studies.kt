@@ -38,8 +38,13 @@ object Studies {
     const val MAX_IMAGES = 8
     /** Jedno zdjęcie po zmniejszeniu: do ok. 260 KB JPEG (jako base64 ok. 350 tys. znaków). */
     const val MAX_IMAGE_CHARS = 350_000
-    /** Wszystkie zdjęcia jednej osoby razem (ok. 4,5 MB JPEG), żeby plik danych i kopia (limit importu 20 MB) nie puchły. */
+    /** Wszystkie zdjęcia jednej osoby razem (ok. 4,5 MB JPEG), żeby plik danych osoby nie puchł. */
     const val MAX_TOTAL_CHARS = 6_000_000
+    /**
+     * Zdjęcia wszystkich osób razem (ok. 7,5 MB JPEG). Kopia całości trafia do jednego pliku, a import przyjmuje najwyżej [Backup.MAX_IMPORT_BYTES] (20 MB);
+     * kopia zaszyfrowana koduje szyfrogram w base64 (+1/3), więc 10 mln znaków zdjęć i reszta danych mieszczą się z zapasem.
+     */
+    const val MAX_ALL_CHARS = 10_000_000
     /** Z jednego badania do raportu dla AI trafia najwyżej tyle znaków opisu. */
     const val AI_DESCRIPTION_CHARS = 3_000
 
@@ -65,12 +70,42 @@ object Studies {
         return studies.map { st -> st.copy(images = st.images.filter { im -> (im.data.length <= left).also { ok -> if (ok) left -= im.data.length } }) }
     }
 
+    /**
+     * Powód, dla którego zdjęcia nie mogą urosnąć o [delta] znaków (null = mogą): limit osoby ([MAX_TOTAL_CHARS]) i wszystkich osób razem ([MAX_ALL_CHARS], [otherPeople]
+     * to zdjęcia pozostałych osób). Wspólne sprawdzenie dla dodania zdjęcia, ponownej korekty zdjęcia i cofnięcia usunięcia badania, żeby nic nie było obcinane po cichu przy wczytaniu.
+     */
+    fun cannotGrow(all: List<Study>, delta: Int, otherPeople: Int = 0): String? {
+        if (delta <= 0) return null
+        val mine = imageChars(all)
+        fun mb(c: Int) = c * 3 / 4 / 1024 / 1024
+        return when {
+            mine + delta > MAX_TOTAL_CHARS -> "Zajęte jest ${mb(mine)} z ${mb(MAX_TOTAL_CHARS)} MB na zdjęcia badań tej osoby. Usuń niepotrzebne zdjęcie, żeby dodać nowe."
+            mine + otherPeople + delta > MAX_ALL_CHARS -> "Zdjęcia badań wszystkich osób zajmują ${mb(mine + otherPeople)} z ${mb(MAX_ALL_CHARS)} MB (tyle mieści kopia zapasowa, którą da się wczytać). Usuń niepotrzebne zdjęcie, żeby dodać nowe."
+            else -> null
+        }
+    }
+
     /** Powód, dla którego nie można dodać zdjęcia o [dataChars] znakach do badania [study] (null = można). */
-    fun cannotAddImage(all: List<Study>, study: Study?, dataChars: Int): String? = when {
+    fun cannotAddImage(all: List<Study>, study: Study?, dataChars: Int, otherPeople: Int = 0): String? = when {
         study != null && study.images.size >= MAX_IMAGES -> "W jednym badaniu może być najwyżej $MAX_IMAGES zdjęć."
         dataChars > MAX_IMAGE_CHARS -> "Zdjęcie jest za duże nawet po zmniejszeniu."
-        imageChars(all) + dataChars > MAX_TOTAL_CHARS -> "Zajęte jest ${imageChars(all) * 3 / 4 / 1024 / 1024} z ${MAX_TOTAL_CHARS * 3 / 4 / 1024 / 1024} MB na zdjęcia badań. Usuń niepotrzebne zdjęcie, żeby dodać nowe."
-        else -> null
+        else -> cannotGrow(all, dataChars, otherPeople)
+    }
+
+    private val PATIENT_LABEL = Regex("""(?i)^\s*(pacjent(ka)?|imię i nazwisko|nazwisko|imię)\s*:""")
+
+    /**
+     * Usuwa z tekstu dla AI dane osoby, gdy imię nie ma trafić do tekstu: wiersze z etykietą („Pacjent:”, „Imię i nazwisko:”) oraz każde wystąpienie części imienia
+     * i nazwiska z [patient] (od 3 liter, bez względu na wielkość liter), także w innym przypadku („Jana Testowego”, „Kowalskiej”), zastępowane przez „[…]”.
+     * Odmianę przybliża temat (część bez ostatniej litery, gdy ma co najmniej 5 liter albo 4 i kończy się samogłoską) z najwyżej 4 literami końcówki; lepiej zasłonić o słowo za dużo niż zostawić nazwisko.
+     */
+    fun stripPatient(text: String, patient: String): String {
+        val kept = text.lines().filterNot { PATIENT_LABEL.containsMatchIn(it) }.joinToString("\n")
+        val stems = patient.split(Regex("""[\s\-]+""")).map { it.trim().trim('.', ',') }.filter { it.length >= 3 }
+            .map { if (it.length >= 5 || it.length == 4 && it.last().lowercaseChar() in "aeiouyąę") it.dropLast(1) else it }.distinct()
+        if (stems.isEmpty()) return kept
+        val re = Regex("(?i)(?<!\\p{L})(" + stems.joinToString("|") { Regex.escape(it) } + ")\\p{L}{0,4}(?!\\p{L})")
+        return kept.replace(re, "[…]")
     }
 
     /**

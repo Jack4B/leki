@@ -92,7 +92,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                 LekiCard(Modifier.padding(bottom = 16.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Wizyta u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
+                        BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }, "badaniami opisowymi i obrazowymi (ze zdjęciami)".takeIf { s.settings.labsOn && s.studies.isNotEmpty() }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
                         LekiButton("Przygotuj na wizytę", {
                             preset = 30; fromStr = ""; toStr = ""; customRange = false
                             setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true, studies = s.studies.isNotEmpty() && s.settings.labsOn) }

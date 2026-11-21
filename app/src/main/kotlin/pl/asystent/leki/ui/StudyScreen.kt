@@ -99,11 +99,20 @@ private fun StudyRow(st: Study, onEdit: () -> Unit, onDelete: () -> Unit) {
 }
 
 /** Usuwa badanie razem ze zdjęciami i z wyboru do raportów oraz pokazuje „Cofnij”, które przywraca badanie i ten wybór. */
-internal fun deleteStudyWithUndo(store: Store, st: Study, undo: (String, () -> Unit) -> Unit) {
+internal fun deleteStudyWithUndo(store: Store, st: Study, undo: (String, () -> Unit) -> Unit, toast: (String) -> Unit) {
     val wasPicked = store.state.value.settings.rp.studyIds?.contains(st.id) == true
     store.update { it.deleteStudy(st.id) }
-    undo("Usunięto badanie: ${st.title}") { store.update { s2 -> s2.restoreStudy(st, wasPicked) } }
+    undo("Usunięto badanie: ${st.title}") {
+        // gdy w międzyczasie zdjęcia zajęły miejsce, nie przywracamy po cichu (inaczej zdjęcia zniknęłyby przy następnym wczytaniu danych)
+        val back = store.state.value.restoreStudy(st, wasPicked, otherPeopleImageChars(store))
+        if (back == null) toast("Nie można przywrócić badania: jego zdjęcia nie mieszczą się już w limicie. Usuń niepotrzebne zdjęcie i spróbuj dodać je ponownie.")
+        else store.update { s2 -> s2.restoreStudy(st, wasPicked, otherPeopleImageChars(store)) ?: s2 }
+    }
 }
+
+/** Zdjęcia badań pozostałych osób (znaki base64), do wspólnego limitu kopii zapasowej ([Studies.MAX_ALL_CHARS]). */
+internal fun otherPeopleImageChars(store: Store): Int =
+    store.allStates().filter { it.first.id != store.activeId.value }.sumOf { Studies.imageChars(it.second.studies) }
 
 /** Edytor badania: rodzaj, data, tytuł, miejsce, opis, wnioski i zdjęcia; opis można wczytać ze zdjęcia lub PDF wyniku (numery PESEL są usuwane, resztę sprawdza osoba). */
 @OptIn(ExperimentalLayoutApi::class)
@@ -145,7 +154,7 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
                 if (data == null) toast("Nie udało się odczytać zdjęcia albo jest za duże nawet po zmniejszeniu.")
                 else {
                     val all = store.state.value.studies.filter { it.id != id } + draft()
-                    val why = Studies.cannotAddImage(all, draft(), data.length)
+                    val why = Studies.cannotAddImage(all, draft(), data.length, otherPeopleImageChars(store))
                     if (why != null) toast(why) else images = images + StudyImage(newId(), data)
                 }
             } catch (e: OutOfMemoryError) {
@@ -183,12 +192,13 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         onClose,
         footer = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                LekiButton("Anuluj", onClose, Modifier.weight(1f))
+                // w trakcie przetwarzania zdjęcia lub tekstu zapis zgubiłby wynik (zamknięcie edytora przerywa pracę), więc przyciski czekają
+                LekiButton("Anuluj", onClose, Modifier.weight(1f), enabled = busy == null)
                 LekiButton("Zapisz", {
                     store.update { it.saveStudy(draft()) }
                     toast("Zapisano badanie")
                     onClose()
-                }, Modifier.weight(1f), primary = true, enabled = title.isNotBlank() || description.isNotBlank() || conclusions.isNotBlank() || images.isNotEmpty())
+                }, Modifier.weight(1f), primary = true, enabled = busy == null && (title.isNotBlank() || description.isNotBlank() || conclusions.isNotBlank() || images.isNotEmpty()))
             }
         },
     ) {
@@ -227,7 +237,7 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
         ToggleChip("Automatycznie przytnij tło i wyprostuj nowe zdjęcia", autoFix) { autoFix = !autoFix }
         LekiButton("Dodaj zdjęcie z galerii", { addImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Image, enabled = busy == null && images.size < Studies.MAX_IMAGES)
         Hint("Zdjęcia są pomniejszane i zapisywane w aplikacji oraz w kopii zapasowej (do ${Studies.MAX_IMAGES} przy badaniu). Trafią do raportu dla lekarza, jeśli wybierzesz to badanie; do tekstu dla AI nie trafiają.")
-        if (initial != null) LinkButton("Usuń to badanie", { deleteStudyWithUndo(store, initial, undo); onClose() }, danger = true)
+        if (initial != null) LinkButton("Usuń to badanie", { deleteStudyWithUndo(store, initial, undo, toast); onClose() }, danger = true)
     }
     images.firstOrNull { it.id == viewId }?.let { im ->
         FullScreenDialog("Zdjęcie z badania", { viewId = "" }) {
@@ -239,7 +249,10 @@ fun StudyEditor(initial: Study?, store: Store, onClose: () -> Unit) {
                 scope.launch {
                     try {
                         val fixed = StudyImages.fixStored(im.data)
+                        // ponowne kodowanie może dać większy plik: sprawdzamy limity tak jak przy dodawaniu zdjęcia
+                        val why = fixed?.let { f -> Studies.cannotGrow(store.state.value.studies.filter { it.id != id } + draft(), f.length - im.data.length, otherPeopleImageChars(store)) }
                         if (fixed == null) toast("Nie znaleziono tła do przycięcia na tym zdjęciu.")
+                        else if (why != null) toast(why)
                         else { images = images.map { if (it.id == im.id) it.copy(data = fixed) else it }; toast("Zdjęcie poprawione. „Anuluj” w edytorze cofa zmianę.") }
                     } catch (e: OutOfMemoryError) {
                         toast("Zdjęcie jest za duże dla pamięci telefonu.")

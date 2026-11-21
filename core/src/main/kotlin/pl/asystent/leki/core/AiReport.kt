@@ -195,12 +195,15 @@ object AiReport {
         }
         if (studies.isNotEmpty()) {
             p(); p("## Badania opisowe i obrazowe (opis słowny, bez obrazów)"); p()
+            // bez zgody na imię (pigułka „Imię i nazwisko”) z tekstu badań znikają też etykiety „Pacjent:” i części imienia i nazwiska osoby
+            fun clean(x: String) = if (A.name) x else Studies.stripPatient(x, s.patient)
             studies.forEach { st ->
-                p("### ${plDate(st.date)} ${cell(st.title)}" + if (st.kind != StudyKind.Other && !st.title.contains(st.kind.label, ignoreCase = true)) " (${st.kind.label})" else "")
+                val title = clean(st.title)
+                p("### ${plDate(st.date)} ${cell(title)}" + if (st.kind != StudyKind.Other && !title.contains(st.kind.label, ignoreCase = true)) " (${st.kind.label})" else "")
                 p()
-                if (st.place.isNotEmpty()) p("- Miejsce: ${cell(st.place)}")
-                Studies.aiDescription(st).takeIf { it.isNotEmpty() }?.let { d -> p("- Opis: " + d.lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
-                st.conclusions.takeIf { it.isNotBlank() }?.let { c2 -> p("- Wnioski: " + Studies.stripIdentifiers(c2).lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
+                if (st.place.isNotEmpty()) p("- Miejsce: ${cell(clean(st.place))}")
+                clean(Studies.aiDescription(st)).takeIf { it.isNotBlank() }?.let { d -> p("- Opis: " + d.lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
+                st.conclusions.takeIf { it.isNotBlank() }?.let { c2 -> p("- Wnioski: " + clean(Studies.stripIdentifiers(c2)).lines().filter { it.isNotBlank() }.joinToString(" ") { it.trim() }) }
                 if (st.images.isNotEmpty()) p("- Pacjent ma ${st.images.size} ${plN(st.images.size, "zdjęcie", "zdjęcia", "zdjęć")} z tego badania; nie ma ich w tym tekście.")
                 p()
             }

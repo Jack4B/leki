@@ -1,5 +1,19 @@
 # Zmiany
 
+## 0.16.2-preview
+
+Poprawki z przeglądu kodu (code review) badań opisowych i obrazowych. Powód: kilka sytuacji, w których dane mogły zniknąć po cichu albo trafić tam, gdzie nie powinny.
+
+- **Kopia zapasowa, którą da się wczytać:** zdjęcia badań wszystkich osób razem mają limit ok. 7,5 MB (`Studies.MAX_ALL_CHARS`), żeby kopia całości (także zaszyfrowana) zmieściła się w limicie importu 20 MB. Komunikat przy dodawaniu zdjęcia mówi, który limit jest przekroczony (tej osoby czy wszystkich osób).
+- **Bez cichej utraty zdjęć:** „Cofnij” po usunięciu badania i ponowna korekta zapisanego zdjęcia („Przytnij i wyprostuj automatycznie”) sprawdzają limity; gdy zdjęcia już się nie mieszczą, pojawia się komunikat zamiast obcięcia zdjęć przy następnym wczytaniu danych (`restoreStudy` zwraca `null`).
+- **Imię i nazwisko poza tekstem dla AI:** gdy imię nie ma trafić do tekstu dla AI, z tytułu, miejsca, opisu i wniosków badań znikają wiersze „Pacjent:”, „Imię i nazwisko:” oraz imię i nazwisko osoby także w odmianie („Jana Testowego” → „[…]”), `Studies.stripPatient`. Nagłówek placówki z imieniem jest usuwany przy wczytaniu z każdej strony PDF, nie tylko z pierwszej.
+- **Zapis podczas przetwarzania:** „Anuluj” i „Zapisz” w edytorze badania są nieaktywne, dopóki trwa wczytywanie opisu lub poprawianie zdjęcia.
+- **Przypomnienie o kopii** działa też u osoby, która ma tylko badania opisowe.
+- **Korekta zdjęcia:** bardzo jasne zdjęcie nie dostaje wzmocnienia kontrastu ponad 2×.
+- **„Przygotuj na wizytę”** wymienia w opisie badania opisowe i obrazowe, gdy są.
+- **Kopia:** puste pola badania (miejsce, opis, wnioski, podpis zdjęcia) nie są zapisywane; wczytanie bez zmian.
+- Liczba testów `core`: 369.
+
 ## 0.16.1-preview
 
 Poprawa formatowania opisu badania wczytanego ze zdjęcia lub PDF i jego wyglądu w raporcie dla lekarza. Powód: tekst z odczytu (OCR) miał twarde łamania wierszy w środku zdań, a przy lekko pochylonym zdjęciu wiersze były pomieszane (nagłówek przychodni, data, „Wnioski” i końcówki akapitów lądowały w środku opisu).

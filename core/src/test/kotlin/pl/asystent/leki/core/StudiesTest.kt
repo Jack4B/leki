@@ -95,11 +95,11 @@ class StudiesTest {
         val s = base.saveStudy(st).saveStudy(study("b", 5)).let { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(studyIds = listOf("a", "b")))) }
         val gone = s.deleteStudy("a")
         assertEquals(listOf("b"), gone.settings.rp.studyIds)
-        val back = gone.restoreStudy(st, wasPicked = true)
+        val back = gone.restoreStudy(st, wasPicked = true)!!
         assertEquals(setOf("a", "b"), back.studies.map { it.id }.toSet()); assertEquals(listOf("b", "a"), back.settings.rp.studyIds)
-        assertEquals(listOf("b"), gone.restoreStudy(st, wasPicked = false).settings.rp.studyIds, "niewybrane badanie wraca bez wyboru")
+        assertEquals(listOf("b"), gone.restoreStudy(st, wasPicked = false)!!.settings.rp.studyIds, "niewybrane badanie wraca bez wyboru")
         // tryb automatyczny zostaje automatyczny
-        assertNull(base.saveStudy(st).deleteStudy("a").restoreStudy(st, wasPicked = true).settings.rp.studyIds)
+        assertNull(base.saveStudy(st).deleteStudy("a").restoreStudy(st, wasPicked = true)!!.settings.rp.studyIds)
     }
 
     @Test fun backupRoundTripAndOldBackups() {
@@ -155,5 +155,58 @@ class StudiesTest {
         assertTrue("obrazów nie widzisz i nie oceniaj ich" in t)
         val picked = on.copy(settings = on.settings.copy(rp = on.settings.rp.copy(studyIds = emptyList())))
         assertFalse("## Badania opisowe i obrazowe (opis słowny" in AiReport.build(picked, per, end, Fixtures.now, "test"), "pusty wybór ręczny")
+    }
+
+    // ---------- poprawki z code review ----------
+
+    private fun big(id: String, n: Int) = Study(id, end, StudyKind.Usg, "USG", images = List(n) { j -> StudyImage("$id$j", "/9j/" + "QUJD".repeat(80_000)) })   // 320 004 znaków na zdjęcie
+
+    @Test fun limitAcrossAllPeopleKeepsAFullBackupLoadable() {
+        val mine = listOf(big("a", 4))                       // ok. 1,28 mln znaków u tej osoby
+        assertNull(Studies.cannotGrow(mine, 300_000, otherPeople = 0))
+        val why = Studies.cannotGrow(mine, 300_000, otherPeople = Studies.MAX_ALL_CHARS - 1_400_000)
+        assertTrue(why != null && "wszystkich osób" in why, "pozostałe osoby zajmują prawie cały wspólny limit")
+        assertTrue(Studies.cannotAddImage(mine, mine[0], 300_000, otherPeople = Studies.MAX_ALL_CHARS)!!.contains("wszystkich osób"))
+        assertNull(Studies.cannotGrow(mine, -500, otherPeople = Studies.MAX_ALL_CHARS), "zmniejszenie zawsze wolno")
+        // wspólny limit z zapasem mieści się w imporcie także dla kopii zaszyfrowanej (base64 szyfrogramu +1/3)
+        assertTrue(Studies.MAX_ALL_CHARS * 4 / 3 + 2_000_000 < Backup.MAX_IMPORT_BYTES)
+    }
+
+    @Test fun undoDoesNotRestorePhotosThatNoLongerFit() {
+        val st = big("a", 8)                                 // 2,56 mln znaków
+        val s = base.saveStudy(st).deleteStudy("a").saveStudy(big("b", 8)).saveStudy(big("c", 4))   // miejsce zajęte w międzyczasie
+        assertNull(s.restoreStudy(st, wasPicked = false), "zdjęcia nie mieszczą się w limicie osoby: nie przywracamy po cichu")
+        assertTrue(base.saveStudy(st).deleteStudy("a").restoreStudy(st, wasPicked = false) != null)
+        assertNull(base.restoreStudy(st, wasPicked = false, otherPeople = Studies.MAX_ALL_CHARS - 1_000_000), "wspólny limit wszystkich osób")
+    }
+
+    @Test fun aiTextHasNoPatientNameWhenTheNameToggleIsOff() {
+        val st = Study("a", end.minusDays(3), StudyKind.Usg, "USG Jana Testowego", "Gabinet", "Pacjent: JAN TESTOWY\nWątroba bez zmian. Jan Testowy zgłosił się na kontrolę.", "Bez zmian u pana testowego.")
+        val off = base.saveStudy(st).let { it.copy(settings = it.settings.copy(ai = it.settings.ai.copy(studies = true, name = false))) }
+        val t = AiReport.build(off, per, end, Fixtures.now, "test")
+        assertTrue("Wątroba bez zmian." in t)
+        assertFalse("Pacjent:" in t || Regex("(?i)testow|\\bjan\\b").containsMatchIn(t.substringAfter("## Badania opisowe i obrazowe (opis")), "imię i nazwisko nie trafiają do opisu badań")
+        val on = off.copy(settings = off.settings.copy(ai = off.settings.ai.copy(name = true)))
+        assertTrue("Jan Testowy zgłosił się" in AiReport.build(on, per, end, Fixtures.now, "test"), "z włączonym imieniem tekst bez zmian")
+        assertEquals("Opis […] i […].", Studies.stripPatient("Opis Jana i Testowy.\nPacjentka: X", "Jana Testowy"))
+        assertEquals("Bez zmian.", Studies.stripPatient("Bez zmian.", ""))
+        assertEquals("Skierowanie dla […] […], badanie […].", Studies.stripPatient("Skierowanie dla Anny Kowalskiej, badanie Kowalskiej-Nowak.", "Anna Kowalska-Nowak").replace("[…]-[…]", "[…]"))
+        assertEquals("Wątroba jednorodna, nerki bez zmian.", Studies.stripPatient("Wątroba jednorodna, nerki bez zmian.", "Ewa Nerkowska"), "zwykłe słowa zostają")
+    }
+
+    @Test fun emptyOptionalFieldsAreNotWrittenToTheBackup() {
+        val st = Study("a", end, StudyKind.Usg, "USG", images = listOf(StudyImage("i", jpeg())))
+        val json = Backup.export(base.saveStudy(st))
+        val studyJson = json.substringAfter("\"studies\"")
+        assertFalse("\"place\"" in studyJson || "\"description\"" in studyJson || "\"conclusions\"" in studyJson || "\"caption\"" in studyJson)
+        assertEquals(base.saveStudy(st).studies, Backup.parseState(json).studies, "puste pola wracają jako puste")
+    }
+
+    @Test fun backupReminderAlsoForPeopleWithOnlyStudies() {
+        val zone = java.time.ZoneId.of("Europe/Warsaw")
+        val now = end.atTime(7, 0).atZone(zone).toInstant().toEpochMilli()
+        val s = base.copy(lastBackup = end.minusDays(40), settings = base.settings.copy(backupRemindDays = 30, stockWarnDays = 0))
+        assertTrue(s.housekeepingReminders(zone, now, end).isEmpty(), "pusta osoba: bez przypomnienia")
+        assertTrue(s.saveStudy(study("a", 3)).housekeepingReminders(zone, now, end).any { it.id == REMINDER_BACKUP }, "przypomnienie o kopii, gdy osoba ma tylko badania")
     }
 }

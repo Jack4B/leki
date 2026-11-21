@@ -300,9 +300,14 @@ fun AppState.saveStudy(st: Study): AppState {
 fun AppState.deleteStudy(id: String): AppState =
     copy(studies = studies.filter { it.id != id }, settings = settings.rp.studyIds?.let { ids -> settings.copy(rp = settings.rp.copy(studyIds = ids - id)) } ?: settings)
 
-/** Cofnięcie usunięcia badania: wraca badanie, a jeśli było wybrane do raportów (wybór ręczny), także ten wybór. */
-fun AppState.restoreStudy(st: Study, wasPicked: Boolean): AppState =
-    saveStudy(st).let { s -> if (wasPicked) s.settings.rp.studyIds?.let { ids -> s.copy(settings = s.settings.copy(rp = s.settings.rp.copy(studyIds = (ids + st.id).distinct()))) } ?: s else s }
+/**
+ * Cofnięcie usunięcia badania: wraca badanie, a jeśli było wybrane do raportów (wybór ręczny), także ten wybór. Null, gdy jego zdjęcia już się nie zmieszczą w limicie
+ * (miejsce zajęły nowe zdjęcia; [otherPeople]: zdjęcia pozostałych osób) — wtedy interfejs mówi o tym, zamiast żeby zdjęcia zniknęły po cichu przy następnym wczytaniu.
+ */
+fun AppState.restoreStudy(st: Study, wasPicked: Boolean, otherPeople: Int = 0): AppState? {
+    if (Studies.cannotGrow(studies, st.images.sumOf { it.data.length }, otherPeople) != null) return null
+    return saveStudy(st).let { s -> if (wasPicked) s.settings.rp.studyIds?.let { ids -> s.copy(settings = s.settings.copy(rp = s.settings.rp.copy(studyIds = (ids + st.id).distinct()))) } ?: s else s }
+}
 
 // ---------- EKG z zegarka ----------
 

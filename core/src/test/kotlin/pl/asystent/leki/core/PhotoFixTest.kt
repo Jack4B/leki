@@ -70,6 +70,13 @@ class PhotoFixTest {
         assertTrue(PhotoPlan().isIdentity && !PhotoPlan(rotateDeg = 2.0).isIdentity)
     }
 
+    @Test fun brightFramesAreNotBoostedBeyondTwoTimes() {
+        val px = IntArray(W * H) { 250 }
+        for (y in 80 until 320) for (x in 80 until 220) px[y * W + x] = 180 + ((x + y) % 50)   // jasnoszare kadry 180–229 na białym tle
+        val p = PhotoFix.levels(Gray(W, H, px), FracBox(80.0 / W - 0.015, 80.0 / H - 0.015, 220.0 / W + 0.015, 320.0 / H + 0.015))
+        assertEquals(0 to 255, p, "przy lo > 127 wzmocnienie 2× nie jest możliwe bez obcinania jasnych miejsc, więc bez zmian")
+    }
+
     @Test fun rotationKeepsTheSizeFormulaAndFillsWithTheBackground() {
         val r = PhotoFix.rotate(strip(), 5.0)
         assertTrue(r.w > W && r.h > H)

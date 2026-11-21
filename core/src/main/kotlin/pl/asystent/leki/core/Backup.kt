@@ -429,8 +429,11 @@ object Backup {
             s.studies.forEach { st ->
                 add(buildJsonObject {
                     put("id", st.id); put("date", st.date.toString()); put("kind", st.kind.id); put("title", st.title)
-                    put("place", st.place); put("description", st.description); put("conclusions", st.conclusions)
-                    if (st.images.isNotEmpty()) putJsonArray("images") { st.images.forEach { im -> add(buildJsonObject { put("id", im.id); put("data", im.data); put("caption", im.caption) }) } }
+                    // pola opcjonalne tylko, gdy niepuste (zasada kopii v3: wartości domyślne nie są zapisywane)
+                    if (st.place.isNotEmpty()) put("place", st.place)
+                    if (st.description.isNotEmpty()) put("description", st.description)
+                    if (st.conclusions.isNotEmpty()) put("conclusions", st.conclusions)
+                    if (st.images.isNotEmpty()) putJsonArray("images") { st.images.forEach { im -> add(buildJsonObject { put("id", im.id); put("data", im.data); if (im.caption.isNotEmpty()) put("caption", im.caption) }) } }
                 })
             }
         }
