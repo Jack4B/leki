@@ -43,7 +43,8 @@ class PrintLayoutTest {
     @Test fun bpChartHasThresholdsAndMarksHighReadings() {
         val s = AppState(patient = "Jan Testowy", created = end.minusDays(40), bp = readings(20))
         val html = DoctorReport.html(s, Period(end.minusDays(19), end), end, Fixtures.now)
-        assertTrue("próg 135" in html && "próg 85" in html, "progi z ustawień z podpisami")
+        assertTrue("próg 135/85" in html, "progi z ustawień w legendzie")
+        assertTrue("<text class=\"axref\" x=\"30\" y=\"" in html && Regex("class=\"axref\"[^>]*>135<").containsMatchIn(html) && Regex("class=\"axref\"[^>]*>85<").containsMatchIn(html), "wartości progów wyróżnione na osi")
         assertEquals(1, Regex("class=\"p-sys out\"").findAll(html).count(), "tylko pomiar na progu lub powyżej jest czerwony")
         assertTrue("<polygon class=\"fill\"" in html, "tło między skurczowym a rozkurczowym")
         assertTrue("na progu lub powyżej" in html)

@@ -138,9 +138,7 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
             val from = if (range == 0) list.minOf { it.date } else today.minusDays((range - 1).toLong())
             Column(Modifier.padding(top = 24.dp)) {
                 Text("Przebieg", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                Row(Modifier.padding(top = 6.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Hint("● skurczowe"); Hint("○ rozkurczowe"); Hint("mmHg")
-                }
+                BpLegend(s.settings.hiSys, s.settings.hiDia, Modifier.padding(top = 8.dp, bottom = 8.dp))
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     val plotW = maxWidth.value - 34f
                     val geo = remember(list, from, today, plotW, s.settings.hiSys, s.settings.hiDia) { Trend.build(list, from, today, plotW, s.settings.hiSys, s.settings.hiDia) }
@@ -150,8 +148,9 @@ fun BpScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listState
                             val long = geo.width > plotW + 1f
                             Hint(
                                 (if (long) "Przesuń wykres palcem w bok, aby zobaczyć wcześniejsze dni. " else "") +
-                                    (if (geo.detailed) "Każdy punkt to jeden pomiar. " else "Słupek to zakres pomiarów danego dnia (min–max), linia to średnia dnia. ") +
-                                    "Przerywane linie: progi ${s.settings.hiSys}/${s.settings.hiDia}; czerwone punkty to pomiary na progu lub powyżej.",
+                                    (if (geo.detailed) "Każdy punkt to jeden pomiar. " else "Linia to średnia dnia, jasna kreska to zakres pomiarów z tego dnia (min–max). ") +
+                                    "Wartości progów są wyróżnione na osi." +
+                                    (if (geo.gaps.isNotEmpty()) " Szare pola to przerwy od ${Trend.GAP_DAYS} dni bez pomiaru: linia się w nich urywa." else ""),
                                 Modifier.padding(top = 6.dp),
                             )
                         }

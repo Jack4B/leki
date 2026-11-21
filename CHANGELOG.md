@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.16.3-preview
+
+Ładniejszy i uczciwszy wykres ciśnienia w aplikacji i w raporcie dla lekarza. Powód: linia łączyła pomiary przez kilkudniowe przerwy (wyglądało to jak równy przebieg), podpisy progów nachodziły na dane i były słabo czytelne, codzienna siatka zagłuszała wykres, a wysokie rozkurczowe nie było zaznaczane, gdy skurczowe było w normie.
+
+- **Przerwy w pomiarach:** od 3 dni bez pomiaru linia i zacienione pole się urywają, a przerwa jest szarym polem z podpisem „brak pomiarów” (także na początku i końcu okresu). Krótsze przerwy są łączone. Logika w `core` (`Trend.runs`, `TrendGeo.readingRuns/dayRuns/gaps`).
+- **Progi na osi:** wartości progów (np. 135 i 85) są wyróżnione kolorem na osi pionowej i zastępują pobliskie podziałki (`Trend.axisLabels`); podpisy „próg …” nie zasłaniają już ostatnich pomiarów.
+- **Osobne oznaczenie skurczowego i rozkurczowego:** czerwony pełny punkt dla skurczowego na progu lub powyżej, czerwona obwódka dla rozkurczowego (`sysHigh`, `diaHigh`). W długich okresach czerwone punkty mają dni ze średnią na progu, a pojedynczy dzień między przerwami ma punkt, żeby był widoczny.
+- **Czytelniejszy wygląd:** siatka pionowa co tydzień (co dzień tylko w krótkich okresach), jaśniejsza siatka i linia podstawy, zaokrąglone linie, delikatniejsze pole między skurczowym a rozkurczowym, kreski zakresu dnia tylko tam, gdzie było kilka różnych pomiarów.
+- **Aplikacja:** pole między liniami jak w wydruku, legenda z prawdziwymi znacznikami (skurczowe, rozkurczowe, na progu lub powyżej, próg z wartościami) zamiast „● ○”, krótszy opis pod wykresem.
+- **Raport dla lekarza:** legenda z progiem z ustawień i oznaczeniem przerw. Zmieniony wygląd wykresu wymagał świadomej aktualizacji fixtures `report-*.html` (poza wykresem i legendą raport bez zmian).
+- Liczba testów `core`: 374 (nowe w `BpTrendTest`).
+
 ## 0.16.2-preview
 
 Poprawki z przeglądu kodu (code review) badań opisowych i obrazowych. Powód: kilka sytuacji, w których dane mogły zniknąć po cichu albo trafić tam, gdzie nie powinny.

@@ -63,17 +63,24 @@ li{margin-bottom:6px;break-inside:avoid}
 .sw.sys{background:var(--accent)}
 .sw.dia{border:2px solid var(--ink-3);background:#fff}
 .sw.hi{background:var(--danger)}
+.sw.ref{width:16px;height:0;border-radius:0;border-top:2px dashed #b07000}
+.sw.gapsw{width:14px;height:10px;border-radius:2px;background:#f3f3f3;border:1px solid #ddd}
 .chart{width:100%;height:auto;display:block}
-.chart .gr{stroke:#ddd;stroke-width:1}
-.chart .sepv{stroke:#ddd;stroke-width:1;stroke-dasharray:2 3}
+.chart .gr{stroke:#e4e4e4;stroke-width:1}
+.chart .base{stroke:#b5b5b5;stroke-width:1}
+.chart .gap{fill:#f3f3f3}
+.chart .gaptx{fill:var(--ink-3);font:italic 9px sans-serif}
+.chart .axref{fill:#8a5a00;font:700 10px var(--mono)}
+.chart .sepv{stroke:#e4e4e4;stroke-width:1}
 .chart .ax{fill:var(--ink-3);font:10px var(--mono)}
-.chart .l-sys{fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linejoin:round}
-.chart .fill{fill:var(--accent-soft);opacity:.7}
+.chart .l-sys{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .fill{fill:var(--accent-soft);opacity:.55}
 .chart .reftx{fill:#8a5a00;font:600 9px var(--mono)}
 .chart .p-sys.out{fill:var(--danger)}
-.chart .l-dia{fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-linejoin:round}
+.chart .l-dia{fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .chart .p-sys{fill:var(--accent);stroke:#fff;stroke-width:1.5}
-.chart .p-dia{fill:#fff;stroke:var(--ink-3);stroke-width:2}
+.chart .p-dia{fill:#fff;stroke:var(--ink-3);stroke-width:1.8}
+.chart .p-dia.out{stroke:var(--danger);stroke-width:2.2}
 .chart .band{fill:var(--accent-soft)}
 .chart .bl{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;opacity:.7}
 .chart .l-lab{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
@@ -86,9 +93,9 @@ li{margin-bottom:6px;break-inside:avoid}
 .sw.bandsw{background:var(--accent-soft);border:1px solid var(--accent);border-radius:2px}
 .sw.barsw{background:var(--accent);border-radius:2px}
 .sw.outsw{background:var(--danger);border-radius:2px}
-.chart .ref{stroke:#b07000;stroke-width:1;stroke-dasharray:4 3;opacity:.8}
-.chart .rng-sys{stroke:var(--accent);opacity:.35}
-.chart .rng-dia{stroke:var(--ink-3);opacity:.35}
+.chart .ref{stroke:#b07000;stroke-width:1.1;stroke-dasharray:5 4;opacity:.75}
+.chart .rng-sys{stroke:var(--accent);opacity:.3;stroke-linecap:round}
+.chart .rng-dia{stroke:var(--ink-3);opacity:.3;stroke-linecap:round}
 h4{margin:14px 0 6px;font-size:13.5px;font-weight:650}
 h5{margin:10px 0 4px;font-size:12.5px;font-weight:650}
 p{margin:4px 0 8px;font-size:12.5px}
@@ -146,7 +153,8 @@ pre{margin:6px 0 10px;padding:6px 10px;background:#f4f4f4;border-radius:6px;font
                 val nDays = daysBetween(per.from, per.to) + 1
                 val detail = nDays <= Trend.DETAIL_MAX_DAYS
                 h.append("<div class=\"legend\"><span><i class=\"sw sys\"></i>skurczowe</span><span><i class=\"sw dia\"></i>rozkurczowe</span><span><i class=\"sw hi\"></i>na progu lub powyżej</span>")
-                h.append(if (detail) "<span>przerywana linia: próg</span></div>" else "<span>linia: średnia dzienna, pionowa kreska: zakres dnia (min–max), przerywana linia: próg</span></div>")
+                h.append("<span><i class=\"sw ref\"></i>próg ${c.hiSys}/${c.hiDia} (wyróżniony na osi)</span><span><i class=\"sw gapsw\"></i>brak pomiarów (${Trend.GAP_DAYS}+ dni)</span>")
+                h.append(if (detail) "<span>mmHg</span></div>" else "<span>linia: średnia dzienna, kreska: zakres dnia (min–max), mmHg</span></div>")
                 if (detail) {
                     Trend.build(list, per.from, per.to, 720f, c.hiSys, c.hiDia, 230f, fit = true)?.let { h.append("<div class=\"fig\">").append(Trend.svg(it)).append("</div>") }
                     val rowsHtml = list.map { r ->
