@@ -142,6 +142,15 @@ class ScreenshotTest {
     private val analysisState: AppState = state.copy(analyses = listOf(Analysis("a1", LocalDate.of(2026, 1, 15), "Analiza AI", "# Analiza\n\n## Podsumowanie\nPrzykładowy wniosek.\n\n## Szczegóły\nDługi opis.\n\n## Pytania do lekarza\n1. Przykładowe pytanie?", listOf("Szczegóły"))))
     @Test fun raportAnaliza() = slices("raport-analiza", 1) { ReportScreen(analysisState, store, listState = it, initialMode = 0) }
 
+    /** Zmyślone badania opisowe i obrazowe (jedno ze zdjęciem, jedno tylko z opisem) do sprawdzenia zakładki Badania → Opisowe. */
+    private val studyState: AppState = state.copy(studies = listOf(
+        pl.asystent.leki.core.Study("s1", LocalDate.of(2026, 1, 10), pl.asystent.leki.core.StudyKind.Usg, "USG jamy brzusznej", "Przychodnia Przykładowa", "Wątroba niepowiększona, bez zmian ogniskowych.", "Bez istotnych odchyleń.", listOf(pl.asystent.leki.core.StudyImage("i1", "/9j/QUJD", "Przekrój"))),
+        pl.asystent.leki.core.Study("s2", LocalDate.of(2025, 11, 2), pl.asystent.leki.core.StudyKind.Tk, "Tomografia głowy", "", "Opis przykładowy tomografii.", ""),
+    ))
+    @Test fun badaniaOpisowe() = slices("badania-opisowe", 1) { LabsScreen(studyState, store, onImport = {}, listState = it, initialMode = 4) }
+    @Test fun badaniaOpisowePuste() = slices("badania-opisowe-puste", 1) { LabsScreen(AppState(), store, onImport = {}, listState = it, initialMode = 4) }
+    @Test fun waskiBadaniaOpisowe() = narrow("waski-badania-opisowe") { LabsScreen(studyState, store, onImport = {}, listState = LazyListState(0, 0), initialMode = 4) }
+
     /** Komunikat (snackbar) na jasnym pasku w ciemnym motywie: tekst ma być ciemny i czytelny (regresja: biała belka bez tekstu). */
     @Test fun komunikatCiemny() = shot("komunikat-ciemny", ThemeMode.Dark) {
         Column(Modifier.padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
