@@ -98,6 +98,7 @@ fun SettingsScreen(
     listState: LazyListState = rememberLazyListState(), initialPage: String = "Home",
     showMedsRequest: Boolean = false, onShowMedsHandled: () -> Unit = {}, showEventsRequest: Boolean = false, onShowEventsHandled: () -> Unit = {}, onOpenCykl: () -> Unit = {},
     showPeopleRequest: Boolean = false, onShowPeopleHandled: () -> Unit = {}, onOpenCyklReport: () -> Unit = {},
+    editMedRequest: String? = null, onEditMedHandled: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val toast = LocalToast.current
@@ -128,6 +129,7 @@ fun SettingsScreen(
     LaunchedEffect(showPeopleRequest) { if (showPeopleRequest) { pageName = Page.People.name; onShowPeopleHandled() } }
     LaunchedEffect(showEventsRequest) { if (showEventsRequest) { pageName = Page.Events.name; onShowEventsHandled() } }
     LaunchedEffect(newMedRequest) { if (newMedRequest) { pageName = Page.Meds.name; medEdit = null to null; onNewMedHandled() } }
+    LaunchedEffect(editMedRequest) { if (!editMedRequest.isNullOrEmpty()) { pageName = Page.Meds.name; medEdit = editMedRequest to null; onEditMedHandled() } }
 
     val active = s.meds.filter { m -> m.end.let { e -> e == null || e >= today } }
     val ended = s.meds.filter { m -> m.end.let { e -> e != null && e < today } }

@@ -28,6 +28,22 @@ fun Settings.bpFlagText(r: Bp): String = when {
 
 fun Settings.thresholdText() = "podwyższone od $hiSys/$hiDia, niskie poniżej $loSys/$loDia"
 
+/**
+ * Podgląd oznaczenia wpisywanego pomiaru ciśnienia na żywo: zwraca parę (poziom: "danger" | "warn" | "ok", komunikat)
+ * albo null, gdy wartości są jeszcze niepełne lub poza zakresem aplikacji.
+ */
+fun Settings.bpLiveStatus(sys: Int?, dia: Int?): Pair<String, String>? {
+    if (sys == null || dia == null || sys !in 60..260 || dia !in 30..160 || sys <= dia) return null
+    val sample = Bp("", LocalDate.MIN, java.time.LocalTime.MIDNIGHT, sys, dia)
+    return when {
+        bpVeryHigh(sample) -> "danger" to "Bardzo wysokie (od 180/110) — przy objawach zadzwoń pod 112"
+        bpVeryLow(sample) -> "warn" to "Bardzo niskie (poniżej 90/50) — przy objawach skonsultuj z lekarzem"
+        sys >= hiSys || dia >= hiDia -> "warn" to "Na progu lub powyżej ($hiSys/$hiDia mmHg)"
+        sys < loSys || dia < loDia -> "warn" to "Poniżej progu niskiego ($loSys/$loDia mmHg)"
+        else -> "ok" to "W zakresie między $loSys/$loDia a $hiSys/$hiDia mmHg"
+    }
+}
+
 data class CtxStats(val n: Int, val s: Int?, val d: Int?)
 
 data class BpStats(

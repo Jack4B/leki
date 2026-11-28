@@ -1,22 +1,22 @@
 /* Wygląd modułu „Cykl” dopasowany do aplikacji (te same barwy, krój i przyciski). Nakładka na style modułu, bez zmian w jego kodzie.
    Motyw jest zawsze jawny (light/dark), bo wybiera go aplikacja. */
 :root[data-theme="light"]{
-  --bg:#f1f4f2;--surface:#ffffff;--ink:#13201b;--mute:#5e6f67;--line:#d8e0db;--line2:#bccac3;
-  --rose:#b3261e;--rose-bg:#f9dedc;--pred-bg:#fbeceb;--green:#0b6b58;--green-bg:#cfe6de;--green-soft:#ddeee8;
-  --teal:#1f6f86;--amber:#8a5200;--amber-bg:#fbf0dc;
+  --bg:#f3f6f4;--surface:#ffffff;--ink:#111e19;--mute:#5a6d65;--line:#dce5df;--line2:#bccac3;
+  --rose:#b3261e;--rose-bg:#f9dedc;--pred-bg:#fbeceb;--green:#0b6e59;--green-bg:#cfe6de;--green-soft:#daeee6;
+  --teal:#1f6f86;--amber:#8a5200;--amber-bg:#fdf2df;
 }
 :root[data-theme="dark"]{
-  --bg:#0c1311;--surface:#141e1a;--ink:#e7efeb;--mute:#8fa199;--line:#263631;--line2:#35493f;
-  --rose:#f2867f;--rose-bg:#4a2723;--pred-bg:#2a1a19;--green:#4dc2a5;--green-bg:#1c4a3d;--green-soft:#17332b;
-  --teal:#6cc4d8;--amber:#f0b35a;--amber-bg:#2a2112;
+  --bg:#0b1210;--surface:#131e1a;--ink:#e8f0ec;--mute:#8ea199;--line:#23332e;--line2:#35493f;
+  --rose:#f48982;--rose-bg:#4a2723;--pred-bg:#2a1a19;--green:#4cc9ab;--green-bg:#1c4a3d;--green-soft:#16352d;
+  --teal:#6cc4d8;--amber:#f3b65e;--amber-bg:#2b2112;
 }
 :root{--serif:var(--sans);--sans:Roboto,system-ui,"Segoe UI",sans-serif}
 h1,h2,.stat strong,.phase,.ringc b,.nav strong{font-family:var(--sans)}
 h1{font-size:24px;font-weight:600}
 h2{font-weight:600}
 .theme{display:none}                                   /* motyw ustawia się w aplikacji: Ustawienia → Ogólne */
-.card,.stat{border-radius:16px}
-.btn{border-radius:12px;font-weight:600}
+.card,.stat{border-radius:20px}
+.btn{border-radius:14px;font-weight:600}
 .btn:not(.sec):not(.danger){background:var(--green);color:var(--surface)}
 :root[data-theme="dark"] .btn:not(.sec):not(.danger){color:#06201a}
 .q.on{background:var(--green);border-color:var(--green);color:var(--surface)}

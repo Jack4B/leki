@@ -144,4 +144,26 @@ class ActionsTest {
         assertNull(s.copy(lastBackup = today.minusDays(6)).needBackup(today))
         assertEquals("7 dni temu", s.copy(lastBackup = today.minusDays(7)).needBackup(today))
     }
+
+    @Test fun saveBpUpdatesInPlaceAndStepWaterClamps() {
+        val b1 = Bp("b1", today, LocalTime.of(8, 0), 130, 82, 66, "rano", "ok")
+        var s = base().saveBp(b1)
+        assertEquals(1, s.bp.size)
+        s = s.saveBp(b1.copy(sys = 124, dia = 78, note = "po korekcie"))
+        assertEquals(1, s.bp.size)
+        assertEquals(124, s.bp.single().sys)
+        assertEquals("po korekcie", s.bp.single().note)
+
+        s = s.stepWater(today, 2).stepWater(today, 3)
+        assertEquals(5, s.day(today).water)
+        s = s.stepWater(today, -10)
+        assertEquals(0, s.day(today).water)
+
+        val cfg = Settings(hiSys = 135, hiDia = 85, loSys = 90, loDia = 60)
+        assertNull(cfg.bpLiveStatus(120, null))
+        assertNull(cfg.bpLiveStatus(80, 90))
+        assertEquals("ok", cfg.bpLiveStatus(124, 78)?.first)
+        assertEquals("warn", cfg.bpLiveStatus(138, 82)?.first)
+        assertEquals("danger", cfg.bpLiveStatus(184, 102)?.first)
+    }
 }

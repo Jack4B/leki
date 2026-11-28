@@ -95,13 +95,19 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         if (open == null) {
             item {
-                Text("Badania", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(top = 12.dp, bottom = 12.dp))
+                val subTabs = listOf(
+                    "Przegląd" + (if (model.withResults.isNotEmpty()) " · ${model.withResults.size}" else ""),
+                    "Mapa",
+                    "Daty",
+                    "EKG" + (if (s.ecgs.isNotEmpty()) " · ${s.ecgs.size}" else ""),
+                    "Opisowe" + (if (s.studies.isNotEmpty()) " · ${s.studies.size}" else ""),
+                )
+                ScrollPills(subTabs, mode, { mode = it }, Modifier.padding(top = 4.dp, bottom = 10.dp))
                 // przyciski dotyczą wyników badań; w zakładkach EKG i Opisowe jest jeden, własny przycisk dodawania
-                if (mode < 3) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 14.dp)) {
-                    LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.4f), primary = true, icon = Ph.Scan)
+                if (mode < 3) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                    LekiButton("Skanuj wyniki", { scan = true }, Modifier.weight(1.35f), primary = true, icon = Ph.Scan)
                     LekiButton("Dodaj ręcznie", { openLab(null, model.order.firstOrNull() ?: s.markers.firstOrNull()?.id.orEmpty()) }, Modifier.weight(1f), tonal = true, icon = Ph.Plus)
                 }
-                SegRow(listOf("Przegląd", "Mapa", "Daty", "EKG", "Opisowe"), mode, { mode = it })
             }
             if (mode == 4) studiesSection(s, onAdd = { studyNew = true }, onOpen = { studyOpenId = it }, onDelete = { id -> s.study(id)?.let { deleteStudyWithUndo(store, it, undo, toast) } })
             else if (mode == 3) ecgSection(s, ecgHist, today, onAdd = { ecgImport() }, onOpen = { ecgOpenId = it }, onDelete = { id -> s.ecg(id)?.let { e -> store.update { it.deleteEcg(id) }; undo("Usunięto EKG z ${plDate(e.date)}") { store.update { it.saveEcg(e) } } } })
@@ -118,7 +124,7 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
             val list = s.labsOf(open.id)
             val ix = model.order.indexOf(open.id)
             item {
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     LinkButton("‹ Wszystkie badania", { openId = "" })
                     if (ix >= 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         LekiButton("‹", { openId = model.order[ix - 1] }, enabled = ix > 0, small = true)
@@ -128,39 +134,48 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                 }
             }
             item {
-                Column(Modifier.padding(top = 18.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(open.name, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f))
-                        LekiButton("Dodaj wynik", { openLab(null, open.id) }, primary = true, small = true)
-                    }
-                    if (list.isEmpty()) {
-                        BodyText("Brak wyników. Dodaj pierwszy wynik badania" + (rangeText(open).takeIf { it.isNotEmpty() }?.let { ", zakres odniesienia $it ${open.unit}" } ?: "") + ".")
-                    } else {
-                        val last = list.last(); val prev = list.getOrNull(list.size - 2); val f = labFlag(last, open)
-                        val delta = prev?.let { last.value - it.value }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Stat(lnum(last.value), "ostatni wynik" + (if (open.unit.isNotEmpty()) ", ${open.unit}" else "") + ", " + shortDate(last.date), Modifier.weight(1f))
-                            Stat(if (delta == null) "brak" else (if (delta > 0) "+" else if (delta < 0) "−" else "") + lnum(Math.abs(delta)), if (prev != null) "zmiana od " + shortDate(prev.date) else "zmiana", Modifier.weight(1f))
-                            Stat(rangeText(last, open).ifEmpty { "brak" }, "zakres odniesienia", Modifier.weight(1f))
+                Column(Modifier.padding(top = 14.dp)) {
+                    LekiCard {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(open.name, style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = pal.ink), modifier = Modifier.weight(1f))
+                                LekiButton("Dodaj wynik", { openLab(null, open.id) }, primary = true, small = true, icon = Ph.Plus)
+                            }
+                            if (list.isEmpty()) {
+                                BodyText("Brak wyników. Dodaj pierwszy wynik badania" + (rangeText(open).takeIf { it.isNotEmpty() }?.let { ", zakres odniesienia $it ${open.unit}" } ?: "") + ".")
+                            } else {
+                                val last = list.last(); val prev = list.getOrNull(list.size - 2); val f = labFlag(last, open)
+                                val delta = prev?.let { last.value - it.value }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Stat(lnum(last.value), "ostatni wynik" + (if (open.unit.isNotEmpty()) ", ${open.unit}" else "") + ", " + shortDate(last.date), Modifier.weight(1f))
+                                    Stat(if (delta == null) "brak" else (if (delta > 0) "+" else if (delta < 0) "−" else "") + lnum(Math.abs(delta)), if (prev != null) "zmiana od " + shortDate(prev.date) else "zmiana", Modifier.weight(1f))
+                                    Stat(rangeText(last, open).ifEmpty { "brak" }, "zakres odniesienia", Modifier.weight(1f))
+                                }
+                                pl.asystent.leki.core.labRangeFraction(last, open)?.let { frac ->
+                                    val effLoV = if (last.lo != null || last.hi != null) last.lo else open.lo
+                                    val effLo = effLoV?.let { lnum(it) }.orEmpty()
+                                    val effHi = (if (last.lo != null || last.hi != null) last.hi else open.hi)?.let { lnum(it) }.orEmpty()
+                                    RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 12.dp), openLow = effLoV == null)
+                                }
+                                if (f.isNotEmpty()) Text("Ostatni wynik jest $f. Ocenia lekarz.", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 10.dp))
+                                val trend = labTrend(open, list)
+                                val yAgo = labYearAgo(list)
+                                if (trend != null) Hint("Tendencja: ${trend.text}. Opis dotyczy liczb, nie oceny zdrowotnej.", Modifier.padding(top = 8.dp))
+                                if (yAgo != null) Hint("Rok temu (${plDate(yAgo.date)}): ${lnum(yAgo.value)}, teraz ${lnum(last.value)} (${labDeltaText(last.value - yAgo.value, if (yAgo.value != 0.0) (last.value - yAgo.value) / Math.abs(yAgo.value) else null)}).", Modifier.padding(top = 4.dp))
+                                val spanYear = s.labsOf(open.id).let { l -> l.size >= 2 && java.time.temporal.ChronoUnit.DAYS.between(l.first().date, l.last().date) > 366 }
+                                if (spanYear) SegRow(LabWindow.values().map { it.label }, ui.dwin, { ui.dwin = it }, Modifier.padding(top = 14.dp))
+                                val shown = labWindow(list, LabWindow.values()[ui.dwin.coerceIn(0, 2)], today).ifEmpty { list }
+                                val ghost = if (shown.size >= 2) labGhost(list, shown.first().date, shown.last().date) else emptyList()
+                                if (ghost.isNotEmpty()) Row(Modifier.padding(top = 10.dp)) { ToggleChip("Nałóż rok temu", ui.ghost) { ui.ghost = !ui.ghost } }
+                                labChart(shown, open, if (ui.ghost) ghost else emptyList())?.let { LabChartView(it, "Wykres: ${open.name} w czasie, z zakresem odniesienia", Modifier.padding(top = 14.dp)) }
+                                if (ghost.isNotEmpty() && ui.ghost) Hint("Szara przerywana linia z pustymi kółkami: wyniki sprzed roku, przesunięte o rok, żeby porównać ten sam okres.", Modifier.padding(top = 6.dp))
+                                if (rangeText(open).isNotEmpty()) Hint("Zielone tło to zakres odniesienia parametru. Jest orientacyjny: laboratoria podają własne zakresy (wynik może mieć własny zakres z badania).", Modifier.padding(top = 6.dp))
+                            }
+                            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                LinkButton("Zmień nazwę lub zakres", { markerEdit = open }, Modifier.weight(1f, fill = false))
+                                LinkButton(if (open.pin) "★ Odepnij" else "☆ Przypnij", { store.update { st -> st.saveMarker(open.copy(pin = !open.pin)) }; toast(if (open.pin) "Odpięto parametr" else "Przypięto parametr na górze listy") })
+                            }
                         }
-                        if (f.isNotEmpty()) Text("Ostatni wynik jest $f. Ocenia lekarz.", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 10.dp))
-                        // tendencja (od trzech wyników) i porównanie z wynikiem sprzed roku: pojawiają się wraz z przyrostem danych
-                        val trend = labTrend(open, list)
-                        val yAgo = labYearAgo(list)
-                        if (trend != null) Hint("Tendencja: ${trend.text}. Opis dotyczy liczb, nie oceny zdrowotnej.", Modifier.padding(top = 8.dp))
-                        if (yAgo != null) Hint("Rok temu (${plDate(yAgo.date)}): ${lnum(yAgo.value)}, teraz ${lnum(last.value)} (${labDeltaText(last.value - yAgo.value, if (yAgo.value != 0.0) (last.value - yAgo.value) / Math.abs(yAgo.value) else null)}).", Modifier.padding(top = 4.dp))
-                        val spanYear = s.labsOf(open.id).let { l -> l.size >= 2 && java.time.temporal.ChronoUnit.DAYS.between(l.first().date, l.last().date) > 366 }
-                        if (spanYear) SegRow(LabWindow.values().map { it.label }, ui.dwin, { ui.dwin = it }, Modifier.padding(top = 14.dp))
-                        val shown = labWindow(list, LabWindow.values()[ui.dwin.coerceIn(0, 2)], today).ifEmpty { list }
-                        val ghost = if (shown.size >= 2) labGhost(list, shown.first().date, shown.last().date) else emptyList()
-                        if (ghost.isNotEmpty()) Row(Modifier.padding(top = 10.dp)) { ToggleChip("Nałóż rok temu", ui.ghost) { ui.ghost = !ui.ghost } }
-                        labChart(shown, open, if (ui.ghost) ghost else emptyList())?.let { LabChartView(it, "Wykres: ${open.name} w czasie, z zakresem odniesienia", Modifier.padding(top = 14.dp)) }
-                        if (ghost.isNotEmpty() && ui.ghost) Hint("Szara przerywana linia z pustymi kółkami: wyniki sprzed roku, przesunięte o rok, żeby porównać ten sam okres.", Modifier.padding(top = 6.dp))
-                        if (rangeText(open).isNotEmpty()) Hint("Zielone tło to zakres odniesienia parametru. Jest orientacyjny: laboratoria podają własne zakresy (wynik może mieć własny zakres z badania).", Modifier.padding(top = 6.dp))
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        LinkButton("Zmień nazwę lub zakres odniesienia", { markerEdit = open }, Modifier.weight(1f, fill = false))
-                        LinkButton(if (open.pin) "★ Odepnij" else "☆ Przypnij", { store.update { st -> st.saveMarker(open.copy(pin = !open.pin)) }; toast(if (open.pin) "Odpięto parametr" else "Przypięto parametr na górze listy") })
                     }
                 }
             }
