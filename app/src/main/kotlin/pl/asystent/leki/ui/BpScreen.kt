@@ -97,6 +97,8 @@ fun BpScreen(
     var dateStr by rememberSaveable { mutableStateOf("") }
     var timeStr by rememberSaveable { mutableStateOf("") }
     var ctxSel by rememberSaveable { mutableStateOf(-1) }
+    // pora edytowanego pomiaru spoza listy (np. z kopii starszej wersji): zostaje bez zmian, dopóki nie wybierzesz innej
+    var editCtxRaw by rememberSaveable { mutableStateOf("") }
 
     val dateVal = if (dateStr.isEmpty()) today else LocalDate.parse(dateStr)
     val timeVal = if (timeStr.isEmpty()) now.toLocalTime().withSecond(0).withNano(0) else LocalTime.parse(timeStr)
@@ -117,7 +119,7 @@ fun BpScreen(
     }
 
     fun clearForm() {
-        editId = ""; avgMode = false
+        editId = ""; avgMode = false; editCtxRaw = ""
         sys = ""; dia = ""; pulse = ""; sys2 = ""; dia2 = ""; bpNote = ""
         dateStr = ""; timeStr = ""; ctxSel = -1; err = ""
     }
@@ -131,7 +133,9 @@ fun BpScreen(
         bpNote = b.note
         dateStr = b.date.toString()
         timeStr = b.time.toString()
-        ctxSel = ctxNames.indexOf(b.ctx).coerceAtLeast(0)
+        val ci = ctxNames.indexOf(b.ctx)
+        ctxSel = if (ci >= 0) ci else 2
+        editCtxRaw = if (ci >= 0) "" else b.ctx
         err = ""
         formOpen = true
         scope.launch { listState.animateScrollToItem(0) }
@@ -219,7 +223,8 @@ fun BpScreen(
                         }
                         Column {
                             Text("Pora pomiaru", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                            SegRow(listOf("Rano", "Wieczór", "Inne"), ctxIdx, { ctxSel = it })
+                            SegRow(listOf("Rano", "Wieczór", "Inne"), ctxIdx, { ctxSel = it; editCtxRaw = "" })
+                            if (editCtxRaw.isNotEmpty()) Hint("Zapisana pora: „$editCtxRaw”. Zostanie bez zmian, chyba że wybierzesz inną.", Modifier.padding(top = 6.dp))
                         }
                         LekiField("Notatka (opcjonalnie)", bpNote, { bpNote = it }, placeholder = "np. po spacerze, przed lekiem")
                         ErrorText(err)
@@ -238,7 +243,7 @@ fun BpScreen(
                                         else -> ""
                                     }
                                     if (err.isEmpty()) {
-                                        val entry = Bp(editId.ifEmpty { newId() }, dateVal, timeVal, sy!!, di!!, pu, ctxNames[ctxIdx], bpNote.trim())
+                                        val entry = Bp(editId.ifEmpty { newId() }, dateVal, timeVal, sy!!, di!!, pu, editCtxRaw.ifEmpty { ctxNames[ctxIdx] }, bpNote.trim())
                                         val wasEdit = editId.isNotEmpty()
                                         store.update { if (wasEdit) it.saveBp(entry) else it.addBp(entry) }
                                         toast(
@@ -351,7 +356,7 @@ fun BpScreen(
     }
 }
 
-/** Pomiary jednego dnia: pora i godzina, wynik z tętnem, dotknięcie lub przycisk Edytuj otwiera korektę, Usuń kasuje z opcją Cofnij. */
+/** Pomiary jednego dnia: pora i godzina, wynik z tętnem, dotknięcie wiersza (ołówek) otwiera korektę, Usuń kasuje z opcją Cofnij. */
 @Composable
 private fun BpRows(rows: List<Bp>, s: AppState, onEdit: (Bp) -> Unit, onDelete: (String) -> Unit) {
     rows.forEachIndexed { i, r ->
@@ -359,7 +364,7 @@ private fun BpRows(rows: List<Bp>, s: AppState, onEdit: (Bp) -> Unit, onDelete: 
         val f = s.settings.bpFlagText(r)
         val meta = listOfNotNull(r.pulse?.let { "♥ $it/min" }, r.note.ifEmpty { null }).joinToString(" · ")
         Row(
-            Modifier.fillMaxWidth().clickable(role = Role.Button) { onEdit(r) }.padding(horizontal = 14.dp, vertical = 11.dp),
+            Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Popraw pomiar") { onEdit(r) }.padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Column(
@@ -374,7 +379,7 @@ private fun BpRows(rows: List<Bp>, s: AppState, onEdit: (Bp) -> Unit, onDelete: 
                 val subText = listOfNotNull(meta.takeIf { it.isNotEmpty() }, f.takeIf { it.isNotEmpty() }).joinToString(" · ")
                 if (subText.isNotEmpty()) Text(subText, style = TextStyle(fontSize = 12.5.sp, color = if (f.isNotEmpty()) pal.warn else pal.ink3))
             }
-            LekiButton("Edytuj", { onEdit(r) }, small = true, tonal = true)
+            PhIcon(Ph.Pencil, size = 16.dp, tint = pal.ink3)
             LekiButton("Usuń", { onDelete(r.id) }, danger = true, small = true)
         }
     }

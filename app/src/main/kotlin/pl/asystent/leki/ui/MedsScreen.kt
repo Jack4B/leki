@@ -147,10 +147,8 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
                 LekiButton("Dziś", { select(today) }, small = true, tonal = sel != today, primary = false, icon = Ph.CalendarCheck)
                 DatePickerButton(sel, { select(it) })
                 Spacer(Modifier.weight(1f))
-                if (s.meds.isNotEmpty()) {
-                    LekiButton("Leki", nav.showMeds, small = true, tonal = false, icon = Ph.Pill)
-                }
-                LekiButton("Dodaj", nav.newMed, small = true, tonal = true, icon = Ph.Plus)
+                // tylko jeden przycisk po prawej, żeby rząd mieścił się na wąskim ekranie (lista leków jest pod planem dnia)
+                LekiButton("Dodaj lek", nav.newMed, small = true, tonal = true, icon = Ph.Plus)
             }
         }
 
@@ -190,12 +188,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
                     }
                     if (st.tot > 1 && sel <= today && !st.complete) {
                         Divider()
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Hint("Dotknij pory poniżej lub odhacz cały dzień:")
-                            LinkButton("Wszystkie przyjęte", {
-                                store.update { it.markAll(sel, today, now) }
-                            })
-                        }
+                        LinkButton("Zaznacz wszystkie dawki z dnia jako przyjęte", { store.update { it.markAll(sel, today, now) } })
                     }
                     if (low.isNotEmpty()) {
                         Row(
@@ -400,7 +393,7 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
         if (s.meds.isNotEmpty()) item {
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 LinkButton("Dodaj lek ›", nav.newMed)
-                if (s.stockOverview(today).isNotEmpty()) LinkButton("Zapasy leków ›", nav.showMeds)
+                LinkButton(if (s.stockOverview(today).isNotEmpty()) "Leki i zapasy ›" else "Wszystkie leki ›", nav.showMeds)
             }
         }
         item {

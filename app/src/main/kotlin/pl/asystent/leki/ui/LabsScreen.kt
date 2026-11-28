@@ -152,9 +152,10 @@ fun LabsScreen(s: AppState, store: Store, onImport: () -> Unit, modifier: Modifi
                                     Stat(rangeText(last, open).ifEmpty { "brak" }, "zakres odniesienia", Modifier.weight(1f))
                                 }
                                 pl.asystent.leki.core.labRangeFraction(last, open)?.let { frac ->
-                                    val effLo = (if (last.lo != null || last.hi != null) last.lo else open.lo)?.let { lnum(it) } ?: "0"
+                                    val effLoV = if (last.lo != null || last.hi != null) last.lo else open.lo
+                                    val effLo = effLoV?.let { lnum(it) }.orEmpty()
                                     val effHi = (if (last.lo != null || last.hi != null) last.hi else open.hi)?.let { lnum(it) }.orEmpty()
-                                    RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 12.dp))
+                                    RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 12.dp), openLow = effLoV == null)
                                 }
                                 if (f.isNotEmpty()) Text("Ostatni wynik jest $f. Ocenia lekarz.", style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn), modifier = Modifier.padding(top = 10.dp))
                                 val trend = labTrend(open, list)

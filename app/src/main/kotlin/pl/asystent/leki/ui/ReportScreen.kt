@@ -87,7 +87,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
 
     LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)) {
         item {
-            SegRow(listOf("Dla lekarza (PDF)", "Dla AI (Prompt)"), mode, { mode = it }, Modifier.padding(bottom = 14.dp))
+            SegRow(listOf("Dla lekarza (PDF)", "Dla AI (tekst)"), mode, { mode = it }, Modifier.padding(bottom = 14.dp))
             if (mode == 0) {
                 val activeMeds = s.meds.count { m -> m.end.let { e -> e == null || e >= today } }
                 val bp30 = s.bp.count { it.date >= today.minusDays(29) }
@@ -100,7 +100,7 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Text("Pakiet na wizytę u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = pal.ink))
+                        Text("Pakiet na wizytę u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = pal.ink), modifier = Modifier.weight(1f).padding(end = 8.dp))
                         StatusPill("Ostatnie 30 dni", kind = "ok")
                     }
                     BodyText("Jednym dotknięciem zbiera " + listOfNotNull("ciśnienie".takeIf { s.settings.bpOn }, "historię wyników badań".takeIf { s.settings.labsOn }, "leki i zgodność z planem", "kontrole", "EKG".takeIf { s.settings.labsOn }, "badania opisowe i obrazowe".takeIf { s.settings.labsOn && s.studies.isNotEmpty() }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizę AI" else "") + " i otwiera podgląd PDF.")

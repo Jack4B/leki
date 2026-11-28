@@ -324,10 +324,11 @@ fun SegRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifi
                 // dłuższe etykiety dostają szerszy segment, żeby nie zmniejszać ich bez potrzeby
                 Modifier.weight(o.length + 4f).heightIn(min = 42.dp).clip(inner)
                     .background(if (on) pal.accent else Color.Transparent)
-                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }).padding(horizontal = 6.dp),
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }).padding(horizontal = 3.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                FitText(o, TextStyle(fontSize = 13.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
+                // pojedyncze słowo zmniejsza się zamiast łamać w środku („Wszystk-o”) na wąskim ekranie i przy dużej czcionce
+                FitText(o, TextStyle(fontSize = 13.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center, wrap = ' ' in o)
             }
         }
     }
@@ -649,19 +650,20 @@ fun ProgressRing(done: Int, total: Int, modifier: Modifier = Modifier, size: Dp 
 
 /** Wizualny pasek zakresu odniesienia badania: środkowe pole [0,20..0,80] to norma, kropka pokazuje położenie wyniku. */
 @Composable
-fun RangeBar(fraction: Float, out: Boolean, loText: String, hiText: String, modifier: Modifier = Modifier) {
+fun RangeBar(fraction: Float, out: Boolean, loText: String, hiText: String, modifier: Modifier = Modifier, openLow: Boolean = false) {
     val track = pal.sunken
     val band = pal.accentSoft
     val dot = if (out) pal.warn else pal.accent
     val surface = pal.surface
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (loText.isNotEmpty()) Text(loText, style = TextStyle(fontSize = 11.5.sp, fontFeatureSettings = TNUM, color = pal.ink3))
-        androidx.compose.foundation.Canvas(Modifier.weight(1f).height(10.dp).clearAndSetSemanticsForCanvas()) {
+        androidx.compose.foundation.Canvas(Modifier.weight(1f).height(10.dp)) {
             val h = 6.dp.toPx()
             val y = (size.height - h) / 2f
             val r = androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)
             drawRoundRect(track, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, h), r)
-            drawRoundRect(band, androidx.compose.ui.geometry.Offset(size.width * 0.20f, y), androidx.compose.ui.geometry.Size(size.width * 0.60f, h), r)
+            val bandStart = if (openLow) 0f else 0.20f
+            drawRoundRect(band, androidx.compose.ui.geometry.Offset(size.width * bandStart, y), androidx.compose.ui.geometry.Size(size.width * (0.80f - bandStart), h), r)
             val cx = (fraction.coerceIn(0.04f, 0.96f) * size.width)
             val rad = 4.5.dp.toPx()
             drawCircle(dot, rad, androidx.compose.ui.geometry.Offset(cx, size.height / 2f))
@@ -670,8 +672,6 @@ fun RangeBar(fraction: Float, out: Boolean, loText: String, hiText: String, modi
         if (hiText.isNotEmpty()) Text(hiText, style = TextStyle(fontSize = 11.5.sp, fontFeatureSettings = TNUM, color = pal.ink3))
     }
 }
-
-private fun Modifier.clearAndSetSemanticsForCanvas() = this.semantics {}
 
 /** Zwięzła plakietka stanu lub informacji pomocniczej ("ok", "warn", "danger", "neutral"). */
 @Composable

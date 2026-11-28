@@ -430,9 +430,10 @@ fun LabRowItem(
             }
         }
         if (frac != null) {
-            val effLo = (if (l.lo != null || l.hi != null) l.lo else m.lo)?.let { lnum(it) } ?: "0"
+            val effLoV = if (l.lo != null || l.hi != null) l.lo else m.lo
+            val effLo = effLoV?.let { lnum(it) }.orEmpty()
             val effHi = (if (l.lo != null || l.hi != null) l.hi else m.hi)?.let { lnum(it) }.orEmpty()
-            RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 8.dp))
+            RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 8.dp), openLow = effLoV == null)
         }
     }
 }

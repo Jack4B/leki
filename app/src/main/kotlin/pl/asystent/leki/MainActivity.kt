@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -258,7 +259,8 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                                 Text("Asystent leków", style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = pal.ink3))
                                 Text(topTitles.getOrElse(tab) { "Asystent leków" }, maxLines = 1, style = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Bold, color = pal.ink))
                             }
-                            PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true }, modifier = Modifier.padding(end = 4.dp))
+                            // długie imię nie może wypchnąć tytułu ani ikon z paska
+                            PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true }, modifier = Modifier.padding(end = 4.dp).widthIn(max = 150.dp))
                             IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
                             Box {
                                 IconAction(Ph.GearSix, "Ustawienia", { setTab(4) }, selected = tab == 4)
