@@ -304,10 +304,14 @@ fun MedsScreen(s: AppState, store: Store, nav: Nav, onGoData: () -> Unit, modifi
                                 }
                                 Column(Modifier.padding(start = 10.dp)) {
                                     Text(slot.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = pal.ink))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(slot.time.hhmm(), style = TextStyle(fontSize = 12.sp, fontFeatureSettings = TNUM, color = pal.ink3))
-                                        if (lateN > 0) Text("· spóźnione: $lateN", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
-                                    }
+                                    // jeden tekst (zawija się między słowami, a nie w środku „spóźnione” obok przycisku na wąskim ekranie)
+                                    Text(
+                                        buildAnnotatedString {
+                                            withStyle(SpanStyle(color = pal.ink3, fontFeatureSettings = TNUM)) { append(slot.time.hhmm()) }
+                                            if (lateN > 0) withStyle(SpanStyle(color = pal.warn, fontWeight = FontWeight.SemiBold)) { append(" · spóźnione: $lateN") }
+                                        },
+                                        style = TextStyle(fontSize = 12.sp),
+                                    )
                                 }
                             }
                             if (sel <= today && openKeys.size >= 2) {
