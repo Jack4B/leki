@@ -102,13 +102,39 @@ fun labPresetDates(daysDesc: List<LocalDate>, p: LabPreset): List<LocalDate> {
 }
 
 /** Filtry listy parametrów w Badania → Przegląd (łączone logicznym „i”). */
-data class LabFilter(val out: Boolean = false, val changed: Boolean = false, val pinned: Boolean = false) {
-    val active: Boolean get() = out || changed || pinned
+data class LabFilter(val out: Boolean = false, val changed: Boolean = false, val pinned: Boolean = false, val query: String = "") {
+    val active: Boolean get() = out || changed || pinned || query.isNotBlank()
     fun matches(r: LabRow): Boolean {
         val last = r.last ?: return false
         if (out && labFlag(last, r.marker).isEmpty()) return false
         if (changed && labChange(r.marker, r.list)?.significant != true) return false
         if (pinned && !r.marker.pin) return false
+        val q = query.trim()
+        if (q.isNotEmpty()) {
+            val hit = r.marker.name.contains(q, ignoreCase = true) ||
+                r.marker.grp.contains(q, ignoreCase = true) ||
+                r.marker.unit.contains(q, ignoreCase = true)
+            if (!hit) return false
+        }
         return true
+    }
+}
+
+/**
+ * Położenie wyniku na wizualnym pasku zakresu odniesienia (0..1, gdzie 0,20..0,80 odpowiada zakresowi [lo..hi]).
+ * Zwraca null, gdy wynik ani parametr nie mają zakresu pozwalającego wyznaczyć przedział.
+ */
+fun labRangeFraction(l: Lab, m: Marker): Float? {
+    val own = l.lo != null || l.hi != null
+    val rawLo = if (own) l.lo else m.lo
+    val rawHi = if (own) l.hi else m.hi
+    val lo = rawLo ?: if (rawHi != null && rawHi > 0.0 && l.value >= 0.0) 0.0 else return null
+    val hi = rawHi ?: return null
+    if (hi <= lo) return null
+    val span = hi - lo
+    return when {
+        l.value < lo -> (0.18 - ((lo - l.value) / span).coerceIn(0.0, 1.0) * 0.13).toFloat()
+        l.value > hi -> (0.82 + ((l.value - hi) / span).coerceIn(0.0, 1.0) * 0.13).toFloat()
+        else -> (0.20 + ((l.value - lo) / span) * 0.60).toFloat()
     }
 }

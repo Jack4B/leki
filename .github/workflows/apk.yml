@@ -73,13 +73,15 @@ jobs:
               echo "LEKI_KEY_ALIAS=androiddebugkey"; echo "LEKI_KEY_PASSWORD=android"; } >> "$GITHUB_ENV"
           fi
       - name: Testy logiki i zbudowanie APK
-        run: ./gradlew checkChangelog :core:test :app:assembleRelease -PbuildNumber=${{ github.run_number }} --no-daemon
+        run: ./gradlew checkChangelog :core:test :app:assembleRelease :app:assembleObok -PbuildNumber=${{ github.run_number }} --no-daemon
       - name: Sprawdź, że APK nie ma uprawnienia INTERNET
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           AAPT2=$(ls "$SDK"/build-tools/*/aapt2 | sort -V | tail -1)
           "$AAPT2" dump permissions app/build/outputs/apk/release/app-release.apk | tee permissions.txt
           if grep -q 'android.permission.INTERNET' permissions.txt; then echo "::error::APK ma uprawnienie INTERNET, a aplikacja ma działać bez sieci"; exit 1; fi
+          "$AAPT2" dump permissions app/build/outputs/apk/obok/app-obok.apk | tee permissions-obok.txt
+          if grep -q 'android.permission.INTERNET' permissions-obok.txt; then echo "::error::APK obok ma uprawnienie INTERNET, a aplikacja ma działać bez sieci"; exit 1; fi
       - name: Sprawdź numer kompilacji (versionCode = numer wersji * 1000 + przebieg mod 1000)
         env:
           RUN: ${{ github.run_number }}
@@ -102,6 +104,9 @@ jobs:
           VERSION=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           cp app/build/outputs/apk/release/app-release.apk "asystent-lekow-${VERSION}.apk"
           sha256sum "asystent-lekow-${VERSION}.apk" | tee "asystent-lekow-${VERSION}.apk.sha256"
+          mkdir -p obok
+          cp app/build/outputs/apk/obok/app-obok.apk "obok/asystent-lekow-${VERSION}-obok.apk"
+          (cd obok && sha256sum "asystent-lekow-${VERSION}-obok.apk" | tee "asystent-lekow-${VERSION}-obok.apk.sha256")
           # odcisk certyfikatu podpisu: ten sam w każdej wersji = aktualizacje na wierzch i Obtainium działają
           set -euo pipefail
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -124,6 +129,12 @@ jobs:
             asystent-lekow-*.apk
             asystent-lekow-*.apk.sha256
             asystent-lekow-podpis.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asystent-lekow-apk-obok
+          path: |
+            obok/asystent-lekow-*-obok.apk
+            obok/asystent-lekow-*-obok.apk.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -62,6 +62,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.asystent.leki.core.clearTimer
+import pl.asystent.leki.core.lowStock
+import pl.asystent.leki.core.needBackup
+import pl.asystent.leki.core.scheduleFor
 import pl.asystent.leki.ui.AnalysisEditor
 import pl.asystent.leki.ui.BodyText
 import pl.asystent.leki.ui.IncomingAi
@@ -203,13 +206,18 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             val tab = if (rawTab in 0..5 && rawTab != 4 && rawTab !in visibleTabs(s.settings)) 0 else rawTab
             val setTab: (Int) -> Unit = { rawTab = it }
             val saveable = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+            var bpQuickOpen by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(requestedTab) {
                 requestedTab?.let {
                     setTab(it); onTabHandled()
-                    if (it == 1 && !s.settings.bpOn) toast("Zakładka Ciśnienie jest ukryta. Pokaż ją w Ustawienia → Moduły aplikacji.")
+                    if (it == 1) {
+                        if (!s.settings.bpOn) toast("Zakładka Ciśnienie jest ukryta. Pokaż ją w Ustawienia → Moduły aplikacji.")
+                        else bpQuickOpen = true
+                    }
                 }
             }
             var newMed by remember { mutableStateOf(false) }
+            var editMedId by remember { mutableStateOf<String?>(null) }
             var showMeds by remember { mutableStateOf(false) }
             var showEvents by remember { mutableStateOf(false) }
             var showPeople by remember { mutableStateOf(false) }
@@ -217,10 +225,22 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
             val activeId by store.activeId.collectAsStateWithLifecycle()
             var rules by remember { mutableStateOf(false) }
             val importer = rememberImporter(s, store)
+            val now by pl.asystent.leki.ui.rememberNow()
+            val today = now.toLocalDate()
+            val hasLateMeds = remember(s, today, now.hour, now.minute) {
+                val rec = s.day(today)
+                s.settings.lateMin > 0 && s.scheduleFor(today).any { x ->
+                    x.key !in rec.taken && x.key !in rec.skipped && (now.hour * 60 + now.minute) > (x.slot.time.hour * 60 + x.slot.time.minute + s.settings.lateMin)
+                }
+            }
+            val hasSettingsNotice = remember(s, today) {
+                s.lowStock(today).isNotEmpty() || s.needBackup(today) != null
+            }
             BackHandler(enabled = tab != 0) { setTab(0) }
 
             val overlays = remember { OverlayHost() }
             val whoName = profiles.firstOrNull { it.id == activeId }?.name?.takeIf { profiles.size > 1 }
+            val topTitles = listOf("Plan dnia", "Ciśnienie", "Badania", "Raport", "Ustawienia", "Cykl")
             CompositionLocalProvider(LocalOverlayHost provides overlays, LocalPersonName provides whoName) {
             Box(Modifier.fillMaxSize()) {
             Scaffold(
@@ -231,51 +251,87 @@ fun App(store: Store, lock: LockController? = null, requestedTab: Int? = null, o
                 topBar = {
                     Column(Modifier.fillMaxWidth().background(pal.bg).statusBarsPadding()) {
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 20.dp, end = 12.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(start = 18.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("Asystent leków", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                                PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true })
+                                Text("Asystent leków", style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.Medium, color = pal.ink3))
+                                Text(topTitles.getOrElse(tab) { "Asystent leków" }, maxLines = 1, style = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Bold, color = pal.ink))
                             }
+                            PersonSwitcher(store, profiles, activeId, onManage = { setTab(4); showPeople = true }, modifier = Modifier.padding(end = 4.dp))
                             IconAction(Ph.Notebook, "Zasady i notatki", { rules = true })
-                            IconAction(Ph.GearSix, "Ustawienia", { setTab(4) }, selected = tab == 4)
+                            Box {
+                                IconAction(Ph.GearSix, "Ustawienia", { setTab(4) }, selected = tab == 4)
+                                if (hasSettingsNotice && tab != 4) {
+                                    Box(
+                                        Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp).size(8.dp)
+                                            .background(pal.warn, androidx.compose.foundation.shape.CircleShape),
+                                    )
+                                }
+                            }
                         }
                         Divider()
                     }
                 },
                 bottomBar = {
-                    NavigationBar(containerColor = pal.surface) {
-                        val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix, Ph.CalendarBlank)
-                        val shown = visibleTabs(s.settings)
-                        shown.forEach { i ->
-                            val label = tabs[i]
-                            NavigationBarItem(
-                                selected = tab == i, onClick = { setTab(i) },
-                                icon = { Icon(icons[i], contentDescription = null, modifier = Modifier.size(24.dp)) },
-                                label = { Text(label, maxLines = 1, style = TextStyle(fontSize = 11.sp, fontWeight = if (tab == i) FontWeight.SemiBold else FontWeight.Medium)) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = pal.accent, selectedTextColor = pal.accent, indicatorColor = pal.accentSoft,
-                                    unselectedIconColor = pal.ink3, unselectedTextColor = pal.ink3,
-                                ),
-                            )
+                    Column {
+                        Divider()
+                        NavigationBar(containerColor = pal.surface, tonalElevation = 0.dp) {
+                            val icons = listOf(Ph.Pill, Ph.Heartbeat, Ph.Flask, Ph.FileText, Ph.GearSix, Ph.CalendarBlank)
+                            val shown = visibleTabs(s.settings)
+                            shown.forEach { i ->
+                                val label = tabs[i]
+                                NavigationBarItem(
+                                    selected = tab == i, onClick = { setTab(i) },
+                                    icon = {
+                                        Box {
+                                            Icon(icons[i], contentDescription = null, modifier = Modifier.size(24.dp))
+                                            if (i == 0 && hasLateMeds && tab != 0) {
+                                                Box(
+                                                    Modifier.align(Alignment.TopEnd).size(8.dp)
+                                                        .background(pal.warn, androidx.compose.foundation.shape.CircleShape),
+                                                )
+                                            }
+                                        }
+                                    },
+                                    label = { Text(label, maxLines = 1, style = TextStyle(fontSize = 11.5.sp, fontWeight = if (tab == i) FontWeight.Bold else FontWeight.Medium)) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = pal.accent, selectedTextColor = pal.accent, indicatorColor = pal.accentSoft,
+                                        unselectedIconColor = pal.ink3, unselectedTextColor = pal.ink3,
+                                    ),
+                                )
+                            }
                         }
                     }
                 },
             ) { padding ->
                 // imePadding: od Androida 15 okno nie zmniejsza się samo przy klawiaturze, a pole wpisywania nie może zostać zasłonięte
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                    val nav = Nav(goSettings = { setTab(4) }, newMed = { setTab(4); newMed = true }, showMeds = { setTab(4); showMeds = true }, showEvents = { setTab(4); showEvents = true })
+                    val nav = Nav(
+                        goSettings = { setTab(4) },
+                        newMed = { setTab(4); newMed = true },
+                        showMeds = { setTab(4); showMeds = true },
+                        showEvents = { setTab(4); showEvents = true },
+                        editMed = { id -> setTab(4); editMedId = id },
+                    )
                     // stan każdej zakładki (wybrany dzień, zakres, widok, przewinięcie) przeżywa przełączanie zakładek, a nie tylko obrót ekranu
                     // po zmianie osoby ekrany startują od nowa (formularze i wersje robocze nie mogą przenieść danych jednej osoby do drugiej)
                     androidx.compose.runtime.key(activeId) { saveable.SaveableStateProvider("$activeId:$tab") {
                         when (tab) {
                             0 -> MedsScreen(s, store, nav, onGoData = { setTab(4) })
-                            1 -> BpScreen(s, store)
+                            1 -> BpScreen(s, store, openFormRequest = bpQuickOpen, onFormRequestHandled = { bpQuickOpen = false })
                             2 -> LabsScreen(s, store, onImport = importer)
                             3 -> ReportScreen(s, store)
                             TAB_CYKL -> CyklScreen(store)
-                            else -> SettingsScreen(s, store, importer, newMed, onNewMedHandled = { newMed = false }, showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false }, showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false }, onOpenCykl = { setTab(TAB_CYKL) }, showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false }, onOpenCyklReport = { store.update { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(cykl = true))) }; setTab(3) })
+                            else -> SettingsScreen(
+                                s, store, importer, newMed, onNewMedHandled = { newMed = false },
+                                showMedsRequest = showMeds, onShowMedsHandled = { showMeds = false },
+                                showEventsRequest = showEvents, onShowEventsHandled = { showEvents = false },
+                                onOpenCykl = { setTab(TAB_CYKL) },
+                                showPeopleRequest = showPeople, onShowPeopleHandled = { showPeople = false },
+                                onOpenCyklReport = { store.update { it.copy(settings = it.settings.copy(rp = it.settings.rp.copy(cykl = true))) }; setTab(3) },
+                                editMedRequest = editMedId, onEditMedHandled = { editMedId = null },
+                            )
                         }
                     } }
                     TimerBanner(s.timerEnd, s.timerMed, s.timerNote, onHide = { store.update { it.clearTimer() } }, onDone = { name -> store.update { it.clearTimer() }; toast("Odliczanie po $name zakończone.") },

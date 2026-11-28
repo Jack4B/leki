@@ -61,6 +61,13 @@ android {
             isMinifyEnabled = false
             signingConfig = if (hasReleaseKey) signingConfigs.getByName("leki") else signingConfigs.getByName("debug")
         }
+        create("obok") {
+            // Wersja testowa instalowana obok głównej aplikacji (osobne applicationId i pamięć danych).
+            initWith(getByName("release"))
+            applicationIdSuffix = ".obok"
+            versionNameSuffix = "-obok"
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {

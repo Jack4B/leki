@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.webkit.WebView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -84,32 +85,47 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
     fun setRp(f: (ReportParts) -> ReportParts) = store.update { it.copy(settings = it.settings.copy(rp = f(it.settings.rp))) }
     fun setAi(f: (AiParts) -> AiParts) = store.update { it.copy(settings = it.settings.copy(ai = f(it.settings.ai))) }
 
-    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp)) {
+    LazyColumn(modifier, state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)) {
         item {
-            Text("Raport", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.padding(bottom = 14.dp))
+            SegRow(listOf("Dla lekarza (PDF)", "Dla AI (Prompt)"), mode, { mode = it }, Modifier.padding(bottom = 14.dp))
             if (mode == 0) {
-                // jedno dotknięcie na wizytę: ostatnie 30 dni, ciśnienie, cała historia wyników, leki, kontrole, EKG i analiza AI (jeśli jest), od razu podgląd
-                LekiCard(Modifier.padding(bottom = 16.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Wizyta u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ustawia raport na ostatnie 30 dni z " + listOfNotNull("ciśnieniem".takeIf { s.settings.bpOn }, "całą historią wyników".takeIf { s.settings.labsOn }, "przyjmowaniem i listą leków", "kontrolami", "EKG".takeIf { s.settings.labsOn }, "badaniami opisowymi i obrazowymi (ze zdjęciami)".takeIf { s.settings.labsOn && s.studies.isNotEmpty() }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizą AI" else "") + " i od razu pokazuje podgląd do druku lub zapisu jako PDF.")
-                        LekiButton("Przygotuj na wizytę", {
-                            preset = 30; fromStr = ""; toStr = ""; customRange = false
-                            setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true, studies = s.studies.isNotEmpty() && s.settings.labsOn) }
-                            preview = true
-                        }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Stethoscope)
+                val activeMeds = s.meds.count { m -> m.end.let { e -> e == null || e >= today } }
+                val bp30 = s.bp.count { it.date >= today.minusDays(29) }
+                val outLabs = s.markers.count { m -> s.labs.filter { it.marker == m.id }.maxByOrNull { it.date }?.let { pl.asystent.leki.core.labFlag(it, m).isNotEmpty() } == true }
+                Column(
+                    Modifier.fillMaxWidth().padding(bottom = 14.dp)
+                        .background(pal.accentSoft.copy(alpha = if (pal.dark) 0.55f else 0.7f), CardShape)
+                        .border(1.dp, pal.accent.copy(alpha = 0.45f), CardShape)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("Pakiet na wizytę u lekarza", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = pal.ink))
+                        StatusPill("Ostatnie 30 dni", kind = "ok")
                     }
+                    BodyText("Jednym dotknięciem zbiera " + listOfNotNull("ciśnienie".takeIf { s.settings.bpOn }, "historię wyników badań".takeIf { s.settings.labsOn }, "leki i zgodność z planem", "kontrole", "EKG".takeIf { s.settings.labsOn }, "badania opisowe i obrazowe".takeIf { s.settings.labsOn && s.studies.isNotEmpty() }).joinToString(", ") + (if (s.analyses.isNotEmpty()) " oraz analizę AI" else "") + " i otwiera podgląd PDF.")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusPill("Leki: $activeMeds")
+                        if (s.settings.bpOn && bp30 > 0) StatusPill("Ciśnienie (30 dni): $bp30")
+                        if (s.settings.labsOn && outLabs > 0) StatusPill("Poza zakresem: $outLabs", kind = "warn")
+                        if (s.settings.labsOn && s.ecgs.isNotEmpty()) StatusPill("EKG: ${s.ecgs.size}")
+                    }
+                    LekiButton("Przygotuj na wizytę", {
+                        preset = 30; fromStr = ""; toStr = ""; customRange = false
+                        setRp { it.copy(bp = true, labs = true, labsPeriod = false, meds = true, plan = true, events = true, analysis = s.analyses.isNotEmpty(), ecg = true, studies = s.studies.isNotEmpty() && s.settings.labsOn) }
+                        preview = true
+                    }, Modifier.fillMaxWidth(), primary = true, icon = Ph.Stethoscope)
                 }
             }
             LekiCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Overline("Okres", Modifier.padding(bottom = 0.dp))
-                    SegRow(listOf("7 dni", "14 dni", "30 dni", "Wszystko"), if (custom != null) -1 else listOf(7, 14, 30, 0).indexOf(preset),
-                        { preset = listOf(7, 14, 30, 0)[it]; fromStr = ""; toStr = ""; customRange = false })
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Text(plDate(per.from) + " – " + plDate(per.to), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink), modifier = Modifier.weight(1f))
+                        Overline("Okres raportu", Modifier.padding(bottom = 0.dp))
                         LinkButton(if (customRange) "Ukryj daty" else "Własny zakres", { customRange = !customRange })
                     }
+                    SegRow(listOf("7 dni", "14 dni", "30 dni", "Wszystko"), if (custom != null) -1 else listOf(7, 14, 30, 0).indexOf(preset),
+                        { preset = listOf(7, 14, 30, 0)[it]; fromStr = ""; toStr = ""; customRange = false })
+                    Text(plDate(per.from) + " – " + plDate(per.to), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = TNUM, color = pal.ink))
                     if (customRange) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         DateField("Od", per.from, { fromStr = it.toString(); if (toStr.isEmpty()) toStr = per.to.toString() }, Modifier.weight(1f))
                         DateField("Do", per.to, { toStr = it.toString(); if (fromStr.isEmpty()) fromStr = per.from.toString() }, Modifier.weight(1f))
@@ -117,26 +133,30 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                 }
             }
         }
-        item {
-            Column(Modifier.padding(top = 16.dp)) {
-                SegRow(listOf("Dla lekarza", "Dla AI"), mode, { mode = it })
-            }
-        }
         if (mode == 0) {
             item {
-                Column(Modifier.padding(top = 20.dp)) {
-                    BodyText("Raport w formie tabel i wykresów do wydruku lub zapisu jako PDF, np. na wizytę.")
-                    Overline("Co dołączyć", Modifier.padding(top = 16.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (s.settings.bpOn) ToggleChip("Ciśnienie", rp.bp) { setRp { it.copy(bp = !it.bp) } }
-                        if (s.settings.labsOn) ToggleChip("Wyniki badań", rp.labs) { setRp { it.copy(labs = !it.labs) } }
-                        ToggleChip("Przyjmowanie leków", rp.meds) { setRp { it.copy(meds = !it.meds) } }
-                        ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
-                        ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
-                        ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
-                        if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
-                        if (s.settings.labsOn && s.studies.isNotEmpty()) ToggleChip("Badania opisowe i obrazowe", rp.studies) { setRp { it.copy(studies = !it.studies) } }
-                        if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
+                val bpCount = s.bp.count { it.date in per.from..per.to }
+                val labCount = s.markers.count { m -> s.labs.any { it.marker == m.id && (!rp.labsPeriod || it.date in per.from..per.to) } }
+                Column(Modifier.padding(top = 16.dp)) {
+                    LekiCard {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Overline("Zawartość raportu PDF", Modifier.padding(bottom = 0.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (s.settings.bpOn) ToggleChip("Ciśnienie" + if (bpCount > 0) " ($bpCount)" else "", rp.bp) { setRp { it.copy(bp = !it.bp) } }
+                                if (s.settings.labsOn) ToggleChip("Wyniki badań" + if (labCount > 0) " ($labCount)" else "", rp.labs) { setRp { it.copy(labs = !it.labs) } }
+                                ToggleChip("Przyjmowanie leków", rp.meds) { setRp { it.copy(meds = !it.meds) } }
+                                ToggleChip("Lista leków", rp.plan) { setRp { it.copy(plan = !it.plan) } }
+                                ToggleChip("Kontrole", rp.events) { setRp { it.copy(events = !it.events) } }
+                                ToggleChip("Analiza AI", rp.analysis) { setRp { it.copy(analysis = !it.analysis) } }
+                                if (s.settings.labsOn) ToggleChip("EKG z zegarka", rp.ecg) { setRp { it.copy(ecg = !it.ecg) } }
+                                if (s.settings.labsOn && s.studies.isNotEmpty()) ToggleChip("Badania opisowe (${s.studies.size})", rp.studies) { setRp { it.copy(studies = !it.studies) } }
+                                if (s.settings.cyklOn && !store.cyklOf(store.activeId.value).isEmpty) ToggleChip("Podsumowanie cyklu", rp.cykl) { setRp { it.copy(cykl = !it.cykl) } }
+                            }
+                            if (rp.labs && s.settings.labsOn) {
+                                ToggleChip("Badania tylko z wybranego okresu", rp.labsPeriod) { setRp { it.copy(labsPeriod = !it.labsPeriod) } }
+                                Hint("Bez tego raport pokazuje całą historię wyników do końca okresu.")
+                            }
+                        }
                     }
                     if (rp.ecg) EcgPicker(s, rp, per, today, now, ctx, EcgSelection.AUTO_DOCTOR) { f -> setRp(f) }
                     if (rp.studies && s.settings.labsOn && s.studies.isNotEmpty()) StudyPicker(s, rp, per, true) { f -> setRp(f) }
@@ -160,16 +180,11 @@ fun ReportScreen(s: AppState, store: Store, modifier: Modifier = Modifier, listS
                         }
                         LekiButton(if (s.analyses.isEmpty()) "Wklej lub wczytaj odpowiedź AI" else "Dodaj kolejną analizę", { editId = ""; editorOpen = true }, Modifier.padding(top = 10.dp), tonal = true, icon = Ph.Plus)
                     }
-                    if (rp.labs && s.settings.labsOn) {
-                        Spacer8()
-                        ToggleChip("Badania tylko z wybranego okresu", rp.labsPeriod) { setRp { it.copy(labsPeriod = !it.labsPeriod) } }
-                        Hint("Bez tego raport pokazuje całą historię wyników do końca okresu.", Modifier.padding(top = 6.dp))
-                    }
-                    Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         LekiButton("Podgląd", { preview = true }, Modifier.weight(1f), tonal = true, enabled = rp.any)
                         LekiButton("Drukuj / PDF", {
                             ctx.findActivity()?.let { a -> Platform.printHtml(a, "Raport ${s.patient} $today".trim(), DoctorReport.document(DoctorReport.html(store.withSharedCykl(s, store.activeId.value), per, today, now))) }
-                        }, Modifier.weight(1f), primary = true, enabled = rp.any, icon = Ph.Printer)
+                        }, Modifier.weight(1.25f), primary = true, enabled = rp.any, icon = Ph.Printer)
                     }
                 }
             }

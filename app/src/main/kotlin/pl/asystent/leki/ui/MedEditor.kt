@@ -1,5 +1,6 @@
 package pl.asystent.leki.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,78 +114,134 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
     }
 
     val title = when { oldMed != null -> "Nowy lek w miejsce: ${oldMed.name}"; m == null -> "Nowy lek"; else -> "Edycja leku" }
-    FullScreenDialog(title, onClose) {
-        if (oldMed != null) BodyText("Po zapisaniu ${oldMed.name} zostanie zakończony w dniu przed datą początku nowego leku. Jego historia i raporty zostają.")
-        if (m != null) {
-            val mEnd = m.end
-            LekiCard(Modifier) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (mEnd != null) {
-                        Text("Lek zakończony", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Ostatni dzień przyjmowania: ${plDate(mEnd)}. Od następnego dnia lek nie pojawia się w planie, a historia zostaje.")
-                        LekiButton("Wznów lek", { save(null, true, "Wznowiono lek ${name.trim()}.") }, Modifier.fillMaxWidth())
-                    } else {
-                        Text("Zakończyć przyjmowanie tego leku?", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                        BodyText("Zakończenie nie usuwa historii. Wybierz ostatni dzień przyjmowania.")
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            val y = today.minusDays(1)
-                            LekiButton("Do wczoraj ${shortDate(y)}", { save(y, true, "Zakończono ${name.trim()}. Ostatni dzień: ${plDate(y)}.") }, Modifier.weight(1f))
-                            LekiButton("Do dziś ${shortDate(today)}", { save(today, true, "Zakończono ${name.trim()}. Ostatni dzień: ${plDate(today)}.") }, Modifier.weight(1f))
-                        }
-                        LekiButton("Zamień na inny lek", { onReplace(m.id) }, Modifier.fillMaxWidth())
-                    }
+    var advOpen by rememberSaveable { mutableStateOf((m?.timerMin ?: 0) > 0 || (m?.mmol ?: 0.0) > 0 || m?.end != null) }
+    val weekdays = listOf(1, 2, 3, 4, 5)
+    val dowMode = when {
+        dow.toSet() == Defaults.allDow.toSet() -> 0
+        dow.toSet() == weekdays.toSet() -> 1
+        else -> 2
+    }
+    var customDowOpen by rememberSaveable { mutableStateOf(dowMode == 2) }
+
+    FullScreenDialog(
+        title, onClose,
+        footer = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ErrorText(err)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LekiButton("Anuluj", onClose, Modifier.weight(1f))
+                    LekiButton("Zapisz", { save() }, Modifier.weight(1.4f), primary = true, icon = Ph.Check)
                 }
             }
-        }
+        },
+    ) {
+        if (oldMed != null) BodyText("Po zapisaniu ${oldMed.name} zostanie zakończony w dniu przed datą początku nowego leku. Jego historia i raporty zostają.")
         if (pre != null) {
             Notice("Dane odczytane ze zdjęcia opakowania. Sprawdź nazwę, moc i liczbę sztuk, a potem ustaw dawkowanie według zaleceń lekarza.")
             val chips = if (pre.lines.isNotEmpty()) pre.lines else pre.names
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Rozpoznany tekst: dotknij napisu, żeby wstawić go do pola", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
-                SegRow(listOf("Nazwa", "Substancja", "Wskazówka"), target, { target = it })
-                Hint("Pole wybierasz tu albo dotykając go poniżej: wskazane pole dostaje dotknięty napis.")
-                if (chips.isNotEmpty()) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    chips.forEach { l -> ToggleChip(l, false) { put(target, l) } }
+            LekiCard {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Rozpoznany tekst: dotknij napisu, żeby wstawić go do pola", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2))
+                    SegRow(listOf("Nazwa", "Substancja", "Wskazówka"), target, { target = it })
+                    Hint("Pole wybierasz tu albo dotykając go poniżej: wskazane pole dostaje dotknięty napis.")
+                    if (chips.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        chips.forEach { l -> ToggleChip(l, false) { put(target, l) } }
+                    }
+                    if (photo != null) LekiButton("Zaznacz na zdjęciu", { pickPhoto = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Camera)
                 }
-                if (photo != null) LekiButton("Zaznacz na zdjęciu", { pickPhoto = true }, Modifier.fillMaxWidth(), tonal = true, icon = Ph.Camera)
             }
         }
-        LekiField("Nazwa", name, { name = it; err = "" }, Modifier.onFocusChanged { if (it.hasFocus) target = 0 }, placeholder = "np. nazwa z opakowania")
-        LekiField("Substancja (opcjonalnie)", substance, { substance = it }, Modifier.onFocusChanged { if (it.hasFocus) target = 1 }, placeholder = "np. substancja czynna")
-        LekiField("Wskazówka przy dawce (opcjonalnie)", note, { note = it }, Modifier.onFocusChanged { if (it.hasFocus) target = 2 }, placeholder = "np. po posiłku, popić wodą")
 
+        // Krok 1: Podstawowe dane leku
         LekiCard {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Dawkowanie", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("1. Lek i wskazówka", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = pal.ink))
+                LekiField("Nazwa", name, { name = it; err = "" }, Modifier.onFocusChanged { if (it.hasFocus) target = 0 }, placeholder = "np. nazwa i moc z opakowania")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LekiField("Substancja (opcjonalnie)", substance, { substance = it }, Modifier.weight(1.4f).onFocusChanged { if (it.hasFocus) target = 1 }, placeholder = "np. substancja")
+                    LekiField("Jednostka", unit, { unit = it }, Modifier.weight(0.8f))
+                }
+                LekiField("Wskazówka przy dawce (opcjonalnie)", note, { note = it }, Modifier.onFocusChanged { if (it.hasFocus) target = 2 }, placeholder = "np. po posiłku, popić wodą")
+            }
+        }
+
+        // Krok 2: Harmonogram i dawki z szybkimi presetami dni tygodnia
+        LekiCard {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("2. Kiedy i ile bierzesz", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = pal.ink))
                 Column {
                     DateField("Obowiązuje od", from, { from = it })
                     Hint(if (m == null) "Pierwszy dzień przyjmowania." else "Nowe dawkowanie zaczyna obowiązywać od tego dnia. Wcześniejsze dni zostają bez zmian.", Modifier.padding(top = 6.dp))
                 }
+                Column {
+                    Text("Dni tygodnia", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
+                    SegRow(
+                        listOf("Codziennie", "Pn–Pt", "Wybrane dni"),
+                        if (customDowOpen) 2 else dowMode,
+                        { idx ->
+                            when (idx) {
+                                0 -> { customDowOpen = false; dow.clear(); dow.addAll(Defaults.allDow); err = "" }
+                                1 -> { customDowOpen = false; dow.clear(); dow.addAll(weekdays); err = "" }
+                                else -> customDowOpen = true
+                            }
+                        },
+                    )
+                    if (customDowOpen || dowMode == 2) {
+                        FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Defaults.dowOrder.forEach { d -> Pill(Pl.dowShort[d], d in dow) { if (d in dow) dow.remove(d) else dow.add(d); err = "" } }
+                        }
+                    }
+                }
+                Divider()
                 s.sortedSlots().forEach { sl ->
                     val v = doses[sl.id] ?: 0.0
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text(sl.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-                            Text(sl.time.hhmm(), style = TextStyle(fontSize = 12.5.sp, fontFamily = Mono, color = pal.ink3))
+                            Text(sl.time.hhmm(), style = TextStyle(fontSize = 12.5.sp, fontFeatureSettings = TNUM, color = pal.ink3))
                         }
                         Row(
-                            Modifier.clip(CtlShape).border(1.dp, pal.line, CtlShape), verticalAlignment = Alignment.CenterVertically,
+                            Modifier.clip(CtlShape).background(pal.sunken).border(1.dp, if (v > 0) pal.accent.copy(alpha = 0.5f) else pal.line, CtlShape),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             StepBtn("−") { val n = Math.round((v - 0.5) * 2) / 2.0; if (n > 0) doses[sl.id] = n else doses.remove(sl.id); err = "" }
-                            Box(Modifier.size(width = 54.dp, height = 46.dp), contentAlignment = Alignment.Center) { Text(num(v), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink)) }
+                            Box(Modifier.size(width = 54.dp, height = 46.dp), contentAlignment = Alignment.Center) {
+                                Text(num(v), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = TNUM, color = if (v > 0) pal.accent else pal.ink2))
+                            }
                             StepBtn("+") { doses[sl.id] = minOf(20.0, Math.round((v + 0.5) * 2) / 2.0); err = "" }
                         }
                     }
                 }
                 Hint("Dawka w ${unit.ifEmpty { "tabl." }} na jedno przyjęcie. 0 oznacza, że w tej porze leku nie bierzesz.")
+            }
+        }
+
+        // Krok 3: Zapas i zwijane opcje dodatkowe
+        LekiCard {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("3. Zapas i opcje dodatkowe", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = pal.ink))
                 Column {
-                    Text("Dni tygodnia", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Defaults.dowOrder.forEach { d -> Pill(Pl.dowShort[d], d in dow) { if (d in dow) dow.remove(d) else dow.add(d); err = "" } }
+                    LekiField("Ile zostało w opakowaniu, ${unit.ifEmpty { "tabl." }} (opcjonalnie)", stock, { stock = it }, keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 28")
+                    Hint("Aplikacja odlicza odhaczone dawki i ostrzega, gdy zapasu zostanie na kilka dni. Puste pole wyłącza śledzenie.", Modifier.padding(top = 6.dp))
+                }
+                LinkButton((if (advOpen) "▾ " else "▸ ") + "Stoper po dawce, potas w tabletce, data zakończenia", { advOpen = !advOpen })
+                if (advOpen) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            LekiField("Stoper po dawce, min", timer, { timer = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
+                            LekiField("Potas, mmol (opcj.)", mmol, { mmol = it }, Modifier.weight(1f), keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 10")
+                        }
+                        Hint("Stoper (0 = bez) odlicza czas od odhaczenia dawki, np. 30 min, przez które nie należy się kłaść. Potas pokaże dzienną sumę z leków.")
+                        Column {
+                            DateField("Ostatni dzień przyjmowania (opcjonalnie)", end, { end = it; err = "" }, placeholder = "bez końca")
+                            Hint("Po tym dniu lek znika z planu dnia i trafia do zakończonych. Historia zostaje.", Modifier.padding(top = 6.dp))
+                            if (end != null) LinkButton("Usuń datę końca", { end = null })
+                        }
                     }
                 }
             }
         }
+
         if (m != null) {
             val cur = m.phaseAt(today)
             LekiCard {
@@ -192,39 +250,37 @@ fun MedEditor(s: AppState, store: Store, medId: String?, replaces: String?, onCl
                     Divider()
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(Modifier.weight(1f)) {
-                            Text("od ${plDate(p.from)}" + if (p == cur) " (obecne)" else "", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                            Text("od ${plDate(p.from)}" + if (p == cur) " (obecne)" else "", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = TNUM, color = pal.ink))
                             Text(s.phaseText(m, p), style = TextStyle(fontSize = 12.5.sp, color = pal.ink2))
                         }
                         if (m.phases.size > 1) LekiButton("Usuń", { store.update { it.deletePhase(m.id, p.from) }; toast("Usunięto zmianę dawkowania") }, danger = true, small = true)
                     }
                 }
             }
+
+            // Cykl życia leku na dole ekranu (nie przed nazwą leku)
+            val mEnd = m.end
+            LekiCard {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (mEnd != null) {
+                        Text("Lek zakończony", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        BodyText("Ostatni dzień przyjmowania: ${plDate(mEnd)}. Od następnego dnia lek nie pojawia się w planie, a historia zostaje.")
+                        LekiButton("Wznów lek", { save(null, true, "Wznowiono lek ${name.trim()}.") }, Modifier.fillMaxWidth(), tonal = true)
+                    } else {
+                        Text("Zakończenie lub zamiana leku", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                        BodyText("Zakończenie nie usuwa historii dawkowania ani wcześniejszych raportów.")
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            val y = today.minusDays(1)
+                            LekiButton("Do wczoraj ${shortDate(y)}", { save(y, true, "Zakończono ${name.trim()}. Ostatni dzień: ${plDate(y)}.") }, Modifier.weight(1f), small = true)
+                            LekiButton("Do dziś ${shortDate(today)}", { save(today, true, "Zakończono ${name.trim()}. Ostatni dzień: ${plDate(today)}.") }, Modifier.weight(1f), small = true)
+                        }
+                        LekiButton("Zamień na inny lek", { onReplace(m.id) }, Modifier.fillMaxWidth(), tonal = true)
+                    }
+                }
+            }
+            LinkButton("Usuń lek razem z historią", { confirmDelete = true }, danger = true)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LekiField("Jednostka", unit, { unit = it }, Modifier.weight(1f))
-            LekiField("Stoper po dawce, min", timer, { timer = it.filter { c -> c.isDigit() }.take(3) }, Modifier.weight(1f), keyboard = KeyboardType.Number, mono = true)
-        }
-        Hint("Stoper (0 = bez) odlicza czas od odhaczenia dawki, np. 30 minut, w czasie których nie wolno się kłaść.")
-        Column {
-            LekiField("Potas w jednej tabletce, mmol (opcjonalnie)", mmol, { mmol = it }, keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 10")
-            Hint("Jeśli podasz, dzień pokaże sumę potasu z leków.", Modifier.padding(top = 6.dp))
-        }
-        Column {
-            LekiField("Ile zostało w opakowaniu, $unit (opcjonalnie)", stock, { stock = it }, keyboard = KeyboardType.Decimal, mono = true, placeholder = "np. 28")
-            Hint("Aplikacja odlicza dawki, które odhaczasz, i ostrzeże, gdy zapasu zostanie na kilka dni (próg w Ustawieniach → Przypomnienia). Puste pole wyłącza śledzenie.", Modifier.padding(top = 6.dp))
-        }
-        Column {
-            DateField("Ostatni dzień przyjmowania (opcjonalnie)", end, { end = it; err = "" }, placeholder = "bez końca")
-            Hint("Po tym dniu lek znika z listy dnia i trafia do zakończonych. Historia zostaje.", Modifier.padding(top = 6.dp))
-            if (end != null) LinkButton("Usuń datę końca", { end = null })
-        }
-        BodyText("Dawkowanie zmieniaj zgodnie z zaleceniem lekarza.")
-        ErrorText(err)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LekiButton("Anuluj", onClose, Modifier.weight(1f))
-            LekiButton("Zapisz", { save() }, Modifier.weight(1f), primary = true)
-        }
-        if (m != null) LinkButton("Usuń lek razem z historią", { confirmDelete = true }, danger = true)
+        Hint("Dawkowanie zmieniaj zgodnie z zaleceniem lekarza.")
     }
     if (pickPhoto && photo != null) PhotoPickDialog(
         title = "Zaznacz na zdjęciu", bitmap = photo.bitmap, lines = photo.lines, targets = listOf("Nazwa", "Substancja", "Wskazówka"), initialTarget = target, closeOnResult = false,

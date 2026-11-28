@@ -17,27 +17,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import pl.asystent.leki.core.ThemeMode
 
-/** Paleta aplikacji: jeden akcent (zieleń), bursztyn i czerwień tylko dla stanów. */
+/** Paleta aplikacji: jeden akcent (zieleń szałwiowa), bursztyn i czerwień wyłącznie dla stanów wymagających uwagi. */
 data class Palette(
     val bg: Color, val surface: Color, val sunken: Color,
     val ink: Color, val ink2: Color, val ink3: Color, val line: Color,
     val accent: Color, val accentInk: Color, val accentSoft: Color,
     val warn: Color, val warnBg: Color, val warnLine: Color, val danger: Color,
     val dark: Boolean,
+    val dangerBg: Color = if (dark) Color(0xFF361A18) else Color(0xFFFCEAE8),
+    val dangerLine: Color = if (dark) Color(0xFF692B27) else Color(0xFFF2B8B5),
 )
 
 val LightPalette = Palette(
-    bg = Color(0xFFF1F4F2), surface = Color(0xFFFFFFFF), sunken = Color(0xFFE6ECE8),
-    ink = Color(0xFF13201B), ink2 = Color(0xFF44564E), ink3 = Color(0xFF5E6F67), line = Color(0xFFD8E0DB),
-    accent = Color(0xFF0B6B58), accentInk = Color(0xFFFFFFFF), accentSoft = Color(0xFFDDEEE8),
-    warn = Color(0xFF8A5200), warnBg = Color(0xFFFBF0DC), warnLine = Color(0xFFE8CD94), danger = Color(0xFFB3261E), dark = false,
+    bg = Color(0xFFF3F6F4), surface = Color(0xFFFFFFFF), sunken = Color(0xFFE7EEEA),
+    ink = Color(0xFF111E19), ink2 = Color(0xFF3E524A), ink3 = Color(0xFF5A6D65), line = Color(0xFFDCE5DF),
+    accent = Color(0xFF0B6E59), accentInk = Color(0xFFFFFFFF), accentSoft = Color(0xFFDAEEE6),
+    warn = Color(0xFF8A5200), warnBg = Color(0xFFFDF2DF), warnLine = Color(0xFFEBD09B), danger = Color(0xFFB3261E), dark = false,
 )
 
 val DarkPalette = Palette(
-    bg = Color(0xFF0C1311), surface = Color(0xFF141E1A), sunken = Color(0xFF1C2924),
-    ink = Color(0xFFE7EFEB), ink2 = Color(0xFFB4C3BB), ink3 = Color(0xFF8FA199), line = Color(0xFF263631),
-    accent = Color(0xFF4DC2A5), accentInk = Color(0xFF06201A), accentSoft = Color(0xFF17332B),
-    warn = Color(0xFFF0B35A), warnBg = Color(0xFF2A2112), warnLine = Color(0xFF5A4620), danger = Color(0xFFF2867F), dark = true,
+    bg = Color(0xFF0B1210), surface = Color(0xFF131E1A), sunken = Color(0xFF1B2924),
+    ink = Color(0xFFE8F0EC), ink2 = Color(0xFFB5C5BD), ink3 = Color(0xFF8EA199), line = Color(0xFF23332E),
+    accent = Color(0xFF4CC9AB), accentInk = Color(0xFF05211A), accentSoft = Color(0xFF16352D),
+    warn = Color(0xFFF3B65E), warnBg = Color(0xFF2B2112), warnLine = Color(0xFF5C4621), danger = Color(0xFFF48982), dark = true,
 )
 
 val LocalPalette = staticCompositionLocalOf { LightPalette }
@@ -45,6 +47,9 @@ val LocalPalette = staticCompositionLocalOf { LightPalette }
 val pal: Palette @Composable @ReadOnlyComposable get() = LocalPalette.current
 
 val Mono = FontFamily.Monospace
+
+/** Cyfry o równej szerokości w kroju bezszeryfowym — czytelne wartości pomiarów, dawek i godzin bez surowego wyglądu maszynowego. */
+const val TNUM = "tnum"
 
 @Composable
 fun LekiTheme(mode: ThemeMode, content: @Composable () -> Unit) {

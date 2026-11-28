@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.17.0-preview
+
+Redesign interfejsu (UI) i usprawnienia ergonomii (UX) w całej aplikacji przy zachowaniu pełnego działania offline, prywatności i zgodności dotychczasowych kopii zapasowych.
+
+- **System wizualny i nawigacja:** odświeżona paleta jasna i ciemna („Calm Clinical Sage”, kontrast ≥ 4,5:1), miękkie kapsułowe przełączniki segmentowe na wklęsłym tle (`SegRow`), cyfry o równej szerokości (`tnum`) zamiast surowego kroju maszynowego, kontekstowy nagłówek zakładki z wyraźną kapsułą aktywnej osoby (`PersonSwitcher`) oraz subtelne kropki statusu na ikonach `Leki` (spóźnione dawki) i `Ustawienia` (kończący się zapas lub dawny brak kopii).
+- **Plan dnia (`Leki`):** karta podsumowania dnia z kołem postępu (`ProgressRing`), wskazaniem bieżącej pory i pigułkami potasu/wody oraz zwartym ostrzeżeniem o zapasach; przycisk **„Weź porę (N)”** przy każdej porze z przynajmniej dwiema otwartymi dawkami (`markSlot` z możliwością cofnięcia przez „Cofnij”); ergonomiczna karta nawodnienia z przyciskami `−` / `+1` (`stepWater`); bezpośrednie przyciski `Leki` i `Dodaj` nad kartą dnia oraz skrót edycji leku z okna pominięcia.
+- **Edytor leku:** podział na 3 czytelne karty (1. Lek i wskazówka, 2. Harmonogram z szybkimi presetami dni tygodnia `Codziennie / Pn–Pt / Wybrane dni`, 3. Zapas i zwijane opcje dodatkowe), przypięta stopka `Zapisz` oraz przeniesienie sekcji zakończenia/zamiany/usunięcia na dół ekranu.
+- **Ciśnienie:** układ z ostatnim pomiarem, podsumowaniem okresu i wykresem od razu na pierwszym planie oraz rozwijanym formularzem pod przyciskiem **„Dodaj pomiar”** (otwieranym automatycznie przy pustej liście oraz ze skrótu lub widżetu `ACTION_ADD_BP`); **edycja zapisanego pomiaru** (`saveBp`, przycisk „Edytuj” i dotknięcie wiersza); automatyczny przeskok kursora między polami, podgląd oznaczenia progu na żywo (`bpLiveStatus`) oraz opcjonalny tryb uśredniania dwóch kolejnych pomiarów.
+- **Badania i Raport:** przewijane pigułki podzakładek z licznikami (`ScrollPills`) zamiast ściśniętego 5-częściowego paska; wyszukiwarka parametrów w Przeglądzie (`LabFilter.query`); wizualny pasek zakresu odniesienia (`RangeBar`, `labRangeFraction`) przy wynikach i w szczegółach parametru; odświeżona karta „Pakiet na wizytę u lekarza” z pigułkami podsumowania danych z okresu.
+- **Wariant testowy obok istniejącej aplikacji (`obok`):** typ kompilacji `:app:assembleObok` o identyfikatorze `pl.asystent.leki.obok`, nazwie **„Leki (Test)”** i granatowym tle ikony instaluje się równolegle obok głównej aplikacji (`pl.asystent.leki`) z osobną pamięcią danych i skrótami, bez nadpisywania codziennego dziennika i niezależnie od klucza podpisu.
+
 ## 0.16.3-preview
 
 Ładniejszy i uczciwszy wykres ciśnienia w aplikacji i w raporcie dla lekarza. Powód: linia łączyła pomiary przez kilkudniowe przerwy (wyglądało to jak równy przebieg), podpisy progów nachodziły na dane i były słabo czytelne, codzienna siatka zagłuszała wykres, a wysokie rozkurczowe nie było zaznaczane, gdy skurczowe było w normie.

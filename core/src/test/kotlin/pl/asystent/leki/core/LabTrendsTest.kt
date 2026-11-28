@@ -112,4 +112,25 @@ class LabTrendsTest {
         assertEquals(listOf("2025-01-01", "2024-01-01"), g.map { it.key }); assertEquals(listOf(2, 1), g.map { it.items.size })
         assertEquals("2025", periodLabel(g[0].start, g[0].end, HistoryView.Years))
     }
+
+    @Test fun searchQueryAndRangeFraction() {
+        val ms = listOf(
+            Marker("k", "Potas", "mmol/l", lo = 3.5, hi = 5.5, grp = "Elektrolity"),
+            Marker("ldl", "Cholesterol LDL", "mg/dl", lo = null, hi = 115.0, grp = "Lipidy"),
+            Marker("x", "Opis bez normy"),
+        )
+        val st = AppState(markers = ms, labs = listOf(lab("2026-01-10", 4.5, "k"), lab("2026-01-10", 130.0, "ldl"), lab("2026-01-10", 10.0, "x")))
+        assertEquals(listOf("k"), st.labsModel(filter = LabFilter(query = "pot")).order)
+        assertEquals(listOf("ldl"), st.labsModel(filter = LabFilter(query = "Lipidy")).order)
+
+        val mid = labRangeFraction(lab("2026-01-10", 4.5, "k"), ms[0])!!
+        assertEquals(0.50f, mid, 0.01f)
+        val high = labRangeFraction(lab("2026-01-10", 6.0, "k"), ms[0])!!
+        assertTrue(high > 0.80f)
+        val low = labRangeFraction(lab("2026-01-10", 3.0, "k"), ms[0])!!
+        assertTrue(low < 0.20f)
+        // górna granica bez dolnej (np. LDL do 115)
+        assertNotNull(labRangeFraction(lab("2026-01-10", 90.0, "ldl"), ms[1]))
+        assertNull(labRangeFraction(lab("2026-01-10", 10.0, "x"), ms[2]))
+    }
 }

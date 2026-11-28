@@ -66,10 +66,11 @@ import pl.asystent.leki.core.rangeText
 import pl.asystent.leki.core.shortDate
 import java.time.LocalDate
 
-/** Stan widoków Badań (sortowanie, dzień, porównanie, filtry, okno miniwykresów); przeżywa obrót ekranu. */
+/** Stan widoków Badań (sortowanie, dzień, porównanie, filtry, wyszukiwanie, okno miniwykresów); przeżywa obrót ekranu. */
 class LabsUi(
     sort: Int = 0, asOf: String = "", exact: Boolean = false, compare: Boolean = false, cmp: String = "", win: Int = 2,
     fOut: Boolean = false, fChanged: Boolean = false, fPinned: Boolean = false, mapOut: Boolean = false, ghost: Boolean = false, dwin: Int = 2, cmpChanged: Boolean = false,
+    query: String = "",
 ) {
     var sort by mutableStateOf(sort)
     var asOf by mutableStateOf(asOf)
@@ -87,8 +88,9 @@ class LabsUi(
     /** Okno wykresu w szczegółach parametru (indeks [LabWindow]). */
     var dwin by mutableStateOf(dwin)
     var cmpChanged by mutableStateOf(cmpChanged)
+    var query by mutableStateOf(query)
 
-    val filter: LabFilter get() = LabFilter(fOut, fChanged, fPinned)
+    val filter: LabFilter get() = LabFilter(fOut, fChanged, fPinned, query)
     val sortMode: LabSort get() = LabSort.values()[sort.coerceIn(0, 2)]
 
     /** Wybrane do porównania dni (do 4, od najstarszego); domyślnie dwa najnowsze, a dni, których wyniki zniknęły, są pomijane. */
@@ -102,10 +104,14 @@ class LabsUi(
 
     companion object {
         val Saver: Saver<LabsUi, Any> = Saver(
-            save = { listOf(it.sort, it.asOf, it.exact, it.compare, it.cmp, it.win, it.fOut, it.fChanged, it.fPinned, it.mapOut, it.ghost, it.dwin, it.cmpChanged) },
+            save = { listOf(it.sort, it.asOf, it.exact, it.compare, it.cmp, it.win, it.fOut, it.fChanged, it.fPinned, it.mapOut, it.ghost, it.dwin, it.cmpChanged, it.query) },
             restore = { v ->
                 val l = v as List<*>
-                LabsUi(l[0] as Int, l[1] as String, l[2] as Boolean, l[3] as Boolean, l[4] as String, l[5] as Int, l[6] as Boolean, l[7] as Boolean, l[8] as Boolean, l[9] as Boolean, l[10] as Boolean, l[11] as Int, l[12] as Boolean)
+                LabsUi(
+                    l[0] as Int, l[1] as String, l[2] as Boolean, l[3] as Boolean, l[4] as String, l[5] as Int,
+                    l[6] as Boolean, l[7] as Boolean, l[8] as Boolean, l[9] as Boolean, l[10] as Boolean, l[11] as Int, l[12] as Boolean,
+                    (l.getOrNull(13) as? String).orEmpty(),
+                )
             },
         )
     }
@@ -124,7 +130,7 @@ private fun labWindows() = LabWindow.values().map { it.label }
 
 private fun arrow(d: Double?) = if (d == null || d == 0.0) "" else if (d > 0) "▲ " else "▼ "
 
-/** Lista parametrów (Badania → Przegląd): statystyki, sortowanie, filtry, wybór dnia lub porównanie dni, a pod spodem parametry z poprzednim wynikiem, zmianą i tendencją. */
+/** Lista parametrów (Badania → Przegląd): statystyki, wyszukiwarka, sortowanie, filtry, wybór dnia lub porównanie dni, a pod spodem parametry z paskiem normy, zmianą i tendencją. */
 @OptIn(ExperimentalLayoutApi::class)
 fun LazyListScope.overview(
     s: AppState, model: LabsModel, ui: LabsUi, days: List<Pair<LocalDate, Int>>, asOf: String, today: LocalDate,
@@ -134,14 +140,30 @@ fun LazyListScope.overview(
     val compare = ui.compare && days.size >= 2
     item {
         val lastDate = model.withResults.mapNotNull { it.last?.date }.maxOrNull()
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat("${model.withResults.size}", "parametrów z wynikami", Modifier.weight(1f))
-            Stat("${model.withResults.count { labFlag(it.last!!, it.marker).isNotEmpty() }}", "poza zakresem", Modifier.weight(1f), valueColor = if (model.withResults.any { labFlag(it.last!!, it.marker).isNotEmpty() }) pal.warn else pal.ink)
-            Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie badanie", Modifier.weight(1f))
+        val outCount = model.withResults.count { labFlag(it.last!!, it.marker).isNotEmpty() }
+        LekiCard(Modifier.padding(top = 8.dp)) {
+            Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Stat("${model.withResults.size}", "z wynikami", Modifier.weight(1f))
+                Stat("$outCount", "poza zakresem", Modifier.weight(1f), valueColor = if (outCount > 0) pal.warn else pal.ink)
+                Stat(lastDate?.let { shortDate(it) } ?: "brak", "ostatnie", Modifier.weight(1f))
+            }
         }
-        // jeden rząd pigułek: porównanie dni i filtry; „zmienione” pojawia się od drugiego wyniku któregokolwiek parametru, „przypięte” po przypięciu pierwszego
+        if (!compare && (model.withResults.size >= 3 || ui.query.isNotEmpty())) {
+            LekiField(
+                "", ui.query, { ui.query = it },
+                Modifier.padding(top = 12.dp),
+                placeholder = "Szukaj parametru (np. Potas, TSH)…",
+                trailing = if (ui.query.isNotEmpty()) {
+                    {
+                        Box(Modifier.clickable(role = Role.Button) { ui.query = "" }.padding(8.dp)) {
+                            PhIcon(Ph.X, size = 16.dp, tint = pal.ink3)
+                        }
+                    }
+                } else null,
+            )
+        }
         val canChange = s.markers.any { s.labsOf(it.id).size >= 2 }
-        if (days.isNotEmpty()) FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (days.isNotEmpty()) FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (days.size >= 2) ToggleChip("Porównaj dni", compare) { ui.compare = !ui.compare }
             if (days.isNotEmpty() && !compare) {
                 ToggleChip("Poza zakresem", ui.fOut) { ui.fOut = !ui.fOut }
@@ -150,26 +172,27 @@ fun LazyListScope.overview(
             }
         }
         if (days.isNotEmpty() && !compare) {
-            SegRow(listOf("Grupami", "A–Z", "Najnowsze"), ui.sort, { ui.sort = it }, Modifier.padding(top = 12.dp))
+            SegRow(listOf("Grupami", "A–Z", "Najnowsze"), ui.sort, { ui.sort = it }, Modifier.padding(top = 8.dp))
             if (ui.fChanged) Hint("„Zmienione”: ostatni wynik różni się od poprzedniego o co najmniej 10% zakresu odniesienia.", Modifier.padding(top = 6.dp))
             if (s.labsSpanOverYear()) {
                 Text("Okres miniwykresów", style = TextStyle(fontSize = 12.sp, color = pal.ink3), modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                 SegRow(labWindows(), ui.win, { ui.win = it })
             }
-            // wybór daty: stan na dany dzień (ostatni wynik z tego dnia lub wcześniejszy) albo tylko wyniki z tego dnia
-            DropdownField(
-                "Wyniki z dnia", listOf("" to "Najnowsze (każdy parametr z ostatniej daty)") + days.map { (d, n) -> d.toString() to plDate(d) + " · " + n + " " + plN(n, "wynik", "wyniki", "wyników") },
-                asOf, { ui.asOf = it }, Modifier.padding(top = 14.dp),
-            )
+            if (days.size >= 2 || asOf.isNotEmpty()) {
+                DropdownField(
+                    "Wyniki z dnia", listOf("" to "Najnowsze (każdy parametr z ostatniej daty)") + days.map { (d, n) -> d.toString() to plDate(d) + " · " + n + " " + plN(n, "wynik", "wyniki", "wyników") },
+                    asOf, { ui.asOf = it }, Modifier.padding(top = 12.dp),
+                )
+            }
             if (asOf.isNotEmpty()) {
-                Row(Modifier.padding(top = 10.dp)) { ToggleChip("Tylko wyniki z tego dnia", ui.exact) { ui.exact = !ui.exact } }
+                Row(Modifier.padding(top = 8.dp)) { ToggleChip("Tylko wyniki z tego dnia", ui.exact) { ui.exact = !ui.exact } }
                 Hint(if (ui.exact) "Pokazane są tylko parametry zbadane tego dnia." else "Każdy parametr pokazuje ostatni wynik z tego dnia lub wcześniejszy; wykres kończy się na tym dniu.", Modifier.padding(top = 6.dp))
             }
         }
         val shown = model.pinned.size + model.out.size + model.groups.sumOf { it.items.size } + model.flat.size
         if (compare) { /* tabela poniżej */ }
         else if (model.withResults.isEmpty()) EmptyBox(if (days.isEmpty()) "Brak wyników. Zeskanuj wyniki ze zdjęcia lub pliku PDF albo dodaj pierwszy wynik ręcznie." else "Brak wyników z tego dnia.", Modifier.padding(top = 16.dp))
-        else if (shown == 0 && ui.filter.active) EmptyBox("Żaden parametr nie spełnia wybranych filtrów.", Modifier.padding(top = 16.dp))
+        else if (shown == 0 && ui.filter.active) EmptyBox("Żaden parametr nie spełnia wybranych filtrów lub wyszukiwania.", Modifier.padding(top = 16.dp))
     }
     if (compare) { labCompareSection(s, ui, days, dayList); return }
     val win = LabWindow.values()[ui.win.coerceIn(0, 2)]
@@ -364,7 +387,7 @@ fun LabResultRows(rows: List<Lab>, m: Marker, onEdit: (Lab) -> Unit) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { onEdit(l) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(lnum(l.value), style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = pal.ink))
+                    Text(lnum(l.value), style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = TNUM, color = if (fl.isNotEmpty()) pal.warn else pal.ink))
                     Hint(m.unit)
                     if (fl.isNotEmpty()) Text(fl, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
                 }
@@ -376,7 +399,7 @@ fun LabResultRows(rows: List<Lab>, m: Marker, onEdit: (Lab) -> Unit) {
     }
 }
 
-/** Wiersz parametru: nazwa, data i zakres, opcjonalnie poprzedni wynik ze zmianą i tendencją ([extra]), miniwykres z wybranego okna i ostatnia wartość. */
+/** Wiersz parametru: nazwa, data i zakres, opcjonalnie poprzedni wynik ze zmianą, tendencją i paskiem zakresu ([extra]), miniwykres i ostatnia wartość. */
 @Composable
 fun LabRowItem(
     x: LabRow, showDate: Boolean, spark: Boolean, win: LabWindow = LabWindow.All, today: LocalDate = LocalDate.now(), extra: Boolean = false, onClick: () -> Unit,
@@ -391,17 +414,25 @@ fun LabRowItem(
         change?.let { "poprzednio ${lnum(it.prev.value)}, " + arrow(it.delta) + labDeltaText(it.delta, it.pct) },
         trend?.takeIf { it.dir == LabDir.Up || it.dir == LabDir.Down || it.dir == LabDir.Flat }?.text,
     ).joinToString(" · ")
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text(m.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
-            if (sub.isNotEmpty()) Hint(sub)
-            if (note.isNotEmpty()) Text(note, style = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = if (change?.significant == true) FontWeight.SemiBold else FontWeight.Normal, color = if (change?.significant == true) pal.ink2 else pal.ink3), modifier = Modifier.padding(top = 2.dp))
+    val frac = if (extra) pl.asystent.leki.core.labRangeFraction(l, m) else null
+    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(m.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = pal.ink))
+                if (sub.isNotEmpty()) Hint(sub)
+                if (note.isNotEmpty()) Text(note, style = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = if (change?.significant == true) FontWeight.SemiBold else FontWeight.Normal, color = if (change?.significant == true) pal.ink2 else pal.ink3), modifier = Modifier.padding(top = 2.dp))
+            }
+            if (spark) Sparkline(labWindow(x.list, win, today).map { it.value }, f.isNotEmpty())
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 4.dp)) {
+                Text(lnum(l.value), style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = TNUM, color = if (f.isNotEmpty()) pal.warn else pal.ink))
+                Hint(m.unit)
+                if (f.isNotEmpty()) Text(f, style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
+            }
         }
-        if (spark) Sparkline(labWindow(x.list, win, today).map { it.value }, f.isNotEmpty())
-        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 4.dp)) {
-            Text(lnum(l.value), style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold, fontFamily = Mono, color = if (f.isNotEmpty()) pal.warn else pal.ink))
-            Hint(m.unit)
-            if (f.isNotEmpty()) Text(f, style = TextStyle(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = pal.warn))
+        if (frac != null) {
+            val effLo = (if (l.lo != null || l.hi != null) l.lo else m.lo)?.let { lnum(it) } ?: "0"
+            val effHi = (if (l.lo != null || l.hi != null) l.hi else m.hi)?.let { lnum(it) }.orEmpty()
+            RangeBar(frac, f.isNotEmpty(), effLo, effHi, Modifier.padding(top = 8.dp))
         }
     }
 }

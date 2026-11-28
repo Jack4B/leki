@@ -28,4 +28,10 @@ fun slotIcon(t: LocalTime): ImageVector {
 }
 
 /** Działania wymagające przełączenia widoku, zgłaszane z ekranów do MainActivity. */
-class Nav(val goSettings: () -> Unit, val newMed: () -> Unit, val showMeds: () -> Unit = {}, val showEvents: () -> Unit = {})
+class Nav(
+    val goSettings: () -> Unit,
+    val newMed: () -> Unit,
+    val showMeds: () -> Unit = {},
+    val showEvents: () -> Unit = {},
+    val editMed: (String) -> Unit = {},
+)

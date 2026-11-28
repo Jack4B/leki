@@ -1,6 +1,7 @@
 package pl.asystent.leki.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,15 +70,30 @@ fun PersonSwitcher(store: Store, profiles: List<ProfileInfo>, activeId: String, 
     var adding by remember { mutableStateOf(false) }
     val name = profiles.firstOrNull { it.id == activeId }?.name ?: profiles.firstOrNull()?.name ?: "Osoba 1"
     Box(modifier) {
-        Row(
-            Modifier.heightIn(min = 48.dp).clip(CtlShape).clickable(role = Role.Button, onClickLabel = "Zmień osobę") { open = true }
-                .semantics { contentDescription = "Osoba: $name" }.padding(end = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            Modifier.heightIn(min = 48.dp)
+                .clickable(role = Role.Button, onClickLabel = "Zmień osobę") { open = true }
+                .semantics { contentDescription = "Osoba: $name" },
+            contentAlignment = Alignment.CenterStart,
         ) {
-            PersonAvatar(name)
-            Spacer(Modifier.width(8.dp))
-            Text(name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Icon(Ph.CaretRight, contentDescription = null, tint = pal.ink3, modifier = Modifier.size(14.dp).rotate(90f))
+            Row(
+                Modifier.clip(CircleShape)
+                    .background(pal.surface)
+                    .border(1.dp, if (profiles.size > 1) pal.accent.copy(alpha = 0.45f) else pal.line, CircleShape)
+                    .padding(start = 5.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PersonAvatar(name, size = 24)
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    name,
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = pal.ink),
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(Ph.CaretRight, contentDescription = null, tint = pal.ink3, modifier = Modifier.size(13.dp).rotate(90f))
+            }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = pal.surface) {
             profiles.forEach { p ->

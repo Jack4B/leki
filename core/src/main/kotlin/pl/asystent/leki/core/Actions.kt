@@ -66,6 +66,10 @@ fun AppState.clearSkip(d: LocalDate, key: String): AppState = updateDay(d) { it.
 
 fun AppState.setWater(d: LocalDate, n: Int): AppState = updateDay(d) { it.copy(water = if (it.water == n) n - 1 else n) }
 
+/** Zmienia liczbę wypitych szklanek o [delta] (np. −1 / +1), w granicach 0..[maxGlasses]. */
+fun AppState.stepWater(d: LocalDate, delta: Int, maxGlasses: Int = 40): AppState =
+    updateDay(d) { it.copy(water = (it.water + delta).coerceIn(0, maxGlasses)) }
+
 fun AppState.setDayNote(d: LocalDate, text: String): AppState = updateDay(d) { it.copy(note = text) }
 
 fun AppState.resetDay(d: LocalDate): AppState = copy(days = days - d)
@@ -108,6 +112,11 @@ private fun AppState.linkLabToEvents(l: Lab): AppState {
 // ---------- Ciśnienie ----------
 
 fun AppState.addBp(b: Bp): AppState = copy(bp = bp + b)
+
+/** Dodaje nowy pomiar ciśnienia albo aktualizuje istniejący o tym samym [Bp.id]. */
+fun AppState.saveBp(b: Bp): AppState =
+    if (bp.any { it.id == b.id }) copy(bp = bp.map { if (it.id == b.id) b else it }) else copy(bp = bp + b)
+
 fun AppState.deleteBp(id: String): AppState = copy(bp = bp.filter { it.id != id })
 
 // ---------- Badania ----------

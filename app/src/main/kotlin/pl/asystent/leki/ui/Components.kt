@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -94,8 +95,8 @@ val LocalToast = staticCompositionLocalOf<(String) -> Unit> { {} }
 /** Komunikat z przyciskiem „Cofnij” po usunięciu pojedynczej pozycji: pierwszy argument to treść, drugi przywraca usuniętą pozycję. */
 val LocalUndo = staticCompositionLocalOf<(String, () -> Unit) -> Unit> { { _, _ -> } }
 
-val CardShape = RoundedCornerShape(18.dp)
-val CtlShape = RoundedCornerShape(12.dp)
+val CardShape = RoundedCornerShape(22.dp)
+val CtlShape = RoundedCornerShape(14.dp)
 
 @Composable
 fun LekiCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -112,7 +113,7 @@ fun Divider() {
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composable RowScope.() -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(top = 26.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(modifier.fillMaxWidth().padding(top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Text(text, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = pal.ink), modifier = Modifier.weight(1f, fill = false).semantics { heading() })
         if (action != null) action()
     }
@@ -138,12 +139,12 @@ fun LekiButton(
     text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
     primary: Boolean = false, danger: Boolean = false, enabled: Boolean = true, icon: ImageVector? = null, small: Boolean = false, tonal: Boolean = false,
 ) {
-    val bg = if (primary) pal.accent else if (tonal) pal.accentSoft else pal.surface
+    val bg = if (primary) pal.accent else if (danger && tonal) pal.dangerBg else if (tonal) pal.accentSoft else pal.surface
     val fg = if (primary) pal.accentInk else if (danger) pal.danger else if (tonal) pal.accent else pal.ink
-    val border = if (primary) pal.accent else if (tonal) pal.accentSoft else pal.line
+    val border = if (primary) pal.accent else if (danger && tonal) pal.dangerLine else if (tonal) pal.accentSoft else pal.line
     Row(
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = if (small) 42.dp else 48.dp)
             .clip(CtlShape)
             .background(bg.copy(alpha = if (enabled) 1f else 0.45f))
             .border(1.dp, border.copy(alpha = if (enabled) 1f else 0.45f), CtlShape)
@@ -181,7 +182,7 @@ fun FitText(text: String, style: TextStyle, modifier: Modifier = Modifier, textA
 @Composable
 fun LinkButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, danger: Boolean = false) {
     Text(
-        text, modifier = modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
+        text, modifier = modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
         style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (danger) pal.danger else pal.accent),
     )
 }
@@ -192,16 +193,21 @@ fun LekiField(
     label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier,
     placeholder: String = "", keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true, mono: Boolean = false,
     minLines: Int = 1, readOnly: Boolean = false, password: Boolean = false, error: Boolean = false,
+    imeAction: androidx.compose.ui.text.input.ImeAction = androidx.compose.ui.text.input.ImeAction.Default,
+    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier) {
         if (label.isNotEmpty()) Text(label, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = pal.ink2), modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(), singleLine = singleLine, minLines = minLines, readOnly = readOnly,
             isError = error,
-            textStyle = TextStyle(fontSize = 16.sp, color = pal.ink, fontFamily = if (mono) Mono else null),
+            trailingIcon = trailing,
+            textStyle = TextStyle(fontSize = 16.sp, color = pal.ink, fontFamily = if (mono && !singleLine) Mono else null, fontFeatureSettings = if (mono && singleLine) TNUM else null),
             placeholder = if (placeholder.isNotEmpty()) { { Text(placeholder, style = TextStyle(fontSize = 15.sp, color = pal.ink3)) } } else null,
             shape = CtlShape,
-            keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboard),
+            keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else keyboard, imeAction = imeAction),
+            keyboardActions = keyboardActions,
             visualTransformation = if (password) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = pal.accent, unfocusedBorderColor = pal.line, focusedContainerColor = pal.surface, unfocusedContainerColor = pal.surface,
@@ -235,7 +241,7 @@ fun IntField(label: String, value: Int, onValue: (Int) -> Unit, range: IntRange,
                 }
             },
             singleLine = true, shape = CtlShape,
-            textStyle = TextStyle(fontSize = 16.sp, color = pal.ink, fontFamily = Mono),
+            textStyle = TextStyle(fontSize = 16.sp, color = pal.ink, fontFeatureSettings = TNUM),
             placeholder = if (placeholder.isNotEmpty()) { { Text(placeholder, style = TextStyle(fontSize = 15.sp, color = pal.ink3)) } } else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = pal.accent, unfocusedBorderColor = pal.line, focusedContainerColor = pal.surface, unfocusedContainerColor = pal.surface, cursorColor = pal.accent),
@@ -295,32 +301,37 @@ private fun PickerBox(text: String, placeholder: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(CtlShape).border(1.dp, pal.line, CtlShape).background(pal.surface)
             .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text, style = TextStyle(fontSize = 16.sp, fontFamily = Mono, color = if (placeholder) pal.ink3 else pal.ink))
+        Text(text, style = TextStyle(fontSize = 16.sp, fontFeatureSettings = TNUM, color = if (placeholder) pal.ink3 else pal.ink))
+        PhIcon(Ph.CaretRight, size = 14.dp, tint = pal.ink3)
     }
 }
 
-/** Rząd przycisków do wyboru jednej opcji. */
+/** Kapsułowy rząd wyboru jednej opcji na wklęsłym tle (czytelne aktywne pole bez pionowych kresek tabeli). */
 @Composable
 fun SegRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().clip(CtlShape).border(1.dp, pal.line, CtlShape).background(pal.surface).selectableGroup()) {
+    val outer = RoundedCornerShape(15.dp)
+    val inner = RoundedCornerShape(11.dp)
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(outer).background(pal.sunken).padding(3.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         options.forEachIndexed { i, o ->
             val on = i == selected
             Box(
                 // dłuższe etykiety dostają szerszy segment, żeby nie zmniejszać ich bez potrzeby
-                Modifier.weight(o.length + 4f).heightIn(min = 48.dp).background(if (on) pal.accent else pal.surface)
-                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }).padding(horizontal = 4.dp),
+                Modifier.weight(o.length + 4f).heightIn(min = 42.dp).clip(inner)
+                    .background(if (on) pal.accent else Color.Transparent)
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }).padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                FitText(o, TextStyle(fontSize = 14.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
+                FitText(o, TextStyle(fontSize = 13.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2), textAlign = TextAlign.Center)
             }
-            if (i < options.lastIndex) Box(Modifier.width1().height(48.dp).background(pal.line))
         }
     }
 }
-
-private fun Modifier.width1() = this.then(Modifier.size(width = 1.dp, height = 48.dp))
 
 @Composable
 fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
@@ -328,7 +339,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
         Modifier.heightIn(min = 48.dp).toggleable(value = selected, role = Role.Checkbox, onValueChange = { onClick() }),
         contentAlignment = Alignment.Center,
     ) { Box(
-        Modifier.heightIn(min = 40.dp).clip(CtlShape).border(1.dp, if (selected) pal.accent else pal.line, CtlShape)
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, if (selected) pal.accent else pal.line, RoundedCornerShape(20.dp))
             .background(if (selected) pal.accent else pal.surface).padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) { FitText(text, TextStyle(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, color = if (selected) pal.accentInk else pal.ink2)) } }
@@ -342,7 +353,7 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subti
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(22.dp).clip(RoundedCornerShape(5.dp)).border(2.dp, if (checked) pal.accent else pal.ink3, RoundedCornerShape(5.dp)).background(if (checked) pal.accent else Color.Transparent),
+            Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).border(2.dp, if (checked) pal.accent else pal.ink3, RoundedCornerShape(6.dp)).background(if (checked) pal.accent else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) { if (checked) Icon(Ph.Check, null, Modifier.size(14.dp), tint = pal.accentInk) }
         Column(Modifier.padding(start = 12.dp)) {
@@ -356,8 +367,12 @@ fun CheckRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit, subti
 fun Stat(value: String, label: String, modifier: Modifier = Modifier, valueColor: Color = pal.ink, mono: Boolean = true) {
     Column(modifier) {
         // wartości tekstowe (np. „umiarkowana”) są mniejsze, żeby nie łamały się w środku wyrazu
-        FitText(value, TextStyle(fontSize = if (value.length > 7) 17.sp else 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = if (mono) Mono else null, color = valueColor), minSp = 13f, wrap = false)
-        Text(label, style = TextStyle(fontSize = 12.sp, color = pal.ink3))
+        FitText(
+            value,
+            TextStyle(fontSize = if (value.length > 7) 17.sp else 22.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = if (mono) TNUM else null, color = valueColor),
+            minSp = 13f, wrap = false,
+        )
+        Text(label, style = TextStyle(fontSize = 12.sp, color = pal.ink3), modifier = Modifier.padding(top = 1.dp))
     }
 }
 
@@ -570,5 +585,104 @@ fun DatePickerButton(date: LocalDate, onChange: (LocalDate) -> Unit, modifier: M
             confirmButton = { TextButton(onClick = { st.selectedDateMillis?.let { onChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }; open = false }) { Text("OK") } },
             dismissButton = { TextButton(onClick = { open = false }) { Text("Anuluj") } },
         ) { DatePicker(state = st) }
+    }
+}
+
+/** Przewijany poziomo rząd pigułek wyboru podsekcji (nie ściska 5 zakładek na wąskim ekranie 320 dp i przy czcionce 130%). */
+@Composable
+fun ScrollPills(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        options.forEachIndexed { i, label ->
+            val on = i == selected
+            Box(
+                Modifier.heightIn(min = 48.dp).selectable(selected = on, role = Role.Tab, onClick = { onSelect(i) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier.heightIn(min = 38.dp).clip(CircleShape)
+                        .border(1.dp, if (on) pal.accent else pal.line, CircleShape)
+                        .background(if (on) pal.accent else pal.surface)
+                        .padding(horizontal = 15.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label, maxLines = 1,
+                        style = TextStyle(fontSize = 13.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium, color = if (on) pal.accentInk else pal.ink2),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Koło postępu dnia (np. przyjęte dawki leków) z ułamkiem pośrodku. */
+@Composable
+fun ProgressRing(done: Int, total: Int, modifier: Modifier = Modifier, size: Dp = 56.dp) {
+    val track = pal.sunken
+    val active = pal.accent
+    val frac = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val stroke = 5.dp.toPx()
+            val inset = stroke / 2f
+            val arcSize = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
+            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+            drawArc(track, 0f, 360f, useCenter = false, topLeft = topLeft, size = arcSize, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+            if (frac > 0f) {
+                drawArc(
+                    active, -90f, 360f * frac, useCenter = false, topLeft = topLeft, size = arcSize,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+            }
+        }
+        FitText(
+            "$done/$total",
+            TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = TNUM, color = pal.ink),
+            wrap = false, minSp = 9f,
+        )
+    }
+}
+
+/** Wizualny pasek zakresu odniesienia badania: środkowe pole [0,20..0,80] to norma, kropka pokazuje położenie wyniku. */
+@Composable
+fun RangeBar(fraction: Float, out: Boolean, loText: String, hiText: String, modifier: Modifier = Modifier) {
+    val track = pal.sunken
+    val band = pal.accentSoft
+    val dot = if (out) pal.warn else pal.accent
+    val surface = pal.surface
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (loText.isNotEmpty()) Text(loText, style = TextStyle(fontSize = 11.5.sp, fontFeatureSettings = TNUM, color = pal.ink3))
+        androidx.compose.foundation.Canvas(Modifier.weight(1f).height(10.dp).clearAndSetSemanticsForCanvas()) {
+            val h = 6.dp.toPx()
+            val y = (size.height - h) / 2f
+            val r = androidx.compose.ui.geometry.CornerRadius(h / 2f, h / 2f)
+            drawRoundRect(track, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, h), r)
+            drawRoundRect(band, androidx.compose.ui.geometry.Offset(size.width * 0.20f, y), androidx.compose.ui.geometry.Size(size.width * 0.60f, h), r)
+            val cx = (fraction.coerceIn(0.04f, 0.96f) * size.width)
+            val rad = 4.5.dp.toPx()
+            drawCircle(dot, rad, androidx.compose.ui.geometry.Offset(cx, size.height / 2f))
+            drawCircle(surface, rad, androidx.compose.ui.geometry.Offset(cx, size.height / 2f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4.dp.toPx()))
+        }
+        if (hiText.isNotEmpty()) Text(hiText, style = TextStyle(fontSize = 11.5.sp, fontFeatureSettings = TNUM, color = pal.ink3))
+    }
+}
+
+private fun Modifier.clearAndSetSemanticsForCanvas() = this.semantics {}
+
+/** Zwięzła plakietka stanu lub informacji pomocniczej ("ok", "warn", "danger", "neutral"). */
+@Composable
+fun StatusPill(text: String, kind: String = "neutral", modifier: Modifier = Modifier) {
+    val (bg, fg) = when (kind) {
+        "ok" -> pal.accentSoft to pal.accent
+        "warn" -> pal.warnBg to pal.warn
+        "danger" -> pal.dangerBg to pal.danger
+        else -> pal.sunken to pal.ink2
+    }
+    Box(modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)) {
+        Text(text, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = TNUM, color = fg))
     }
 }
